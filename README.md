@@ -67,12 +67,13 @@ Update to the latest version:
 
 ### Demos
 
-The videos in `demos/` are real results from the tests, but **the narration and subtitles were removed** because the narration belongs to the original creator. What remains is the picture, on-screen text, and sound effects.
+The videos in `demos/` are real results from the tests. In the Pompeii and Roro Jonggrang demos **the narration and subtitles were removed** because the narration belongs to the original creator; what remains is the picture, on-screen text, and sound effects. The Ayutthaya demo has its own script, an AI voice, a music bed and Thai subtitles.
 
 - [`demos/pompeii_demo.mp4`](demos/pompeii_demo.mp4): Pompeii, bodies frozen in time (85 s)
 - [`demos/roro_jonggrang_demo.mp4`](demos/roro_jonggrang_demo.mp4): the legend of Roro Jonggrang (81 s)
+- [`demos/ayutthaya_demo.mp4`](demos/ayutthaya_demo.mp4): the Buddha head in the tree roots, Wat Mahathat, Ayutthaya (137 s, AI narration in Thai)
 
-Credits for every photo, footage clip, and sound are in [`demos/CREDITS.md`](demos/CREDITS.md). The demo videos are released under CC BY-SA 4.0, as required by the source photos.
+Credits for every photo, footage clip, sound, and music track are in [`demos/CREDITS.md`](demos/CREDITS.md). The demo videos are released under CC BY-SA 4.0, as required by the source photos.
 
 ### Limits
 
@@ -148,12 +149,13 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 
 ### เดโม
 
-วิดีโอใน `demos/` เป็นผลงานจริงจากการทดสอบ แต่**ตัดเสียงบรรยายและซับออก** เพราะเสียงบรรยายเป็นลิขสิทธิ์ของเจ้าของช่อง จึงเหลือภาพ ข้อความ และเสียงประกอบ
+วิดีโอใน `demos/` เป็นผลงานจริงจากการทดสอบ เดโมปอมเปอีกับ Roro Jonggrang **ตัดเสียงบรรยายและซับออก** เพราะเสียงบรรยายเป็นลิขสิทธิ์ของเจ้าของช่อง จึงเหลือภาพ ข้อความ และเสียงประกอบ ส่วนเดโมอยุธยาใช้บทที่เขียนเอง พากย์ด้วยเสียง AI มีเพลงประกอบและซับไทย
 
 - [`demos/pompeii_demo.mp4`](demos/pompeii_demo.mp4): ปอมเปอี ร่างที่หยุดเวลา (85 วินาที)
 - [`demos/roro_jonggrang_demo.mp4`](demos/roro_jonggrang_demo.mp4): ตำนาน Roro Jonggrang (81 วินาที)
+- [`demos/ayutthaya_demo.mp4`](demos/ayutthaya_demo.mp4): เศียรพระในรากไม้ วัดมหาธาตุ อยุธยา (137 วินาที พากย์ไทยด้วยเสียง AI)
 
-เครดิตภาพ ฟุตเทจ และเสียงทั้งหมดอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md) วิดีโอเดโมเผยแพร่ภายใต้ CC BY-SA 4.0 ตามเงื่อนไขของภาพต้นฉบับ
+เครดิตภาพ ฟุตเทจ เสียง และเพลงทั้งหมดอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md) วิดีโอเดโมเผยแพร่ภายใต้ CC BY-SA 4.0 ตามเงื่อนไขของภาพต้นฉบับ
 
 ### ข้อจำกัด
 

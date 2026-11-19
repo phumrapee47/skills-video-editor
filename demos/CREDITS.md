@@ -1,7 +1,7 @@
 # Demo videos - credits and licence
 
-`pompeii_demo.mp4` and `roro_jonggrang_demo.mp4` are released under **CC BY-SA 4.0** (several source photos are CC BY-SA).
-They contain no narration and no subtitles: the narration used while developing the skill belongs to its creator and is not redistributed.
+`pompeii_demo.mp4`, `roro_jonggrang_demo.mp4` and `ayutthaya_demo.mp4` are released under **CC BY-SA 4.0** (several source photos are CC BY-SA).
+The Pompeii and Roro Jonggrang demos contain no narration and no subtitles: the narration used while developing the skill belongs to its creator and is not redistributed. The Ayutthaya demo keeps its narration and subtitles: the script was written for this project and voiced with an AI voice (ElevenLabs v4 stock voice "Ohm", generated through Creative Claw).
 Captions and on-screen labels were written for this project; sound effects are real recordings listed below plus effects synthesized with numpy.
 
 ## Pompeii demo
@@ -33,3 +33,27 @@ Captions and on-screen labels were written for this project; sound effects are r
 - fire: "Closeup of raging flames in a large bonfire. - Flickr - shixart1985.jpg" by Nenad Stojkovic, CC BY 2.0 (https://creativecommons.org/licenses/by/2.0), https://commons.wikimedia.org/wiki/File:Closeup_of_raging_flames_in_a_large_bonfire._-_Flickr_-_shixart1985.jpg
 - moon: "FullMoon2010 (cropped).jpg" by Gregory H. Revera, CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0), https://commons.wikimedia.org/wiki/File:FullMoon2010_(cropped).jpg
 - demon: "Rahwana dalam Kegelapan.jpg" by Arfanda Hope, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:Rahwana_dalam_Kegelapan.jpg
+
+## Ayutthaya demo
+- head1: "02d Wat Mahathat (NgnL)-08464.jpg" by No(0)GoodNamesLeft, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:02d_Wat_Mahathat_(NgnL)-08464.jpg
+- head2: "02d Wat Mahathat (NgnL)-08465.jpg" by No(0)GoodNamesLeft, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:02d_Wat_Mahathat_(NgnL)-08465.jpg
+- head3: "02d Wat Mahathat (NgnL)-08467.jpg" by No(0)GoodNamesLeft, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:02d_Wat_Mahathat_(NgnL)-08467.jpg
+- head4: "02d Wat Mahathat (NgnL)-08468.jpg" by No(0)GoodNamesLeft, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:02d_Wat_Mahathat_(NgnL)-08468.jpg
+- bodhi_back: "Ayutthaya Historical Park Backside of Bodhi Tree with Buddha Head in Its Roots (31529324697).jpg" by Gary Todd from Xinzheng, China, CC0 (http://creativecommons.org/publicdomain/zero/1.0/deed.en), https://commons.wikimedia.org/wiki/File:Ayutthaya_Historical_Park_Backside_of_Bodhi_Tree_with_Buddha_Head_in_Its_Roots_(31529324697).jpg
+- head_tourists1: "Cabeza de Buda en el árbol, Wat Mahathat, Ayutthaya 1.tif" by ProtoplasmaKid, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:Cabeza_de_Buda_en_el_%C3%A1rbol,_Wat_Mahathat,_Ayutthaya_1.tif
+- head_tourists2: "เศียรพระพุทธรูปในรากโพธิ์.jpg" by Siripatwongpin, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:%E0%B9%80%E0%B8%A8%E0%B8%B5%E0%B8%A2%E0%B8%A3%E0%B8%9E%E0%B8%A3%E0%B8%B0%E0%B8%9E%E0%B8%B8%E0%B8%97%E0%B8%98%E0%B8%A3%E0%B8%B9%E0%B8%9B%E0%B9%83%E0%B8%99%E0%B8%A3%E0%B8%B2%E0%B8%81%E0%B9%82%E0%B8%9E%E0%B8%98%E0%B8%B4%E0%B9%8C.jpg
+- map_bellin: "Plan de la Ville de Ayutthaya (City Map) by Bellin 1751.png" by Jacques-Nicolas Bellin (1703-1772), Public domain (), https://commons.wikimedia.org/wiki/File:Plan_de_la_Ville_de_Ayutthaya_(City_Map)_by_Bellin_1751.png
+- juthia_engraving: "Ville De Siam ou Juthia. (IA dr ville-de-siam-ou-juthia-6903266).jpg" by Bellin, Jacques Nicolas, 1703-1772 J. Arrivet, Public domain (), https://commons.wikimedia.org/wiki/File:Ville_De_Siam_ou_Juthia._(IA_dr_ville-de-siam-ou-juthia-6903266).jpg
+- junk: "Departure of a Loo Choo (Ryukyu) Junk with Tribute to Pekin (Peking, China) 1.jpg" by William Smyth (sketch)F. Finden (engraving)Frederick William Beechey (book author), Public domain (), https://commons.wikimedia.org/wiki/File:Departure_of_a_Loo_Choo_(Ryukyu)_Junk_with_Tribute_to_Pekin_(Peking,_China)_1.jpg
+- fort: "Pom Phet fortress, Ayutthaya 01.JPG" by Daniel R. Witte, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:Pom_Phet_fortress,_Ayutthaya_01.JPG
+- headless1: "Statua di Buddha decapitata, Wat Chaiwatthanaram.jpg" by Peppermania00, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:Statua_di_Buddha_decapitata,_Wat_Chaiwatthanaram.jpg
+- headless2: "พระพุทธรูปหินทรายไร้เศียร.jpg" by TARIYA SAKMANGKORN, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:%E0%B8%9E%E0%B8%A3%E0%B8%B0%E0%B8%9E%E0%B8%B8%E0%B8%97%E0%B8%98%E0%B8%A3%E0%B8%B9%E0%B8%9B%E0%B8%AB%E0%B8%B4%E0%B8%99%E0%B8%97%E0%B8%A3%E0%B8%B2%E0%B8%A2%E0%B9%84%E0%B8%A3%E0%B9%89%E0%B9%80%E0%B8%A8%E0%B8%B5%E0%B8%A2%E0%B8%A3.jpg
+- chai_wide: "02f-Wat Chaiwatthanaram (NgnL)-08781.jpg" by No(0)GoodNamesLeft, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:02f-Wat_Chaiwatthanaram_(NgnL)-08781.jpg
+- sanphet: "3 Chedis of Wat Phra Sri Sanphet.JPG" by G2nfreeb, CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0), https://commons.wikimedia.org/wiki/File:3_Chedis_of_Wat_Phra_Sri_Sanphet.JPG
+- park: "Ayutthaya Historical Park 1.jpg" by Mr.Peerapong Prasutr, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0), https://commons.wikimedia.org/wiki/File:Ayutthaya_Historical_Park_1.jpg
+- iudea: "AMH-5626-NA Bird's eye view of the city of Judja.jpg" by Johannes Vingboons, Public domain (), https://commons.wikimedia.org/wiki/File:AMH-5626-NA_Bird%27s_eye_view_of_the_city_of_Judja.jpg
+- fire: same photo as in the Roro Jonggrang demo (Nenad Stojkovic, CC BY 2.0)
+- clouds and smoke (footage): from "Mount Bromo HD Timelapse Movie by Justin Ng.webm" by Justin Ng, CC BY 3.0, https://commons.wikimedia.org/wiki/File:Mount_Bromo_HD_Timelapse_Movie_by_Justin_Ng.webm
+- wind and rumble (sound): the same recordings as in the Pompeii demo (Tvabutzku1234, CC0; DaveInCamas, CC BY 3.0)
+- music: "Lost Time", "Ishikari Lore", "Crusade", "Heartbreaking", "Dreamer" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0, http://creativecommons.org/licenses/by/4.0/
+- narration: AI voice, ElevenLabs v4 stock voice "Ohm", generated through Creative Claw; other sound effects synthesized with numpy
