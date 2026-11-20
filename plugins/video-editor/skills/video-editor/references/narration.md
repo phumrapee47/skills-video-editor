@@ -33,3 +33,12 @@ Tune visuals, effects and music to the first voice, then keep every cue on that 
 python -I scripts/retime.py lay line_timing_user.json eleven v2 --section-after 2,6,10,14 --old-dur 124.5
 ```
 This writes `v2_timing.json` (new line times, same format), `v2_map.json` (anchors at every line start and end) and `v2_voice.wav`. In the compositor render frame `i` as `shot(to_old(i / FPS))`; place effect cues at `to_new(t_old)`; map music section bounds with `to_new`. Rebuild subtitles from the new line times. On Ayutthaya, lines stretched 0.8-1.45x, the clip grew from 124.5 s to 136.9 s, and every title, effect and music change still landed on its words with no hand tuning. Preview a 20 s stretch first (old 42-62 s became new 51.4-71.8 s).
+
+## Timing a recorded narration (Thai included)
+1. Upload the recording to Creative Claw (`get_upload_url`, PUT the file, `confirm_upload`) and run `transcribe` with `language_code: "th"`. About 2 credits for 2 minutes (Scribe, 44 credits/hour); tell the user first. The uploaded file gets a public CDN link in their Creative Claw workspace; say so when the recording is private.
+2. Download the `diarization_url` JSON (per-character times for Thai) and run
+   `python -I scripts/align_script.py scribe_diar.json script_lines.json narr` -> `narr_timing.json` + `narr.srt`.
+3. Read the transcript text against the script: it shows what was really said. On Ayutthaya it caught a false start ("เมืองถูกล้อมไปด้วย..."), a stutter (สถา-สถาปนา) and a misread number (417 read as "สี่ร้อยสี่สิบเจ็ด"), which matter for a re-record or a subtitle fix.
+
+Result on the 130 s Ayutthaya recording: 17/17 lines, starts within 0.08 s of the hand-tuned times (median 0.03 s), subtitles with no QA warnings (the old character-share split had 3). Whisper small had found 11 of 17 lines.
+

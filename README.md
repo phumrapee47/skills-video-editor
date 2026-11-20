@@ -29,7 +29,7 @@ Update to the latest version:
 - **Python 3.11** with `numpy` and `Pillow`
 - **yt-dlp** to fetch video metadata and subtitles from YouTube
 - **rembg** (`pip install "rembg[cpu]"`) to remove photo backgrounds (downloads its model on first use)
-- **faster-whisper** (optional) for English transcription with word timestamps (Thai does not work yet; see Limits)
+- **faster-whisper** (optional) for English transcription with word timestamps. For Thai use ElevenLabs Scribe through the **Creative Claw** plugin (paid credits, about 2 credits per 2 minutes)
 
 ### What it does
 
@@ -55,6 +55,9 @@ Update to the latest version:
 **4. Basic editing**
 - Cut, join, crop, speed change, subtitles, loudness, export
 - Orders several clips by their recording timestamps (`scripts/order_clips.py`), then asks the user to confirm
+- One JSON edit plan renders a whole footage edit: clips, transitions, Thai-safe titles, voice, ducked music, effects, subtitles, loudness (`scripts/edit_plan.py`, `--preview` first)
+- Checks every video before it is sent: format and colour range, loudness and true peak, black or frozen picture, silence, subtitle timing and width, plus a contact sheet (`scripts/qa_check.py`)
+- Renders photo-animation frames on all CPU cores, about 6x faster (`scripts/render_frames.py`)
 
 ### Test results
 
@@ -81,7 +84,7 @@ Credits for every photo, footage clip, sound, and music track are in [`demos/CRE
 ### Limits
 
 - Claude cannot hear. Music fit, mix balance, and humor need a human listener.
-- Whisper small cannot transcribe Thai; the skill uses YouTube's Thai auto captions corrected by hand, so visuals are timed to 2-3 s caption chunks, not to individual words.
+- Whisper small cannot transcribe Thai. ElevenLabs Scribe (Creative Claw `transcribe`) can: on a 130 s Thai recording it found all 17 script lines within 0.08 s of hand-tuned times, and `scripts/align_script.py` turns that into line timing and subtitles. It costs credits; YouTube Thai auto captions remain the free fallback (2-3 s chunks).
 - YouTube videos may include an AI-dubbed audio track; choose the original track (see `references/ffmpeg-recipes.md`).
 - Other people's audio or video is for local testing only. Publishing it needs permission; credit alone is not enough.
 
@@ -114,7 +117,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - **Python 3.11** พร้อม `numpy` และ `Pillow`
 - **yt-dlp** สำหรับดึงข้อมูลคลิปและซับจาก YouTube
 - **rembg** (`pip install "rembg[cpu]"`) สำหรับตัดฉากหลังของภาพ (โหลดโมเดลครั้งแรกที่ใช้)
-- **faster-whisper** (ไม่บังคับ) ถอดเสียงภาษาอังกฤษพร้อมเวลาระดับคำ (ภาษาไทยยังใช้ไม่ได้ ดูข้อจำกัด)
+- **faster-whisper** (ไม่บังคับ) ถอดเสียงภาษาอังกฤษพร้อมเวลาระดับคำ ส่วนภาษาไทยใช้ ElevenLabs Scribe ผ่านปลั๊กอิน **Creative Claw** (ใช้เครดิต ราว 2 เครดิตต่อ 2 นาที)
 
 ### ทำอะไรได้บ้าง
 
@@ -140,6 +143,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 #### 4. งานตัดต่อพื้นฐาน
 - ตัด ต่อ ครอป เร่งความเร็ว ใส่ซับ ปรับความดัง export
 - เรียงหลายคลิปตาม timestamp ในไฟล์ (`scripts/order_clips.py`) แล้วให้ผู้ใช้ยืนยัน
+- ไฟล์แผนตัดต่อ JSON ไฟล์เดียวเรนเดอร์ได้ทั้งคลิป: คลิป ทรานซิชัน หัวข้อภาษาไทยที่วรรณยุกต์ครบ เสียงพากย์ เพลงที่ลดตอนพูด เอฟเฟกต์ ซับ และความดัง (`scripts/edit_plan.py` ทำ `--preview` ก่อน)
+- ตรวจทุกคลิปก่อนส่ง: รูปแบบไฟล์และช่วงสี ความดังและเสียงแตก จอดำหรือภาพนิ่ง เสียงเงียบ เวลาและความกว้างของซับ พร้อมภาพสรุปทั้งคลิป (`scripts/qa_check.py`)
+- เรนเดอร์ภาพแอนิเมชันพร้อมกันทุกคอร์ เร็วขึ้นราว 6 เท่า (`scripts/render_frames.py`)
 
 ### ผลการทดสอบ
 
@@ -166,6 +172,6 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 ### ข้อจำกัด
 
 - Claude ฟังเสียงไม่ได้ ความเข้ากันของเพลง ความสมดุลเสียง และความตลก ต้องให้คนฟังตัดสิน
-- ถอดเสียงภาษาไทยด้วย Whisper รุ่น small ไม่ได้ ตอนนี้ใช้ซับอัตโนมัติของ YouTube แล้วแก้คำผิด จังหวะภาพจึงผูกกับท่อนซับ 2-3 วินาที ไม่ใช่ระดับคำ
+- Whisper รุ่น small ถอดเสียงภาษาไทยไม่ได้ แต่ ElevenLabs Scribe (Creative Claw `transcribe`) ทำได้: เสียงไทย 130 วินาที เจอครบ 17 บรรทัด คลาดจากเวลาที่จูนเองไม่เกิน 0.08 วินาที และ `scripts/align_script.py` แปลงเป็นเวลาบรรทัดกับซับให้ ใช้เครดิต ส่วนซับอัตโนมัติของ YouTube ยังเป็นทางเลือกฟรี (ช่วงละ 2-3 วินาที)
 - คลิปจาก YouTube อาจมีแทร็กเสียงพากย์อัตโนมัติ ต้องเลือกแทร็กเสียงต้นฉบับให้ถูก (วิธีอยู่ใน `references/ffmpeg-recipes.md`)
 - เสียงหรือคลิปของคนอื่นใช้ทดลองในเครื่องเท่านั้น ถ้าจะเผยแพร่ต้องได้รับอนุญาต การใส่เครดิตอย่างเดียวไม่พอ

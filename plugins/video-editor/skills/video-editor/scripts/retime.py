@@ -72,6 +72,7 @@ def lay(a):
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     l = sub.add_parser("lay"); l.add_argument("old_timing"); l.add_argument("lines_dir"); l.add_argument("out_prefix")
