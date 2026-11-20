@@ -15,8 +15,9 @@ n = len(x) // SR
 db = 20 * np.log10(np.sqrt((x[: n * SR].reshape(n, SR) ** 2).mean(1)) + 1e-6)
 
 speech = np.zeros(n, bool)
-for m in re.finditer(r"(\d+):(\d+):([\d.]+) --> (\d+):(\d+):([\d.]+)", open(vtt, encoding="utf-8").read()):
-    a = int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]); b = int(m[4]) * 3600 + int(m[5]) * 60 + float(m[6])
+for m in re.finditer(r"(?:(\d+):)?(\d+):([\d.]+)[ \t]+-->[ \t]+(?:(\d+):)?(\d+):([\d.]+)", open(vtt, encoding="utf-8").read()):
+    a = int(m[1] or 0) * 3600 + int(m[2]) * 60 + float(m[3])
+    b = int(m[4] or 0) * 3600 + int(m[5]) * 60 + float(m[6])
     speech[int(a): min(int(b) + 1, n)] = True
 # close tiny holes (< 2s) between cues: that is still one speaking stretch
 i = 0

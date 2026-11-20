@@ -7,13 +7,14 @@ import html, re, sys
 
 vtt, win, ss, ln, out = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), sys.argv[5]
 t0 = win + ss
-ts = lambda m: int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3])
 cues = []
-for m in re.finditer(r"(\d+):(\d+):([\d.]+) --> (\d+):(\d+):([\d.]+)[^\n]*\n(.*?)(?:\n\n|$)", open(vtt, encoding="utf-8").read(), re.S):
+for m in re.finditer(r"(?:(\d+):)?(\d+):([\d.]+)[ \t]+-->[ \t]+(?:(\d+):)?(\d+):([\d.]+)[^\n]*\n(.*?)(?:\n\n|$)", open(vtt, encoding="utf-8").read(), re.S):
     lines = [html.unescape(re.sub(r"<[^>]+>", "", l)).replace(">>", "").strip() for l in m[7].split("\n")]  # ">>" marks a speaker change
     lines = [l for l in lines if l]
     if lines:
-        cues.append((ts(m), float(m[4]) * 3600 + float(m[5]) * 60 + float(m[6]), lines[-1]))  # last line = newest text
+        start = int(m[1] or 0) * 3600 + int(m[2]) * 60 + float(m[3])
+        end = int(m[4] or 0) * 3600 + int(m[5]) * 60 + float(m[6])
+        cues.append((start, end, lines[-1]))  # last line = newest text
 
 rows = []
 for i, (a, b, text) in enumerate(cues):

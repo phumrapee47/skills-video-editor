@@ -39,6 +39,8 @@ Update to the latest version:
 - Layers images in depth, grades every photo to one look, and adds real moving atmosphere (clouds, smoke, ash)
 - Camera shake and sound effects only where the story is tense or exciting; explainer diagrams and call-outs; whip-pan transitions
 - Checks that the hero subject is never cropped (`scripts/check_cutout.py`) and sends a preview before the full render
+- Narration from the user's own recording or an AI voice (ElevenLabs through the Creative Claw plugin, or free edge-tts), one file per line, with Thai years and numbers written out so the voice reads them right
+- Swaps the voice of a finished edit without re-tuning it: `scripts/retime.py` maps every visual, effect and music cue from the old voice's timing onto the new one
 
 **2. Highlights from livestreams or long videos, cut into short clips**
 - Keeps storytelling, interaction with people, showing something, and punchlines; drops dead air and aimless walking
@@ -46,7 +48,8 @@ Update to the latest version:
 - Makes 9:16 vertical clips with subtitles and loudness set per style
 
 **3. Music and sound**
-- No music while people talk; music fades in only during scenery or whatever the camera is showing, and fades out before speech returns (ducked on subtitle timestamps)
+- Narrated documentaries and 2.5D animations: a soft music bed under the whole narration, about 11 dB below the voice, changing with the mood
+- Vlogs and streams: no music while people talk; music fades in only during scenery or whatever the camera is showing, and fades out before speech returns (ducked on subtitle timestamps)
 - Picks the music genre from the setting, and always runs a level calibration before asking a listener to judge
 
 **4. Basic editing**
@@ -121,6 +124,8 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - ซ้อนชั้นมีมิติ ปรับสีชุดเดียวทั้งคลิป ใส่บรรยากาศเคลื่อนไหวจริง (เมฆ ควัน เถ้า)
 - ภาพสั่นและเสียงประกอบเฉพาะช่วงที่มีอารมณ์ มีแผนภาพอธิบายและเส้นชี้ เปลี่ยนฉากแบบกวาดกล้อง
 - ตรวจว่าวัตถุหลักไม่ถูกครอปขาด (`scripts/check_cutout.py`) และส่งพรีวิวก่อนเรนเดอร์เต็ม
+- เสียงบรรยายใช้ได้ทั้งเสียงที่ผู้ใช้อัดเองและเสียง AI (ElevenLabs ผ่านปลั๊กอิน Creative Claw หรือ edge-tts ที่ฟรี) ทำทีละบรรทัด และเขียนปีหรือตัวเลขเป็นคำอ่านให้เสียงอ่านถูก
+- เปลี่ยนเสียงพากย์ของคลิปที่ทำเสร็จแล้วได้โดยไม่ต้องจูนใหม่: `scripts/retime.py` แปลงเวลาของภาพ เอฟเฟกต์ และเพลงจากเสียงเดิมไปตามเสียงใหม่
 
 #### 2. หาช่วงเด็ดจากไลฟ์หรือคลิปยาว แล้วทำคลิปสั้น
 - เก็บเฉพาะการเล่าเรื่อง ปฏิสัมพันธ์ การโชว์ของ และมุก ตัดช่วงเงียบและการเดินเรื่อยๆ
@@ -128,7 +133,8 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - ทำแนวตั้ง 9:16 พร้อมซับ และปรับระดับเสียงตามสไตล์
 
 #### 3. เพลงและเสียง
-- ไม่มีเพลงตอนคนพูด เพลงค่อยๆ เข้ามาเฉพาะตอนโชว์วิวหรือสิ่งที่กล้องชี้ แล้วลดลงก่อนเสียงพูดกลับมา (ลดตามเวลาของซับ)
+- สารคดีหรือแอนิเมชัน 2.5D ที่มีเสียงบรรยาย: ใส่เพลงเบาๆ ใต้เสียงบรรยายตลอดคลิป เบากว่าเสียงพูดราว 11 dB และเปลี่ยนตามอารมณ์
+- vlog และไลฟ์: ไม่มีเพลงตอนคนพูด เพลงค่อยๆ เข้ามาเฉพาะตอนโชว์วิวหรือสิ่งที่กล้องชี้ แล้วลดลงก่อนเสียงพูดกลับมา (ลดตามเวลาของซับ)
 - เลือกแนวเพลงตามสถานที่ และทดสอบระดับเสียงก่อนให้คนฟังตัดสินทุกครั้ง
 
 #### 4. งานตัดต่อพื้นฐาน

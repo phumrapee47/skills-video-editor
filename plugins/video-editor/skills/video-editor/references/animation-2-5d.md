@@ -5,7 +5,7 @@ The reference channel's "animations" are 2D / 2.5D motion graphics (flat silhoue
 ## Method that worked
 - Blender 5.2 installed at `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe`; run `blender.exe -b -P script.py -- stills 100,300` for previews and `-- anim` for all frames. No GUI and no MCP server needed (the MCP bridge failed with "Cannot connect at localhost:9876" while Blender was closed).
 - Render engine `BLENDER_WORKBENCH`, light `FLAT`, colour type `MATERIAL`, so each material's `diffuse_color` is the flat colour. Preview frames take about 0.3 s; the full 1,944-frame render at 960x540 took roughly 20-30 minutes.
-- Build the whole scene from primitives (cones, cylinders, spheres, boxes), one camera per scene bound to a timeline marker, parallax from camera moves over layers at different depths. Script: the v1 Blender script (not published; superseded) (scenes follow the narration SRT timings).
+- Build the whole scene from primitives (cones, cylinders, spheres, boxes), one camera per scene bound to a timeline marker, parallax from camera moves over layers at different depths. Script: `build_roro.py` (local test script, not published) (scenes follow the narration SRT timings).
 - Encode with ffmpeg from PNG frames and mux the narration audio.
 
 ## Pitfalls found (all cost a render round)
@@ -33,7 +33,7 @@ Method that worked:
 Caveats: performers in the photos are from Sendratari Ramayana, standing in for the legend's characters; credits are needed for any publication (CC BY-SA requires share-alike).
 
 ## v3 rules from the user's 6/10 review of v2 (2026-11-02)
-1. **No accidental jitter.** Rounding sizes and positions to whole pixels each frame makes slow zooms and pans step visibly; place layers with float affine transforms (`place()` in `examples/roro-jonggrang/compose_roro_v3.py`).
+1. **No accidental jitter.** Rounding sizes and positions to whole pixels each frame makes slow zooms and pans step visibly; place layers with float affine transforms (`place()` in `compose_roro_v3.py`).
 2. **Effects follow the mood.** Camera shake only in tense moments (curse, a death, demons appearing, fury, turning to stone), scaled to how tense it is; an exciting moment (rooster) gets a pop or bounce, not a shake. Same for sound: add effects where the moment is scary or exciting.
 3. **Fill the frame with depth.** Repeat a subject in layers: near layer large and bright, far layers smaller and blended toward the sky colour (haze), each moving at its own parallax speed; put a ground band under each layer so nothing floats. When building something, raise layers back to front.
 4. **Keep characters readable.** Floating figures go behind the hero subject and away from its head.
@@ -59,3 +59,6 @@ Caveats: performers in the photos are from Sendratari Ramayana, standing in for 
 User: "เข้าถึงอารมณ์ เข้าใจบริบททุกอย่าง ถือว่าสุดยอด". The v4 rules are now proven on one clip.
 13. **Show the hero subject whole.** The only deduction (0.5): a plaster cast was cropped in half. I had cropped the source photo to remove a visitor in the background and cut the top of the cast. Mask out only the distracting element (or pick another photo) and never crop through the subject. Run `scripts/check_cutout.py` on all cut-outs: it reports any subject that touches a border (intended cases like landscape bands can be ignored after a look).
 14. Thai narration: Whisper small could not transcribe it; YouTube Thai auto captions (corrected by hand) gave usable 2-3 s timing.
+15. **Titles and labels are text only, never in a box** (user rule, 2026-11-14, Ayutthaya clip). Keep them readable with a thick dark outline plus a soft dark glow behind the letters (`label()` in the Ayutthaya compositor), not with a background panel. The same goes for call-out text.
+16. **The user's own narration:** recorded on a phone without a microphone it sounds poor; the user said the clip was good but the voice was not. Before a project, remind them to record into a mic or headset close to the mouth; cleanup filters only go so far.
+17. **Voice cleanup chain the user approved** ("เสียงดีขึ้นแล้ว", phone recording without a mic): `highpass=f=90,lowpass=f=11000,afftdn=nf=-25:nr=18,agate=threshold=0.015:ratio=3:attack=5:release=180,equalizer=f=250:t=q:w=1.2:g=-3,equalizer=f=3200:t=q:w=1.0:g=3,deesser=i=0.4,acompressor=threshold=-22dB:ratio=3:attack=8:release=120:makeup=4,loudnorm=I=-18:TP=-2:LRA=7`. Send a before/after snippet (same loudness) so the user can judge.

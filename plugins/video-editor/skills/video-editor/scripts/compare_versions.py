@@ -27,9 +27,9 @@ def speech_intervals(clip):
     vtts = sorted((WS / "real-clips").glob(clip.stem + "*.vtt"))
     offset = json.loads((WS / "real-clips" / "offset.json").read_text()).get(clip.stem, 0)
     cues = []
-    for m in re.finditer(r"(\d+):(\d+):([\d.]+) --> (\d+):(\d+):([\d.]+)", vtts[0].read_text(encoding="utf-8")):
-        a = int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]) - offset
-        b = int(m[4]) * 3600 + int(m[5]) * 60 + float(m[6]) - offset
+    for m in re.finditer(r"(?:(\d+):)?(\d+):([\d.]+)[ \t]+-->[ \t]+(?:(\d+):)?(\d+):([\d.]+)", vtts[0].read_text(encoding="utf-8")):
+        a = int(m[1] or 0) * 3600 + int(m[2]) * 60 + float(m[3]) - offset
+        b = int(m[4] or 0) * 3600 + int(m[5]) * 60 + float(m[6]) - offset
         if b > 0 and a < CLIP_LEN:
             cues.append((max(a, 0), min(b, CLIP_LEN)))
     cues.sort()

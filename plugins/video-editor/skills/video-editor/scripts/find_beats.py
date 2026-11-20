@@ -15,8 +15,8 @@ base = np.array([np.median(db[max(0, i - 300): i + 300]) for i in range(0, n, 10
 loud = np.convolve(db, np.ones(5) / 5, mode="same") - base
 
 cues = []
-for m in re.finditer(r"(\d+):(\d+):([\d.]+) --> (\d+):(\d+):([\d.]+)[^\n]*\n(.*?)(?:\n\n|$)", open(vtt, encoding="utf-8").read(), re.S):
-    t = int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3])
+for m in re.finditer(r"(?:(\d+):)?(\d+):([\d.]+)[ \t]+-->[ \t]+(?:(\d+):)?(\d+):([\d.]+)[^\n]*\n(.*?)(?:\n\n|$)", open(vtt, encoding="utf-8").read(), re.S):
+    t = int(m[1] or 0) * 3600 + int(m[2]) * 60 + float(m[3])
     raw = html.unescape(re.sub(r"<[^>]+>", "", m[7]))
     lines = [l.strip() for l in raw.split("\n") if l.strip()]
     if lines and (not cues or cues[-1][1] != lines[-1]):

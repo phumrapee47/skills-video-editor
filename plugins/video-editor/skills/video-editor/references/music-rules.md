@@ -42,3 +42,12 @@ Rules:
 - It fades out before talking returns.
 - The 10 dB level from the calibration test only shows what is audible against speech; it is not the default. Defaults in `scripts/add_music.py` now: bed -8 dB in gaps, 30 dB drop while speech is present.
 - Consequence: a window with continuous talking has nowhere for music. Pick windows with 6s+ gaps or B-roll to demonstrate music, and confirm by frames that the gap shows a view or an object, not a silent face.
+
+## Narrated documentary / animation: continuous music bed (user rule, 2026-11-14)
+The "no music while talking" policy above is for vlogs and live streams where people talk to each other or to the camera.
+For a **narrated story or 2.5D animation** the user wants a background music bed through the whole clip: the voice-only Ayutthaya
+version felt "ไม่น่าฟัง" next to the Pompeii clip, whose narration track already carried the creator's own music.
+- Keep a soft bed under the narration (start around 10-12 dB below the voice; 20 dB was inaudible in an earlier test), let it rise
+  a little in pauses and at section changes, and change tracks or intensity with the story's mood (mystery, glory, war, sorrow, warmth).
+- Effects stay on top of the bed at the tense or exciting moments.
+- Licensed tracks only (e.g. Kevin MacLeod, CC BY 4.0, credit in the description). Ask before downloading.

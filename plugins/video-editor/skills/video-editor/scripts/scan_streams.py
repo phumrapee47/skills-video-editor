@@ -24,8 +24,9 @@ for vid, c in sorted(cand.items(), key=lambda kv: -kv[1]["views"])[:14]:
     f = list(tmp.glob(vid + "*.vtt"))
     if not f:
         c["note"] = "no captions"; rows.append(c); continue
-    ivs = [(int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]), int(m[4]) * 3600 + int(m[5]) * 60 + float(m[6]))
-           for m in re.finditer(r"(\d+):(\d+):([\d.]+) --> (\d+):(\d+):([\d.]+)", f[0].read_text(encoding="utf-8"))]
+    ivs = [(int(m[1] or 0) * 3600 + int(m[2]) * 60 + float(m[3]),
+            int(m[4] or 0) * 3600 + int(m[5]) * 60 + float(m[6]))
+           for m in re.finditer(r"(?:(\d+):)?(\d+):([\d.]+)[ \t]+-->[ \t]+(?:(\d+):)?(\d+):([\d.]+)", f[0].read_text(encoding="utf-8"))]
     ivs.sort(); gaps, end = [], 0
     for a, b in ivs:
         if a - end >= 6: gaps.append((end, a))
