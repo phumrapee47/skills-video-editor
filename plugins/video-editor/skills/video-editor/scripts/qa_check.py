@@ -71,9 +71,13 @@ def spans(text, key_s, key_e):
     return [(float(a), float(b)) for a, b in zip(re.findall(key_s + r"\s*(-?[\d.]+)", text), re.findall(key_e + r"\s*(-?[\d.]+)", text))]
 
 
+IGNORE = []
+
+
 def check_picture(path, dur, fade):
     e = ff(["-i", path, "-an", "-vf", "fps=12,scale=320:-2,blackdetect=d=0.5:pic_th=0.97,freezedetect=n=0.003:d=2.5", "-f", "null", "-"])
-    blacks = [(a, b) for a, b in spans(e, "black_start:", "black_end:") if not (a <= fade or b >= dur - fade)]
+    blacks = [(a, b) for a, b in spans(e, "black_start:", "black_end:") if not (a <= fade or b >= dur - fade)
+              and not any(a >= x - 0.5 and b <= y + 0.5 for x, y in IGNORE)]    # deliberate text cards on black
     report("black", "WARN" if blacks else "PASS", ", ".join(f"{a:.1f}-{b:.1f}s" for a, b in blacks) or "none inside the clip")
     starts = [float(x) for x in re.findall(r"freeze_start:\s*([\d.]+)", e)]; ends = [float(x) for x in re.findall(r"freeze_end:\s*([\d.]+)", e)]
     fr = list(zip(starts, ends + [dur] * (len(starts) - len(ends))))
@@ -125,7 +129,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("video"); ap.add_argument("--subs"); ap.add_argument("--target", choices=TARGETS, default="youtube")
     ap.add_argument("--sheet"); ap.add_argument("--json"); ap.add_argument("--fade", type=float, default=1.5)
+    ap.add_argument("--cards", nargs="*", default=[], help="a:b spans that are intended text cards on a dark background (not 'black')")
     a = ap.parse_args()
+    IGNORE.extend(tuple(map(float, x.split(":"))) for x in a.cards)
     info = probe(a.video); dur = float(info["format"]["duration"])
     print(f"QA {a.video} ({dur:.1f} s)")
     check_format(a.video, info)

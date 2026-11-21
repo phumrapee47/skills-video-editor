@@ -59,6 +59,20 @@ Update to the latest version:
 - Checks every video before it is sent: format and colour range, loudness and true peak, black or frozen picture, silence, subtitle timing and width, plus a contact sheet (`scripts/qa_check.py`)
 - Renders photo-animation frames on all CPU cores, about 6x faster (`scripts/render_frames.py`)
 
+**5. Podcast and interview Shorts (one command)**
+- `scripts/podcast_short.py`: long talk -> vertical Short, stopping at three approval gates (picked lines, B-roll downloads, preview)
+- Picks a self-contained, on-topic answer from the transcript (skips the host's questions and sign-offs), cuts on word edges
+- Topic card intro, persistent headline, reframing that follows the speaker, split screen for two-shots, punch-in every ~3 s
+- Word-stack captions in mixed type (key word big, bold italic serif, colour per phrase; numbers in red)
+- Huge key words behind the person (person mask per frame), B-roll with the speaker in a circle bubble
+- Key words and B-roll found automatically (`pick_moments.py`, `find_broll.py`: free-licence Wikimedia Commons only, downloads only after approval)
+- Built from a study of 21 reference podcast Shorts (`references/podcast-shorts.md`), version by version (v2 -> v10)
+
+**6. Other genres**
+- Product/ad: best moments by picture (`find_shots.py`), cuts on the music's bar grid (`music_beats.py`)
+- Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
+- Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
+
 ### Test results
 
 | What was tested | Result |
@@ -146,6 +160,20 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - ไฟล์แผนตัดต่อ JSON ไฟล์เดียวเรนเดอร์ได้ทั้งคลิป: คลิป ทรานซิชัน หัวข้อภาษาไทยที่วรรณยุกต์ครบ เสียงพากย์ เพลงที่ลดตอนพูด เอฟเฟกต์ ซับ และความดัง (`scripts/edit_plan.py` ทำ `--preview` ก่อน)
 - ตรวจทุกคลิปก่อนส่ง: รูปแบบไฟล์และช่วงสี ความดังและเสียงแตก จอดำหรือภาพนิ่ง เสียงเงียบ เวลาและความกว้างของซับ พร้อมภาพสรุปทั้งคลิป (`scripts/qa_check.py`)
 - เรนเดอร์ภาพแอนิเมชันพร้อมกันทุกคอร์ เร็วขึ้นราว 6 เท่า (`scripts/render_frames.py`)
+
+#### 5. คลิปสั้นจากพอดแคสต์และสัมภาษณ์ (คำสั่งเดียว)
+- `scripts/podcast_short.py`: คลิปยาว → Short แนวตั้ง หยุดถาม 3 จุด (ช่วงที่เลือก, ไฟล์ B-roll ที่จะดาวน์โหลด, ตัวอย่าง)
+- เลือกคำตอบที่จบในตัวและตรงหัวข้อจาก transcript (ข้ามคำถามและคำปิดของพิธีกร) ตัดตรงขอบคำ
+- การ์ด topic ตอนเปิด, หัวข้อค้างทั้งคลิป, ครอปตามคนพูด, แบ่งจอบน-ล่างสำหรับสองคน, ซูมเข้า-ออกทุกราว 3 วินาที
+- ซับแบบกองคำ ตัวอักษรผสม (คำเด่นใหญ่ serif ตัวหนาเอียง สีเปลี่ยนตามวลี ตัวเลขสีแดง)
+- คำใหญ่อยู่หลังคน (ตัดคนออกทุกเฟรม), B-roll พร้อมหน้าคนพูดในวงกลม
+- หาคำสำคัญและ B-roll อัตโนมัติ (`pick_moments.py`, `find_broll.py`: ใช้เฉพาะไฟล์ลิขสิทธิ์เปิดจาก Wikimedia Commons ดาวน์โหลดหลังอนุมัติเท่านั้น)
+- สร้างจากการศึกษาคลิปพอดแคสต์ตัวอย่าง 21 คลิป (`references/podcast-shorts.md`) ทีละเวอร์ชัน (v2 → v10)
+
+#### 6. แนวอื่น
+- โฆษณาสินค้า: หาช่วงภาพที่ดีที่สุด (`find_shots.py`) ตัดตามห้องเพลง (`music_beats.py`)
+- สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
+- หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
 ### ผลการทดสอบ
 
