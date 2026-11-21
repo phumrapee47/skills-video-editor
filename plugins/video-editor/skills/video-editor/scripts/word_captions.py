@@ -25,7 +25,9 @@ we're you're they're it's that's don't can't i'm get got make made way lot right
 
 
 PALETTE = ["FFD200", "FF5DA2", "7FD8FF", "B48CFF", "FF9F43"]   # accent colours cycled per phrase (P15-P17 style)
-SERIF = ("Georgia", "C:/Windows/Fonts/georgiaz.ttf", "C:/Windows/Fonts/georgiai.ttf")
+from fonts import font as _font
+SANS, SANS_FILE = _font("sans"); _SF, _SFILE = _font("serif_italic")
+SERIF = (_SF, _SFILE, _SFILE)   # bold comes from 1 when the font has no bold italic file
 
 
 def width_font(text, size, path):
@@ -58,10 +60,10 @@ def stack_rows(caps, W, H, a, cap_pos, cap_end):
         size = lambda i: top if i == star else (big if i in content else small)
         acc = PALETTE[k % len(PALETTE)] if mix else hi; acc_bgr = acc[4:6] + acc[2:4] + acc[0:2]
         def font_of(i):
-            if not mix: return ("", "C:/Windows/Fonts/LeelaUIb.ttf")
-            if i == star: return (r"\fnGeorgia\b1\i1", SERIF[1])
-            if i not in content: return (r"\fnGeorgia\b0\i1", SERIF[2])
-            return ("", "C:/Windows/Fonts/LeelaUIb.ttf")
+            if not mix: return ("", SANS_FILE)
+            if i == star: return (f"\\fn{SERIF[0]}\\b1\\i1", SERIF[1])
+            if i not in content: return (f"\\fn{SERIF[0]}\\b0\\i1", SERIF[2])
+            return ("", SANS_FILE)
         lh = [max(size(i) for i in ln) * 0.95 for ln in lines]
         pos = cap_pos[k] if cap_pos[k] is not None else a.pos + 0.05
         floor = 0.27 if cap_pos[k] is not None else 0.45
@@ -124,7 +126,7 @@ if __name__ == "__main__":
     head = "\n".join(["[Script Info]", "ScriptType: v4.00+", f"PlayResX: {W}", f"PlayResY: {H}", "WrapStyle: 2", "", "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, "
         "StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: C,Leelawadee UI,{fs},&H00FFFFFF,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,1,{max(3, fs // 14)},{max(2, fs // 24)},5,60,60,0,1",
+        f"Style: C,{SANS},{fs},&H00FFFFFF,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,1,{max(3, fs // 14)},{max(2, fs // 24)},5,60,60,0,1",
         "", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"])
     rows = []
     if a.style == "stack":

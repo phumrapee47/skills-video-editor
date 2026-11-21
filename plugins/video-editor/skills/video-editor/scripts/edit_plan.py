@@ -19,7 +19,11 @@ import numpy as np
 SR = 48000
 HERE = pathlib.Path(__file__).parent
 TARGETS = {"youtube": -14.0, "shorts": -14.0, "doc": -18.5, "master": -23.0}
-FONT = "C:/Windows/Fonts/LeelaUIb.ttf"
+import pathlib as _pl, sys as _sys
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))   # python -I leaves the script folder off the path
+from fonts import font as _font, ass_fontsdir
+SANS, FONT = _font("sans")          # bundled Kanit Bold (assets/fonts), system fallback
+HEAVY, HEAVY_FILE = _font("heavy")
 
 
 # ---------- timeline -------------------------------------------------------------------------------------------
@@ -96,8 +100,8 @@ def titles_ass(titles, W, H, path):
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, "
         "StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: T,Leelawadee UI,{round(H * 0.07)},&H00DCF0FA,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,1,{ol},{sh},8,40,40,{round(H * 0.09)},1",
-        f"Style: S,Leelawadee UI,{round(H * 0.07)},&H00DCF0FA,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1", "",
+        f"Style: T,{SANS},{round(H * 0.07)},&H00DCF0FA,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,1,{ol},{sh},8,40,40,{round(H * 0.09)},1",
+        f"Style: S,{SANS},{round(H * 0.07)},&H00DCF0FA,&H000000FF,&H00000000,&H96000000,1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1", "",
         "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"])
     rows = []
 
@@ -237,7 +241,7 @@ def behind_ass(items, W, H, path):
     head = "\n".join(["[Script Info]", "ScriptType: v4.00+", f"PlayResX: {W}", f"PlayResY: {H}", "WrapStyle: 2", "", "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, "
         "StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: B,Impact,{round(H * 0.2)},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1", "",
+        f"Style: B,{HEAVY},{round(H * 0.2)},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,2,0,1,0,0,5,0,0,0,1", "",
         "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"])
     rows = []
     for it in items:
@@ -246,8 +250,8 @@ def behind_ass(items, W, H, path):
         size = int(it.get("size", H * 0.2))
         try:                                    # fit the word to ~96% of the width (Impact sized by its line height)
             from PIL import ImageFont
-            f = ImageFont.truetype("C:/Windows/Fonts/impact.ttf", 100); asc, desc = f.getmetrics()
-            wpx = ImageFont.truetype("C:/Windows/Fonts/impact.ttf", int(size * 100 / (asc + desc))).getlength(txt)
+            f = ImageFont.truetype(HEAVY_FILE, 100); asc, desc = f.getmetrics()
+            wpx = ImageFont.truetype(HEAVY_FILE, int(size * 100 / (asc + desc))).getlength(txt)
             size = int(size * min(1.0, W * 0.96 / max(wpx, 1)))
         except Exception:
             pass
@@ -276,7 +280,7 @@ def behind_chain(c, n, W, H, fps, first_input, cmd, crop_filter, tmp):
     apath = (tmp / f"behind{n}.ass").resolve().as_posix().replace(":", r"\:"); behind_ass(items, W, H, str(tmp / f"behind{n}.ass"))
     cmd += ["-i", mpath]; k = first_input
     return [f"[bh{n}]split[bhb{n}][bhf{n}]",
-            f"[bhb{n}]ass='{apath}'[bht{n}]",
+            f"[bhb{n}]ass='{apath}'{ass_fontsdir()}[bht{n}]",
             f"[{k}:v]scale={W}:{H},gblur=sigma=1.2,format=gray,setpts=PTS-STARTPTS[bhm{n}]",
             f"[bhf{n}]trim={t0}:{t1},setpts=PTS-STARTPTS[bhft{n}]",
             f"[bhft{n}][bhm{n}]alphamerge,setpts=PTS-STARTPTS+{t0}/TB[bhp{n}]",
@@ -373,15 +377,15 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     tail = []
     if titles:
         ap_ = tmp / "titles.ass"; titles_ass(titles, W, H, ap_)
-        tail.append(f"ass='{ap_.resolve().as_posix().replace(':', chr(92) + ':')}'")
+        tail.append(f"ass='{ap_.resolve().as_posix().replace(':', chr(92) + ':')}'" + ass_fontsdir())
     sub = plan.get("subtitles")
     if sub:
         p = pathlib.Path(sub["src"]).resolve().as_posix().replace(":", r"\:")
         if sub["src"].lower().endswith(".ass"):          # styled captions (word_captions.py): keep their own style
-            tail.append(f"ass='{p}'"); sub = None
+            tail.append(f"ass='{p}'" + ass_fontsdir()); sub = None
     if sub:
-        style = sub.get("style", f"FontName=Leelawadee UI,FontSize={16 if W >= H else 11},Bold=1,Outline=1.2,Shadow=1,MarginV={22 if W >= H else 60}")
-        tail.append(f"subtitles='{p}':force_style='{style}'")
+        style = sub.get("style", f"FontName={SANS},FontSize={16 if W >= H else 11},Bold=1,Outline=1.2,Shadow=1,MarginV={22 if W >= H else 60}")
+        tail.append(f"subtitles='{p}':force_style='{style}'" + ass_fontsdir())
     if a0 is not None: tail.append(f"trim={a0}:{a1},setpts=PTS-STARTPTS,scale=iw/2:-2")
     tail.append("scale=out_range=tv,format=yuv420p")
     fg.append(f"[{acc}]{','.join(tail)}[vout]")

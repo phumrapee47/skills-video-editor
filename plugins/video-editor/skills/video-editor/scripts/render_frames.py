@@ -13,6 +13,7 @@ Usage
 Frames are numbered from 1 (f_0001.jpg) whatever --start is, so the encode starts at --start in the audio.
 """
 import argparse, importlib.util, multiprocessing as mp, os, pathlib, re, subprocess, sys, time
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))   # python -I leaves the script folder off the path
 
 _mod = _fn = _map = None
 
@@ -49,7 +50,8 @@ def encode(a, i0):
             subs_shift.write_text(re.sub(r"(\d\d):(\d\d):(\d\d),(\d\d\d)", shift, subs.read_text(encoding="utf-8-sig")), encoding="utf-8")
             subs = subs_shift
         sub = subs.as_posix().replace(":", r"\:")
-        vf = f"subtitles='{sub}'{style}," + vf
+        from fonts import ass_fontsdir
+        vf = f"subtitles='{sub}'{style}{ass_fontsdir()}," + vf
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-framerate", str(a.fps), "-i", str(pathlib.Path(a.frames_dir) / "f_%04d.jpg")]
     if a.audio: cmd += ["-ss", f"{i0 / a.fps:.3f}", "-i", a.audio]
     cmd += ["-vf", vf, "-c:v", "libx264", "-crf", "19", "-preset", "medium", "-color_range", "tv"]

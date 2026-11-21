@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+    paths: ["plugins/video-editor/**", ".github/workflows/tests.yml"]
+  pull_request:
+    paths: ["plugins/video-editor/**"]
+
+jobs:
+  video-editor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: plugins/video-editor/skills/video-editor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: python packages
+        run: pip install -r requirements.txt
+      - name: doctor
+        run: python -I scripts/doctor.py
+      - name: compile every script
+        run: python -m py_compile scripts/*.py tests/*.py
+      - name: regression tests
+        run: python -I tests/run_tests.py

@@ -5,6 +5,7 @@ stills*/
 *.m4a
 *.wav
 assets/
+!plugins/video-editor/skills/video-editor/assets/
 cut/
 narration/
 

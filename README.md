@@ -25,6 +25,8 @@ Update to the latest version:
 
 ### Requirements
 
+Check a machine in one step: `python -I scripts/doctor.py` (it reports what is missing and how to fix it; it installs nothing). `pip install -r requirements.txt` covers the Python side. Titles and captions use bundled open-licence fonts (`assets/fonts`: Kanit, Playfair Display, Anton, SIL OFL), so edits look the same on Windows, macOS and Linux. Regression tests: `python -I tests/run_tests.py` (generated media only, ~20 s); they also run on every push (GitHub Actions).
+
 - **ffmpeg** (tested with 9.0.1), runnable from the command line
 - **Python 3.11** with `numpy` and `Pillow`
 - **yt-dlp** to fetch video metadata and subtitles from YouTube
@@ -126,6 +128,8 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 **ติดตั้งแบบ manual (personal skill):** คัดลอกโฟลเดอร์ `plugins/video-editor/skills/video-editor` ไปไว้ที่ `~/.claude/skills/` แล้วเรียกด้วย `/video-editor`
 
 ### สิ่งที่ต้องมี
+
+ตรวจเครื่องในคำสั่งเดียว: `python -I scripts/doctor.py` (บอกว่าขาดอะไรและแก้อย่างไร ไม่ติดตั้งอะไรเอง) ฝั่ง Python ใช้ `pip install -r requirements.txt` ตัวหนังสือในคลิปใช้ฟอนต์ลิขสิทธิ์เปิดที่แนบมา (`assets/fonts`: Kanit, Playfair Display, Anton, SIL OFL) หน้าตาจึงเหมือนกันทั้ง Windows, macOS และ Linux ชุดทดสอบ: `python -I tests/run_tests.py` (ใช้วิดีโอที่สร้างขึ้นเอง ราว 20 วินาที) และรันอัตโนมัติทุก push บน GitHub Actions
 
 - **ffmpeg** (ทดสอบกับ 9.0.1) สั่งรันจาก command line ได้
 - **Python 3.11** พร้อม `numpy` และ `Pillow`

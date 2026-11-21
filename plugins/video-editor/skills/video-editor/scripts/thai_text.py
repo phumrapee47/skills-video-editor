@@ -5,7 +5,7 @@ Without raqm Pillow does no Thai shaping, so a tone mark on an upper vowel vanis
 glows) but gets the glyph shapes from libass through ffmpeg, which shapes Thai correctly:
 
     from thai_text import draw_text, textlength
-    draw_text(layer, (x, y), txt, "C:/Windows/Fonts/LeelaUIb.ttf", 84, fill=(250, 240, 220, 255),
+    draw_text(layer, (x, y), txt, fonts.font("sans")[1], 84, fill=(250, 240, 220, 255),
               stroke_width=4, stroke_fill=(20, 14, 10, 255))
 
 draw_text takes the same top-left (x, y) as ImageDraw.text with anchor "la" and lines the
@@ -13,6 +13,9 @@ libass glyphs up with where Pillow would have put them (ink centre and bottom).
 With raqm available it simply calls ImageDraw.text. Masks are cached in memory and on disk
 (.thai_text_cache next to the calling script), so each label costs two ffmpeg calls once.
 """
+import pathlib as _pl, sys as _sys
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))   # python -I leaves the script folder off the path
+from fonts import font as _font
 import hashlib, os, pathlib, subprocess, tempfile, time
 from PIL import Image, ImageChops, ImageDraw, ImageFont, features
 
@@ -47,7 +50,7 @@ def _render(txt, font_path, size, bord):
         with tempfile.TemporaryDirectory() as td:
             (pathlib.Path(td) / "t.ass").write_text(ass, encoding="utf-8")
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=black:s={cw}x{ch}:d=1",
-                            "-vf", "subtitles=t.ass", "-frames:v", "1", "-pix_fmt", "gray", "o.png"], cwd=td, check=True)
+                            "-vf", "subtitles=t.ass:fontsdir='" + pathlib.Path(font_path).resolve().parent.as_posix().replace(':', chr(92) + ':') + "'", "-frames:v", "1", "-pix_fmt", "gray", "o.png"], cwd=td, check=True)
             with Image.open(pathlib.Path(td) / "o.png") as o: m = o.convert("L")   # this worker's own copy: no shared read
             tmp = CACHE / f"{key}.{os.getpid()}.png"; os.replace(pathlib.Path(td) / "o.png", tmp)
             try: os.replace(tmp, png)
