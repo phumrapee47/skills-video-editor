@@ -120,6 +120,56 @@ def titles_ass(titles, W, H, path):
         if it.get("color"): r, g, b = it["color"]; base = "\\c&H%02X%02X%02X&" % (b, g, r)
         else: base = ""
         st = it.get("style")
+        if st == "callout":                                          # ---- ad: thin line from a point on the product to a label
+            px_, py_ = it.get("at", [0.5, 0.5]); X0, Y0 = round(W * px_), round(H * py_)
+            right = it.get("side", "right" if px_ < 0.6 else "left") == "right"
+            L = round(W * float(it.get("length", 0.14))); sz = int(it.get("size", round(H * (0.032 if H > W else 0.045))))
+            label_w = text_width(str(it["text"]).upper(), sz) + len(str(it["text"])) * max(2, sz // 4)
+            limit_r = W * (0.84 if H > W else 0.97)                     # vertical: clear of the apps' button column
+            if "side" not in it:                                       # the label goes where it fits
+                if right and X0 + L + label_w > limit_r: right = False
+                elif not right and X0 - L - label_w < W * 0.03: right = True
+            X1 = X0 + (L if right else -L); Y1 = Y0 - round(H * 0.05); lw = max(2, round(min(W, H) / 400))
+            if (right and X1 + label_w > limit_r) or (not right and X1 - label_w < W * 0.03):   # still too long: smaller type
+                room = (limit_r - X1) if right else (X1 - W * 0.03); sz = max(12, int(sz * room / label_w))
+            dot = f"m 0 {-lw * 3} b {lw * 3} {-lw * 3} {lw * 3} {lw * 3} 0 {lw * 3} b {-lw * 3} {lw * 3} {-lw * 3} {-lw * 3} 0 {-lw * 3}"
+            ev(1, s, e, "S", f"\\an7\\pos({X0},{Y0})\\1c&H{bgr(accent)}&\\bord1\\3c&H000000&\\p1\\fscx0\\fscy0\\t(0,180,\\fscx100\\fscy100)\\fad(0,{fi})", dot)
+            seg = (f"m 0 0 l {X1 - X0} {Y1 - Y0} l {X1 - X0} {Y1 - Y0 + lw} l 0 {lw}")   # the slanted leg; grows from the dot
+            ev(1, s + 0.08, e, "S", f"\\an7\\pos({X0},{Y0})\\1c&HFFFFFF&\\bord1\\3c&H000000&\\p1\\clip({min(X0, X1) - 2},{min(Y0, Y1) - 4},{min(X0, X1) - 2},{max(Y0, Y1) + 4})\\t(0,260,\\clip({min(X0, X1) - 2},{min(Y0, Y1) - 4},{max(X0, X1) + 2},{max(Y0, Y1) + 4}))\\fad(0,{fi})", seg)
+            tx = X1 + (round(W * 0.01) if right else -round(W * 0.01))
+            ev(1, s + 0.3, e, "T", f"\\an{4 if right else 6}\\pos({tx},{Y1})\\fs{sz}\\fn{SANS}\\fsp{max(2, sz // 4)}\\bord{max(3, ol * 3 // 4)}\\shad{sh}\\fad(200,{fi}){base}", ass_text(str(it["text"]).upper(), accent))
+            continue
+        if st == "echo":                                             # ---- ad (fresh): one huge word repeated, fading copies above/below
+            word = str(it["text"]).upper(); n = int(it.get("repeat", 5)); fn = HEAVY if it.get("font", "heavy") == "heavy" else SANS
+            sz = fit_size(int(it.get("size", round(H * (0.1 if H > W else 0.16)))), [word], W * (0.82 if H > W else 0.9)) if fn == SANS else int(it.get("size", round(H * (0.1 if H > W else 0.16))))
+            ww = text_width(word, sz) * (0.78 if fn == HEAVY else 1.0)          # Anton is narrow; keep it inside the frame
+            if ww > W * (0.82 if H > W else 0.9): sz = int(sz * W * (0.82 if H > W else 0.9) / ww)
+            y0 = H * float(it.get("y", 0.5)); step = sz * 0.82; x = round(W * float(it.get("x", 0.5)))
+            for k in range(n):
+                off = -k if it.get("dir") == "up" else (k - n // 2)        # "up": copies only above (keeps the product below clear)
+                yk = round(y0 + off * step); main = off == 0
+                al = "00" if main else "%02X" % min(230, 90 + 40 * abs(off))
+                col = f"\\c&H{bgr(accent)}&" if (main and it.get("accent_main")) else base
+                d0 = int(abs(off) * 70)
+                ev(1 if main else 0, s, e, "T", f"\\an5\\pos({x},{yk})\\fn{fn}\\fs{sz}\\fsp{max(1, sz // 30)}\\alpha&HFF&\\t({d0},{d0 + 160},\\alpha&H{al}&)\\fad(0,{fi}){col}" + ("" if main else f"\\bord0\\shad0"), ass_text(word, accent))
+            continue
+        if st == "big":                                              # ---- ad (fresh/tech): heavy display words in the empty space
+            fn = HEAVY; sz = int(it.get("size", round(H * (0.085 if H > W else 0.13)))); lines = str(it["text"]).upper().split("\n")
+            ww = max(text_width(l, sz) for l in lines) * 0.78
+            if ww > W * (0.82 if H > W else 0.9): sz = int(sz * W * (0.82 if H > W else 0.9) / ww)
+            y = round(H * float(it.get("y", 0.25))); dur_ms = int((e - s) * 1000)
+            ev(1, s, e, "T", f"\\an5\\pos({round(W * float(it.get('x', 0.5)))},{y})\\fn{fn}\\fs{sz}\\fsp{max(1, sz // 40)}" + anim_tags(it.get("anim", "punch"), dur_ms, fi) + base, ass_text("\n".join(lines), accent))
+            continue
+        if st == "split":                                            # ---- ad: product name in two parts around an accent bar
+            a_, b2 = (str(it["text"]).split("|") + [""])[:2]; a_, b2 = a_.strip().upper(), b2.strip().upper()
+            sz = int(it.get("size", round(H * (0.07 if H > W else 0.09)))); y = round(H * float(it.get("y", 0.5))); gap = round(sz * 0.35)
+            sz = fit_size(sz, [a_ + "  " + b2], W * (0.84 if H > W else 0.86) - 2 * gap)
+            wa, wb = text_width(a_, sz), text_width(b2, sz); x_mid = round(W / 2 + (wa - wb) / 4)
+            ev(1, s, e, "T", f"\\an6\\move({x_mid - gap - 60},{y},{x_mid - gap},{y},0,300)\\fs{sz}\\fad(200,{fi}){base}", ass_text(a_, accent))
+            ev(1, s, e, "T", f"\\an4\\move({x_mid + gap + 60},{y},{x_mid + gap},{y},0,300)\\fs{sz}\\fad(200,{fi})\\c&H{bgr(accent)}&", ass_text(b2, accent))
+            bar_h = round(sz * 0.9); bw = max(4, round(sz / 14))
+            ev(2, s + 0.1, e, "S", f"\\an5\\pos({x_mid},{y})\\1c&H{bgr(accent)}&\\bord0\\p1\\fscy0\\t(0,250,\\fscy100)\\fad(0,{fi})", f"m 0 0 l {bw} 0 {bw} {bar_h} 0 {bar_h}")
+            continue
         if st in ("pin", "poem", "spaced", "stamp"):                  # ---- travel styles (references/vlog-travel.md)
             vert = H > W; dur_ms = int((e - s) * 1000)
             if st == "pin":                                          # location: pin mark + place name, lower-left (top-left in vlogs)
@@ -523,6 +573,7 @@ def loudnorm_filter(wav, lufs, ss=None, t=None):
            "-af", f"loudnorm=I={lufs}:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"]
     e = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace").stderr
     m = json.loads(e[e.rindex("{"): e.rindex("}") + 1])
+    if "inf" in str(m.get("input_i")) or "inf" in str(m.get("target_offset")): return "anull"   # a silent mix: nothing to normalise
     return (f"loudnorm=I={lufs}:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}:"
             f"measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
 
@@ -563,7 +614,7 @@ if __name__ == "__main__":
         mix, talk = render_audio(plan, tl, total, tmp)
         cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video)]
         cmd += (["-ss", str(a0), "-t", str(a1 - a0)] if a.preview else []) + ["-i", str(mix)]
-        subprocess.run(cmd + ["-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", loudnorm_filter(mix, lufs, a0, (a1 - a0) if a.preview else None), "-ar", "48000",
+        subprocess.run(cmd + ["-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", loudnorm_filter(mix, lufs, a0, (a1 - a0) if a.preview else None) + ",aresample=192000,alimiter=limit=0.63:attack=1:release=50:level=false,aresample=48000", "-ar", "48000",
                               "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out], check=True)
     json.dump({"duration": round(total, 3), "clips": [{k: c[k] for k in ("i", "src", "in", "out", "start", "end", "speed")} for c in tl],
                "speech": [[round(x, 2), round(y, 2)] for x, y in sorted(talk)]},

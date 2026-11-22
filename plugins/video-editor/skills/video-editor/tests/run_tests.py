@@ -391,6 +391,75 @@ def yamnet_tags_speech_and_music(tmp):
     assert g["people"] < 0.3, g
 
 
+@test
+def ad_concept_board(tmp):
+    """ad_concept.py: a yuzu can leads with the fruit split and pays off with the can opening; a filled bar leads with
+    its own snap-and-ooze (marked TO BUILD); every shot named in the catalogue exists in blender_product_ad.py."""
+    import ad_concept
+    c = ad_concept.concept("yuzu sparkling can", flavours=3)
+    beats = {b[0]: b[1] for b in c["board"]}
+    assert c["product"] == "can" and c["fruit"] == "yuzu", c
+    assert beats["hook"] == "split" and beats["payoff"] == "open" and "trio" in c["shots"], beats
+    c = ad_concept.concept("caramel chocolate bar", family="luxury")
+    assert c["board"][0][1] == "TO BUILD:snap_ooze", c["board"][0]
+    src = (SC / "blender_product_ad.py").read_text(encoding="utf-8")
+    lens = set(re.findall(r'"(\w+)": \d+', re.search(r"LEN = \{[^}]*\}", src).group(0)))
+    named = {x["shot"] for g in ("products", "ingredients") for e in ad_concept.CAT[g].values()
+             for x in e.get("actions", []) + e.get("events", []) if x.get("shot")}
+    assert named <= lens, named - lens
+
+
+@test
+def sfx_kit_levels(tmp):
+    """Every synthesised effect (incl. slash and splash) has a level, a peak time and a rank in sound_design.py."""
+    import make_sfx, sound_design
+    for k in make_sfx.KIT: assert k in sound_design.LEVEL and k in sound_design.PEAK and k in sound_design.RANK, k
+    p = make_sfx.make(tmp / "kit", only=["slash", "splash"])
+    assert all(v.stat().st_size > 10000 for v in p.values()), p
+
+
+def blender_exe():
+    import glob, os, shutil
+    return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)
+
+
+@test
+def blender_fruit_cut_faces(tmp):
+    """Real 3D fruit: after the split the cut faces show bright flesh, not black (a generated image loses its pixels if
+    its colour space is set after writing). Skipped without Blender."""
+    exe = blender_exe()
+    if not exe: print("  (skipped: no Blender)"); return
+    ff("-f", "lavfi", "-i", "color=c=orange:s=256x256", "-frames:v", "1", tmp / "label.png")
+    subprocess.run([exe, "-b", "-P", SC / "blender_product_ad.py", "--", "--label", tmp / "label.png", "--fruit", "yuzu", "--out", tmp / "o",
+                    "--shots", "split", "--still", "--frame", "75", "--size", "270x480", "--samples", "4"], check=True, capture_output=True, timeout=600)
+    ff("-i", tmp / "o" / "split_still.png", "-vf", "crop=50:120:0:150,scale=1:1", "-pix_fmt", "rgb24", "-f", "rawvideo", tmp / "px.raw")
+    r, g, b = (tmp / "px.raw").read_bytes()[:3]
+    assert r > 150 and g > 110, (r, g, b)                                     # left half's cut face: yellow flesh
+
+
+@test
+def blender_can_blueprint(tmp):
+    """ad_can.py: the can matches a 330 ml blueprint (66 mm wide, ~116 mm tall, scene unit 100 mm), the body is closed
+    (no holes in the lathe), the lid panel sits below the seam rim, and condensation makes hundreds of beads on the
+    label only. Skipped without Blender."""
+    exe = blender_exe()
+    if not exe: print("  (skipped: no Blender)"); return
+    code = (f"import sys, bpy, bmesh; sys.path.insert(0, r'{SC}'); import ad_can as C\n"
+            "bpy.ops.wm.read_factory_settings(use_empty=True)\n"
+            "me = C.body_mesh('t'); ob = bpy.data.objects.new('t', me); bpy.context.scene.collection.objects.link(ob)\n"
+            "lab = bpy.data.materials.new('lab'); me.materials.append(lab); me.materials.append(bpy.data.materials.new('m'))\n"
+            "bm = bmesh.new(); bm.from_mesh(me); holes = sum(1 for e in bm.edges if e.is_boundary)\n"
+            "xs = [v.co.x for v in me.vertices]; zs = [v.co.z for v in me.vertices]\n"
+            "C.condensation(ob, lab); dg = bpy.context.evaluated_depsgraph_get(); ev = ob.evaluated_get(dg)\n"
+            "n = sum(1 for i in dg.object_instances if i.is_instance and i.parent and i.parent.original == ob)\n"
+            "rim = max(zs); print('CANCHECK', max(xs) - min(xs), rim - min(zs), holes, n, C.LIDZ < rim - 0.02)\n")
+    out = subprocess.run([exe, "-b", "--python-expr", code], capture_output=True, text=True, timeout=300).stdout
+    line = next(l for l in out.splitlines() if l.startswith("CANCHECK")).split()
+    width, height, holes, beads, recessed = float(line[1]), float(line[2]), int(line[3]), int(line[4]), line[5] == "True"
+    assert abs(width - 0.66) < 0.005 and abs(height - 1.157) < 0.01, (width, height)
+    assert holes == 0 and recessed and beads > 500, (holes, beads, recessed)
+
+
 # ---------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")

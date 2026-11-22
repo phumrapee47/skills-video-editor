@@ -1,0 +1,771 @@
+{
+ "_about": "What a product can DO (affordances) and what its ingredient can DO (events), for 3D product-ad concepts. Each action: what happens physically, the sound, the camera, the beat it suits (hook/detail/payoff), and the shot that builds it (null = not built yet: 'build' says how). Read by scripts/ad_concept.py.",
+ "products": {
+  "can": {
+   "aka": [
+    "soda",
+    "beer",
+    "energy drink",
+    "canned coffee",
+    "sparkling"
+   ],
+   "actions": [
+    {
+     "id": "open_tab",
+     "do": "the pull tab lifts, the lid flap pops in, CO2 mist puffs out with a fine spray",
+     "sound": "click + fizz",
+     "camera": "macro over the lid at 45 deg (open) or straight down (toppop, Top Pop)",
+     "beat": "payoff",
+     "shot": "open",
+     "alt_shot": "toppop"
+    },
+    {
+     "id": "pour",
+     "do": "poured into a glass with ice: a twisting stream, bubbles rising, foam head",
+     "sound": "pour + fizz + ice clink",
+     "camera": "side, glass in focus",
+     "beat": "payoff",
+     "shot": null,
+     "build": "metaball stream along a bezier + rising bubble instances in a glass with transmission"
+    },
+    {
+     "id": "condensation",
+     "do": "cold can sweats: water beads on the label (Geometry Nodes, Poisson disk), one bead lets go and runs down",
+     "sound": "soft tick",
+     "camera": "85 mm macro rising along the label, shallow focus",
+     "beat": "detail",
+     "shot": "drops"
+    },
+    {
+     "id": "toss_catch",
+     "do": "flies up spinning and lands upright with a bounce",
+     "sound": "whoosh + metal tap",
+     "camera": "low, tracking",
+     "beat": "hook",
+     "shot": "reveal"
+    },
+    {
+     "id": "zero_g",
+     "do": "the can floats turning slowly, ice cubes and the flavour drift around it without gravity",
+     "sound": "soft air + ice clinks",
+     "camera": "70 mm dolly in",
+     "beat": "detail",
+     "shot": "zerog"
+    },
+    {
+     "id": "settle_hero",
+     "do": "the can drops in and settles still, logo to the lens, space above for the line",
+     "sound": "soft thud",
+     "camera": "85 mm from slightly below",
+     "beat": "payoff",
+     "shot": "hero_low"
+    }
+   ]
+  },
+  "bottle": {
+   "aka": [
+    "pet bottle",
+    "glass bottle",
+    "juice bottle",
+    "water",
+    "kombucha"
+   ],
+   "actions": [
+    {
+     "id": "cap_twist",
+     "do": "the cap spirals off upward, a puff of mist escapes",
+     "sound": "plastic click + hiss",
+     "camera": "macro on the neck",
+     "beat": "payoff",
+     "shot": null,
+     "build": "cap object rotating on Z while rising; volume puff like the can open"
+    },
+    {
+     "id": "pour",
+     "do": "liquid stream into a glass, splash crown at the bottom",
+     "sound": "pour",
+     "camera": "side",
+     "beat": "payoff",
+     "shot": null,
+     "build": "metaball stream + crown splash"
+    },
+    {
+     "id": "bubbles_inside",
+     "do": "bubbles rise through the liquid, light through the glass",
+     "sound": "fizz",
+     "camera": "macro through the side",
+     "beat": "detail",
+     "shot": null,
+     "build": "transmission bottle with liquid volume + rising sphere instances"
+    },
+    {
+     "id": "clink",
+     "do": "two bottles tap necks together, droplets jump",
+     "sound": "glass clink",
+     "camera": "close two-shot",
+     "beat": "payoff",
+     "shot": null
+    }
+   ]
+  },
+  "pouch": {
+   "aka": [
+    "chips",
+    "snack bag",
+    "crisps",
+    "candy bag",
+    "coffee bag",
+    "sachet"
+   ],
+   "actions": [
+    {
+     "id": "tear_open",
+     "do": "the tear notch rips along the line, foil edge curls, air puffs out",
+     "sound": "foil rip + crinkle",
+     "camera": "close on the top edge",
+     "beat": "payoff",
+     "shot": null,
+     "build": "bag mesh split along a jagged path; upper strip rotates away; cloth-like crinkle via shape keys"
+    },
+    {
+     "id": "contents_burst",
+     "do": "the contents burst out in slow motion and orbit the bag",
+     "sound": "crunchy burst",
+     "camera": "wide, slow push",
+     "beat": "hook",
+     "shot": null,
+     "build": "real 3D chips/candies (displaced curved discs) on ballistic paths with a speed ramp"
+    },
+    {
+     "id": "puff",
+     "do": "the bag inflates, crinkles, stands up",
+     "sound": "crinkle",
+     "camera": "hero",
+     "beat": "hook",
+     "shot": null
+    }
+   ]
+  },
+  "filled_bar": {
+   "aka": [
+    "chocolate bar",
+    "candy bar",
+    "wafer",
+    "filled cookie",
+    "snack bar"
+   ],
+   "actions": [
+    {
+     "id": "snap_ooze",
+     "do": "snapped in half: crumbs fly, the filling (caramel, cream) stretches into strands and sags",
+     "sound": "crisp snap + sticky stretch",
+     "camera": "macro side, slow motion",
+     "beat": "hook",
+     "shot": null,
+     "build": "bar halves with layered cross-section texture; filling as a metaball/curve strand that thins as halves part; crumbs as tiny shards"
+    },
+    {
+     "id": "bite",
+     "do": "a bite mark appears with a crunch, crumbs fall",
+     "sound": "crunch",
+     "camera": "close",
+     "beat": "detail",
+     "shot": null,
+     "build": "boolean bite shape keyed in"
+    },
+    {
+     "id": "pour_coat",
+     "do": "melted chocolate pours over the bar and coats it",
+     "sound": "soft pour",
+     "camera": "top 3/4",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "crispy_bar": {
+   "aka": [
+    "biscuit",
+    "cracker",
+    "cookie",
+    "granola bar"
+   ],
+   "actions": [
+    {
+     "id": "snap_crumbs",
+     "do": "snaps cleanly, crumbs burst",
+     "sound": "crack",
+     "camera": "macro slow motion",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "dunk",
+     "do": "dunked in milk, crown splash",
+     "sound": "splash",
+     "camera": "side",
+     "beat": "payoff",
+     "shot": null
+    }
+   ]
+  },
+  "box": {
+   "aka": [
+    "gift box",
+    "cereal box",
+    "tech box",
+    "packaging"
+   ],
+   "actions": [
+    {
+     "id": "lid_lift",
+     "do": "the lid lifts, warm light spills from inside, the product rises",
+     "sound": "soft whoosh + chime",
+     "camera": "3/4 top",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "contents_pour",
+     "do": "contents pour out into a bowl in slow motion",
+     "sound": "rattle",
+     "camera": "side",
+     "beat": "payoff",
+     "shot": null
+    }
+   ]
+  },
+  "jar": {
+   "aka": [
+    "cream jar",
+    "spread",
+    "jam",
+    "peanut butter",
+    "balm"
+   ],
+   "actions": [
+    {
+     "id": "lid_unscrew",
+     "do": "the lid unscrews and floats up, the surface is revealed",
+     "sound": "thread click",
+     "camera": "top 3/4",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "swirl_scoop",
+     "do": "a spatula or finger swirls a glossy fold of texture",
+     "sound": "soft squish",
+     "camera": "macro top",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "tube": {
+   "aka": [
+    "toothpaste",
+    "cream tube",
+    "gel",
+    "sunscreen"
+   ],
+   "actions": [
+    {
+     "id": "flip_cap",
+     "do": "the flip cap pops open",
+     "sound": "click",
+     "camera": "macro",
+     "beat": "detail",
+     "shot": null
+    },
+    {
+     "id": "squeeze_ribbon",
+     "do": "a glossy ribbon of product squeezes out and curls",
+     "sound": "squish",
+     "camera": "side macro",
+     "beat": "payoff",
+     "shot": null,
+     "build": "curve with growing bevel, ridged profile, keyed along a spiral path"
+    }
+   ]
+  },
+  "dropper": {
+   "aka": [
+    "serum",
+    "essential oil",
+    "facial oil",
+    "ampoule"
+   ],
+   "actions": [
+    {
+     "id": "drop_fall",
+     "do": "a drop swells on the dropper tip, falls, hits a surface: ripple and crown",
+     "sound": "single drip + soft ring",
+     "camera": "macro side, slow motion",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "pipette_lift",
+     "do": "the pipette lifts out, liquid glints inside",
+     "sound": "glass tap",
+     "camera": "close",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "spray": {
+   "aka": [
+    "perfume",
+    "mist",
+    "deodorant",
+    "room spray"
+   ],
+   "actions": [
+    {
+     "id": "spray_mist",
+     "do": "the nozzle is pressed, a cone of fine mist catches the light and drifts",
+     "sound": "pssht",
+     "camera": "side backlit",
+     "beat": "payoff",
+     "shot": null,
+     "build": "volume cone with noise density, keyed density and growth, backlight"
+    },
+    {
+     "id": "cap_off",
+     "do": "the heavy cap lifts off with a magnetic click",
+     "sound": "click",
+     "camera": "macro",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "lipstick": {
+   "aka": [
+    "lip balm",
+    "lip tint"
+   ],
+   "actions": [
+    {
+     "id": "twist_up",
+     "do": "the bullet twists up out of the case",
+     "sound": "smooth click",
+     "camera": "macro orbit",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "swatch",
+     "do": "a swatch smears across a surface",
+     "sound": "soft drag",
+     "camera": "top",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "cup": {
+   "aka": [
+    "coffee",
+    "tea",
+    "cup noodles",
+    "latte",
+    "bubble tea"
+   ],
+   "actions": [
+    {
+     "id": "steam",
+     "do": "steam curls up from the cup",
+     "sound": "room tone",
+     "camera": "side backlit",
+     "beat": "detail",
+     "shot": null
+    },
+    {
+     "id": "milk_swirl",
+     "do": "milk pours in and blooms into swirls",
+     "sound": "pour",
+     "camera": "top",
+     "beat": "payoff",
+     "shot": null
+    },
+    {
+     "id": "lid_peel",
+     "do": "the foil lid peels back",
+     "sound": "peel",
+     "camera": "close",
+     "beat": "hook",
+     "shot": null
+    }
+   ]
+  },
+  "ice_cream": {
+   "aka": [
+    "popsicle",
+    "cone",
+    "frozen dessert"
+   ],
+   "actions": [
+    {
+     "id": "shell_crack",
+     "do": "bitten: the chocolate shell cracks in shards over the soft inside",
+     "sound": "crack",
+     "camera": "macro",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "melt_drip",
+     "do": "a slow drip runs down",
+     "sound": "none",
+     "camera": "macro",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "sneaker": {
+   "aka": [
+    "shoe",
+    "trainer"
+   ],
+   "actions": [
+    {
+     "id": "sole_compress",
+     "do": "the foam sole squashes on impact and rebounds",
+     "sound": "thump + bounce",
+     "camera": "low side, slow motion",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "exploded_layers",
+     "do": "upper, midsole, outsole separate and snap back",
+     "sound": "whoosh + snap",
+     "camera": "3/4 orbit",
+     "beat": "detail",
+     "shot": null
+    },
+    {
+     "id": "laces_tighten",
+     "do": "laces pull tight",
+     "sound": "zip",
+     "camera": "macro",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "earbuds": {
+   "aka": [
+    "headphones",
+    "earphones",
+    "case"
+   ],
+   "actions": [
+    {
+     "id": "case_open",
+     "do": "the case lid flips open, the LED glows, the buds float out",
+     "sound": "magnetic click + hum",
+     "camera": "3/4 top",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "fold",
+     "do": "headphones fold and unfold, cushions compress",
+     "sound": "click",
+     "camera": "orbit",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "device": {
+   "aka": [
+    "phone",
+    "watch",
+    "tablet",
+    "speaker",
+    "mouse",
+    "keyboard"
+   ],
+   "actions": [
+    {
+     "id": "screen_wake",
+     "do": "the screen wakes with light washing over the glass",
+     "sound": "soft rise",
+     "camera": "slow orbit",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "exploded_view",
+     "do": "the layers fly apart showing the inside and return",
+     "sound": "whoosh + clicks",
+     "camera": "3/4",
+     "beat": "detail",
+     "shot": null
+    },
+    {
+     "id": "button_press",
+     "do": "a key or button presses with its light",
+     "sound": "click",
+     "camera": "macro",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  }
+ },
+ "ingredients": {
+  "citrus": {
+   "aka": [
+    "yuzu",
+    "orange",
+    "lemon",
+    "lime",
+    "grapefruit",
+    "mandarin"
+   ],
+   "fruit": true,
+   "events": [
+    {
+     "id": "split_reveal",
+     "do": "the fruit is slashed, halves fly apart, juice sprays, the product rises from the middle",
+     "sound": "slash + splash",
+     "beat": "hook",
+     "shot": "split"
+    },
+    {
+     "id": "wheels_burst",
+     "do": "real wheels, halves and whole fruit burst around the product with juice",
+     "sound": "splash",
+     "beat": "detail",
+     "shot": "burst"
+    },
+    {
+     "id": "squeeze",
+     "do": "a half is squeezed, juice runs",
+     "sound": "squish + drip",
+     "beat": "detail",
+     "shot": null
+    },
+    {
+     "id": "zest_mist",
+     "do": "the peel is bent, oil mist sprays into the light",
+     "sound": "faint pssht",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "berry": {
+   "aka": [
+    "strawberry",
+    "blueberry",
+    "raspberry",
+    "cherry",
+    "grape"
+   ],
+   "events": [
+    {
+     "id": "fall_splash",
+     "do": "berries drop into juice, crown splashes",
+     "sound": "plops",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "crush",
+     "do": "a berry is crushed, pulp and juice burst",
+     "sound": "squish",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "coffee": {
+   "aka": [
+    "coffee bean",
+    "espresso"
+   ],
+   "events": [
+    {
+     "id": "bean_crack",
+     "do": "beans crack open in slow motion, aroma smoke rises",
+     "sound": "crack + whoosh",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "grind",
+     "do": "beans fall and turn to powder",
+     "sound": "grind",
+     "beat": "detail",
+     "shot": null
+    },
+    {
+     "id": "crema_pour",
+     "do": "espresso pours with crema",
+     "sound": "pour",
+     "beat": "payoff",
+     "shot": null
+    }
+   ]
+  },
+  "chocolate": {
+   "aka": [
+    "cocoa",
+    "cacao"
+   ],
+   "events": [
+    {
+     "id": "melt_ribbon",
+     "do": "melted chocolate folds in a glossy ribbon",
+     "sound": "soft pour",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "shard_break",
+     "do": "a tablet breaks into shards",
+     "sound": "snap",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "milk": {
+   "aka": [
+    "cream",
+    "yogurt",
+    "dairy"
+   ],
+   "events": [
+    {
+     "id": "crown_splash",
+     "do": "a milk crown splash rises and falls",
+     "sound": "splash",
+     "beat": "hook",
+     "shot": null
+    }
+   ]
+  },
+  "ice": {
+   "aka": [
+    "ice cube",
+    "frost",
+    "cold"
+   ],
+   "events": [
+    {
+     "id": "cubes_fall",
+     "do": "clear ice cubes with frosted patches drift or tumble around the product",
+     "sound": "clinks",
+     "beat": "detail",
+     "shot": "zerog"
+    },
+    {
+     "id": "frost_spread",
+     "do": "frost crystallises across the product",
+     "sound": "crackle",
+     "beat": "hook",
+     "shot": null
+    }
+   ]
+  },
+  "mint": {
+   "aka": [
+    "leaves",
+    "herb",
+    "tea leaf",
+    "matcha"
+   ],
+   "events": [
+    {
+     "id": "leaves_swirl",
+     "do": "leaves swirl around the product in a breeze",
+     "sound": "air",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "flower": {
+   "aka": [
+    "rose",
+    "jasmine",
+    "botanical",
+    "floral"
+   ],
+   "events": [
+    {
+     "id": "bloom",
+     "do": "a bud opens into a flower, the product sits in its centre",
+     "sound": "soft rise",
+     "beat": "hook",
+     "shot": null
+    },
+    {
+     "id": "petals_fall",
+     "do": "petals drift down past the lens",
+     "sound": "air",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "honey": {
+   "aka": [
+    "syrup",
+    "caramel"
+   ],
+   "events": [
+    {
+     "id": "drip_ribbon",
+     "do": "a thick ribbon folds over itself from a dipper",
+     "sound": "none",
+     "beat": "detail",
+     "shot": null
+    }
+   ]
+  },
+  "water": {
+   "aka": [
+    "aqua",
+    "hydration",
+    "mineral"
+   ],
+   "events": [
+    {
+     "id": "ripple_drop",
+     "do": "a drop hits still water: ripple rings and a jump",
+     "sound": "drip",
+     "beat": "hook",
+     "shot": null
+    }
+   ]
+  }
+ },
+ "families": {
+  "fresh": {
+   "pace": "cuts 0.3-1 s on the beat, speed ramps",
+   "light": "saturated colour set, bright key, glossy"
+  },
+  "luxury": {
+   "pace": "slow, 3-8 s shots, orbit and macro",
+   "light": "dark set, rim and gold light, reflections"
+  },
+  "tech": {
+   "pace": "fast cuts, exploded views",
+   "light": "dark set, neon rim, glow lines"
+  },
+  "clean": {
+   "pace": "smooth slow turns, parts separate and return",
+   "light": "white or pastel, soft shadows"
+  }
+ }
+}

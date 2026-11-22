@@ -144,7 +144,7 @@ def picture_target(plan, base, pace=None):
     share = {k: kinds.count(k) / max(1, len(kinds)) for k in ("water", "green", "city", "night", "other")}
     scene = plan.get("scene")                                           # set by Claude after looking at the frames: beats colour rules
     if scene: share = {"cafe": {"other": 1.0}, "indoor": {"other": 1.0}, "beach": {"water": 1.0}, "water": {"water": 1.0}, "nature": {"green": 1.0},
-                       "city": {"city": 1.0}, "night": {"night": 0.6, "city": 0.4}}.get(scene, share)
+                       "city": {"city": 1.0}, "night": {"night": 0.6, "city": 0.4}, "product": {"other": 1.0}}.get(scene, share)
     durs = sorted((c["out"] - c["in"]) / c.get("speed", 1.0) for c in clips)
     pace = pace or (durs[len(durs) // 2] if durs else 2.0)            # a montage passes its planned shot length
     want_f, want_g = {"Uplifting": 1.0}, {}
@@ -156,6 +156,9 @@ def picture_target(plan, base, pace=None):
     if share["city"] > 0.3: want_f["Grooving"] = want_f.get("Grooving", 0) + 0.8; want_g.update({"Jazz": 1.2, "Electronica": 0.6, "Urban": 0.5, "Funk": 0.4, "Latin": 0.4})
     if share["water"] + share["green"] > 0.3: want_f["Calming"] = want_f.get("Calming", 0) + 0.8; want_g.update({"World": 1, "Contemporary": 0.8, "Cinematic": 1, "Soundtrack": 0.6, "Classical": 0.5})
     if share.get("night", 0) > 0.3: want_f["Mysterious"] = 1.0; want_g.update({"Electronica": 1, "Jazz": 1})
+    if scene == "product":                                              # product ads: clean, modern, confident; never cafe jazz or Latin
+        want_g = {"Electronica": 1.5, "Pop": 1.2, "Funk": 0.8, "Urban": 1.0, "Rock": 0.4}
+        for f, w in (("Driving", 1.2), ("Bright", 1.0), ("Grooving", 1.0), ("Uplifting", 0.8), ("Bouncy", -0.5), ("Calming", -0.5)): want_f[f] = want_f.get(f, 0) + w
     if scene in ("cafe", "indoor"): want_g.update({"Jazz": 1.5, "Latin": 1.2, "Contemporary": 0.8, "World": 0.6}); want_f["Relaxed"] = want_f.get("Relaxed", 0) + 0.8; bpm = (60, 110)
     return {"feels": want_f, "genres": want_g, "bpm": bpm, "pace": round(pace, 2), "scene": scene or {k: round(v, 2) for k, v in share.items() if v}}
 
@@ -170,6 +173,21 @@ def recent(lib):
 def mark_used(lib, track_id, keep=8):
     p = pathlib.Path(lib) / "used.json"; u = [x for x in recent(lib) if x != track_id] + [track_id]
     json.dump(u[-keep:], open(p, "w", encoding="utf-8"))
+
+
+BRIEFS = {   # mood families (references/ad-3d.md, vlog-travel.md): what the music must feel like. Claude chooses the family
+             # after LOOKING at the pictures and writes it down before the pick; the tags only shortlist, the person listens
+    "luxury": {"feels": {"Calming": 1.2, "Mysterious": 1.4, "Mystical": 1.0, "Epic": 0.6, "Relaxed": 0.4, "Bouncy": -2, "Humorous": -3, "Bright": -0.5},
+               "genres": {"Cinematic": 1.5, "Soundtrack": 1.0, "Contemporary": 0.8, "Electronica": 0.6, "Classical": 0.5}, "bpm": (60, 100), "pace": 3.0},
+    "fresh":  {"feels": {"Bright": 1.5, "Bouncy": 1.2, "Uplifting": 1.2, "Grooving": 1.0, "Driving": 0.4, "Dark": -3, "Somber": -3, "Calming": -0.8, "Mysterious": -1.5},
+               "genres": {"Pop": 1.5, "Funk": 1.2, "Latin": 1.0, "Disco": 1.0, "Electronica": 0.6, "Reggae": 0.6}, "bpm": (105, 132), "pace": 0.9},
+    "tech":   {"feels": {"Driving": 1.6, "Intense": 1.0, "Action": 1.0, "Grooving": 0.6, "Bright": 0.4, "Calming": -1.5, "Humorous": -3, "Bouncy": -0.8},
+               "genres": {"Electronica": 2.0, "Urban": 0.8, "Rock": 0.5}, "bpm": (115, 175), "pace": 0.8},
+    "clean":  {"feels": {"Calming": 1.2, "Relaxed": 1.2, "Bright": 1.0, "Uplifting": 0.8, "Bouncy": -0.5, "Dark": -3, "Intense": -2},
+               "genres": {"Contemporary": 1.2, "Electronica": 0.8, "Pop": 0.6, "Classical": 0.6, "Cinematic": 0.6}, "bpm": (80, 115), "pace": 2.0},
+    "travel": {"feels": {"Relaxed": 1.6, "Calming": 1.5, "Grooving": 1.0, "Uplifting": 0.8, "Driving": -1, "Bouncy": -1, "Intense": -1},
+               "genres": {"Jazz": 1.2, "World": 0.8, "Latin": 0.5, "Contemporary": 0.6}, "bpm": (60, 115), "pace": 2.0},
+}
 
 
 def picture_score(t, tg):
@@ -194,6 +212,7 @@ if __name__ == "__main__":
     ap.add_argument("cmd", choices=["scan", "pick"]); ap.add_argument("target")
     ap.add_argument("--library"); ap.add_argument("--words"); ap.add_argument("--mood", choices=list(MOODS))
     ap.add_argument("--apply", action="store_true"); ap.add_argument("--no-talk", action="store_true", help="music-led edit (montage, no speech)")
+    ap.add_argument("--brief", choices=list(BRIEFS), help="mood family Claude chose after looking at the pictures (luxury, fresh, tech, clean, travel)")
     ap.add_argument("--by-picture", action="store_true", help="choose from what the footage shows and its pace (montages, travel)")
     ap.add_argument("--top", type=int, default=3); ap.add_argument("--choose", type=int, default=1, help="with --apply: use the n-th of the ranking (after an audition)")
     ap.add_argument("--track", help="with --apply: this track (id or part of the file name) instead of the ranking")
@@ -210,7 +229,10 @@ if __name__ == "__main__":
     if B.get("music"): tracks = [t for t in tracks if t["file"] in B["music"]] or tracks
     tracks = [t for t in tracks if not t.get("avoid")]
     tg = None
-    if a.by_picture:
+    if a.brief:
+        tg = dict(BRIEFS[a.brief]); tg["recent"] = recent(lib_p.parent); tv = ta = 0.0; hits = {}
+        print(f"mood brief '{a.brief}': feels {tg['feels']}, genres {tg['genres']}, BPM {tg['bpm']}")
+    elif a.by_picture:
         tg = picture_target(plan, pp.parent); tg["recent"] = recent(lib_p.parent); tv = ta = 0.0; hits = {}
         print(f"picture: scene {tg['scene']}, median shot {tg['pace']} s -> feels {tg['feels']}, genres {tg['genres']}, BPM {tg['bpm']}")
     elif a.mood: tv, ta = MOODS[a.mood]; hits = {"--mood": a.mood}

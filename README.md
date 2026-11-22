@@ -31,6 +31,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - **Python 3.11** with `numpy` and `Pillow`
 - **yt-dlp** to fetch video metadata and subtitles from YouTube
 - **rembg** (`pip install "rembg[cpu]"`) to remove photo backgrounds (downloads its model on first use)
+- **Blender 4.2+** (optional, tested with 5.2) for 3D product ads; Cycles uses the GPU when there is one
 - **faster-whisper** (optional) for English transcription with word timestamps. For Thai use ElevenLabs Scribe through the **Creative Claw** plugin (paid credits, about 2 credits per 2 minutes)
 
 ### What it does
@@ -81,6 +82,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 
 **6. Other genres**
 - Product/ad: best moments by picture (`find_shots.py`), cuts on the music's bar grid (`music_beats.py`)
+- **3D product ads** (Blender, headless): `ad_concept.py` plans the concept from what the product can do (a can opens, a bag tears, a filled bar snaps) and what its ingredient can do (a yuzu is split, juice sprays) -> beat board; `blender_product_ad.py` renders the shots: real 3D fruit with pored peel and cut flesh (`ad_fruit.py`), a can built to a 330 ml blueprint with lid, pull tab and Geometry Nodes condensation (`ad_can.py`), juice strands, CO2 mist, ice; shots split, drops, top pop, zero-G, hero; EEVEE previews, Cycles finals; mood families (luxury / fresh / tech / clean) choose light, motion, type and music (`references/ad-3d.md`)
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -95,6 +97,8 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 | Ducking music under speech | Subtitle-timestamp ducking beat a sidechain compressor in a listening test |
 | Audible music level under speech | 20 dB below speech: inaudible; 10-15 dB: audible |
 | Highlight finder | "Good enough" |
+| 3D ad v1 (flat fruit pictures, simple can) | OK as a first round; asked for real objects and more animation |
+| 3D ad v2-v4 (real fruit split, can opening, blueprint can, condensation) | v4 is the demo below |
 
 ### Demos
 
@@ -103,8 +107,9 @@ The videos in `demos/` are real results from the tests. In the Pompeii and Roro 
 - [`demos/pompeii_demo.mp4`](demos/pompeii_demo.mp4): Pompeii, bodies frozen in time (85 s)
 - [`demos/roro_jonggrang_demo.mp4`](demos/roro_jonggrang_demo.mp4): the legend of Roro Jonggrang (81 s)
 - [`demos/ayutthaya_demo.mp4`](demos/ayutthaya_demo.mp4): the Buddha head in the tree roots, Wat Mahathat, Ayutthaya (137 s, AI narration in Thai)
+- [`demos/luma_v4_demo.mp4`](demos/luma_v4_demo.mp4): 3D ad for LUMA Yuzu, a made-up drink (17 s, 9:16): the yuzu is slashed and the can rises out of it, condensation macro, top-down can opening, zero-G with ice, hero
 
-Credits for every photo, footage clip, sound, and music track are in [`demos/CREDITS.md`](demos/CREDITS.md). The demo videos are released under CC BY-SA 4.0, as required by the source photos.
+Credits for every photo, footage clip, sound, and music track are in [`demos/CREDITS.md`](demos/CREDITS.md). The animation demos are released under CC BY-SA 4.0, as required by the source photos; the LUMA demo under CC BY 4.0.
 
 ### Limits
 
@@ -194,6 +199,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 
 #### 6. แนวอื่น
 - โฆษณาสินค้า: หาช่วงภาพที่ดีที่สุด (`find_shots.py`) ตัดตามห้องเพลง (`music_beats.py`)
+- **โฆษณา 3D** (Blender): `ad_concept.py` คิดคอนเซปต์จากสิ่งที่สินค้าทำได้ (กระป๋องเปิดฝา ถุงฉีก ขนมหักแล้วไส้ยืด) และสิ่งที่วัตถุดิบทำได้ (ผ่ายูซุ น้ำส้มพุ่ง) ออกมาเป็นลำดับฉาก แล้ว `blender_product_ad.py` เรนเดอร์ช็อต: ผลไม้ 3D ผิวมีรูขุมขน เนื้อในตอนผ่า (`ad_fruit.py`) กระป๋องตาม blueprint 330 ml มีฝา ห่วงดึง หยดน้ำเกาะด้วย Geometry Nodes (`ad_can.py`) สายน้ำส้ม ไอ CO2 น้ำแข็ง ช็อตผ่าผล มาโครหยดน้ำ เปิดฝามุมบน ลอยไร้แรงโน้มถ่วง และ hero พรีวิวด้วย EEVEE ตัวจริงด้วย Cycles
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
@@ -208,6 +214,8 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 | วิธีลดเสียงเพลงตอนพูด | ลดตามเวลาซับ ชนะ sidechain compressor ในการฟังเทียบ |
 | ระดับเพลงที่ได้ยินใต้เสียงพูด | ต่ำกว่า 20 dB ไม่ได้ยิน, 10-15 dB ได้ยิน |
 | ตัวหาช่วงเด็ด | "พอใช้ได้" |
+| โฆษณา 3D v1 (ผลไม้เป็นภาพแบน กระป๋องเรียบ) | ผ่านรอบแรก ขอของสมจริงและแอนิเมชันเพิ่ม |
+| โฆษณา 3D v2-v4 (ผ่ายูซุ เปิดฝา กระป๋องตาม blueprint หยดน้ำเกาะ) | v4 คือเดโมด้านล่าง |
 
 ### เดโม
 
@@ -216,8 +224,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - [`demos/pompeii_demo.mp4`](demos/pompeii_demo.mp4): ปอมเปอี ร่างที่หยุดเวลา (85 วินาที)
 - [`demos/roro_jonggrang_demo.mp4`](demos/roro_jonggrang_demo.mp4): ตำนาน Roro Jonggrang (81 วินาที)
 - [`demos/ayutthaya_demo.mp4`](demos/ayutthaya_demo.mp4): เศียรพระในรากไม้ วัดมหาธาตุ อยุธยา (137 วินาที พากย์ไทยด้วยเสียง AI)
+- [`demos/luma_v4_demo.mp4`](demos/luma_v4_demo.mp4): โฆษณา 3D เครื่องดื่มสมมติ LUMA Yuzu (17 วินาที 9:16) ผ่ายูซุแล้วกระป๋องโผล่ มาโครหยดน้ำ เปิดฝามุมบน ลอยกับน้ำแข็ง และ hero
 
-เครดิตภาพ ฟุตเทจ เสียง และเพลงทั้งหมดอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md) วิดีโอเดโมเผยแพร่ภายใต้ CC BY-SA 4.0 ตามเงื่อนไขของภาพต้นฉบับ
+เครดิตภาพ ฟุตเทจ เสียง และเพลงทั้งหมดอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md) เดโมแอนิเมชันเผยแพร่ภายใต้ CC BY-SA 4.0 ตามเงื่อนไขของภาพต้นฉบับ ส่วนเดโม LUMA ใช้ CC BY 4.0
 
 ### ข้อจำกัด
 

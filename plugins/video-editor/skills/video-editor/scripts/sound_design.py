@@ -20,9 +20,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from edit_plan import build_timeline
 import make_sfx
 
-LEVEL = {"whoosh": -13, "swish": -20, "pop": -17, "riser": -13, "impact": -9, "hit": -11, "chime": -15}   # RMS vs speech
-PEAK = {"whoosh": 0.30, "swish": 0.11, "pop": 0.0, "riser": 1.6, "impact": 0.0, "hit": 0.0, "chime": 0.0}  # s from file start to its hit
-RANK = ["impact", "riser", "hit", "whoosh", "chime", "pop", "swish"]
+LEVEL = {"clink": -15, "slash": -12, "splash": -9, "fizz": -10, "whoosh": -13, "swish": -20, "pop": -17, "riser": -13, "impact": -9, "hit": -11, "chime": -15}   # RMS vs speech
+PEAK = {"clink": 0.0, "slash": 0.18, "splash": 0.02, "fizz": 0.0, "whoosh": 0.30, "swish": 0.11, "pop": 0.0, "riser": 1.6, "impact": 0.0, "hit": 0.0, "chime": 0.0}  # s from file start to its hit
+RANK = ["splash", "slash", "fizz", "clink", "impact", "riser", "hit", "whoosh", "chime", "pop", "swish"]
 
 
 def events(plan):

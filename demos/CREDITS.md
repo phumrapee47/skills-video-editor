@@ -57,3 +57,10 @@ Captions and on-screen labels were written for this project; sound effects are r
 - wind and rumble (sound): the same recordings as in the Pompeii demo (Tvabutzku1234, CC0; DaveInCamas, CC BY 3.0)
 - music: "Lost Time", "Ishikari Lore", "Crusade", "Heartbreaking", "Dreamer" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0, http://creativecommons.org/licenses/by/4.0/
 - narration: AI voice, ElevenLabs v4 stock voice "Ohm", generated through Creative Claw; other sound effects synthesized with numpy
+
+## LUMA v4 demo (3D product ad)
+`luma_v4_demo.mp4` is released under **CC BY 4.0**. LUMA is a made-up brand created for this test; the can label was
+drawn for this project. Every 3D object (can, yuzu, juice, ice, condensation) is built and rendered by the skill's
+Blender scripts (`blender_product_ad.py`, `ad_can.py`, `ad_fruit.py`); reflections use Blender's bundled `studio.exr`
+(CC0). Sound effects are synthesised with numpy (`make_sfx.py`).
+- Music: "Happy Alley" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License, https://creativecommons.org/licenses/by/4.0/

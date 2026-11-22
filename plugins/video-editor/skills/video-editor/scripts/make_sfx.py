@@ -83,8 +83,52 @@ def chime(rng, dur=0.8):
     x *= np.minimum(1, t / 0.004); return stereo(x, -0.2, 0.2)
 
 
+def fizz(rng, dur=1.1):
+    """A can opening: a click, a hiss that falls away, a few bubbles."""
+    n = int(dur * SR); t = np.arange(n) / SR
+    hiss = bandsweep(rng.standard_normal(n), 3500, 9000, 0.5, 0.02) * np.exp(-t * 3.2) * 0.9
+    click = np.zeros(n); click[:int(0.004 * SR)] = rng.standard_normal(int(0.004 * SR)) * 1.5
+    pops = np.zeros(n)
+    for _ in range(40):
+        i = int(rng.uniform(0.05, dur * 0.9) * SR); f = rng.uniform(1800, 4200); m = int(0.012 * SR)
+        if i + m < n: pops[i:i + m] += np.sin(2 * np.pi * f * np.arange(m) / SR) * np.exp(-np.arange(m) / (0.003 * SR)) * rng.uniform(0.05, 0.25)
+    return stereo(hiss + click + pops, -0.1, 0.1)
+
+
+def slash(rng, dur=0.32):
+    """A blade cutting the air: a fast bright sweep and a thin metallic ring (the light-blade cut in a 3D ad)."""
+    n = int(dur * SR); t = np.arange(n) / SR
+    air = bandsweep(rng.standard_normal(n), 1500, 9000, 0.35, 0.55) * np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 3
+    ring = sum(a * np.sin(2 * np.pi * f * t) for f, a in ((3520, 0.25), (5230, 0.15))) * np.exp(-np.maximum(t - dur * 0.55, 0) * 18) * (t > dur * 0.55)
+    return stereo(air + ring, -0.7, 0.5)
+
+
+def splash(rng, dur=1.3):
+    """Juice bursting out of cut fruit: a soft wet thump, a spray of noise, then droplets falling (bright blips that
+    drop in pitch and thin out)."""
+    n = int(dur * SR); t = np.arange(n) / SR
+    thump = np.sin(2 * np.pi * np.cumsum(120 * np.exp(-t * 18) + 55) / SR) * np.exp(-t * 14) * 0.8
+    spray = bandsweep(rng.standard_normal(n), 600, 7000, 0.7, 0.05) * np.exp(-t * 4.5) * 0.7
+    drops = np.zeros(n)
+    for _ in range(70):
+        s = rng.uniform(0.03, dur * 0.85); i = int(s * SR); m = int(0.03 * SR)
+        if i + m >= n: continue
+        f0 = rng.uniform(900, 2600); tt = np.arange(m) / SR
+        drops[i:i + m] += np.sin(2 * np.pi * np.cumsum(f0 * (1 + 2.5 * np.exp(-tt * 120))) / SR) * np.exp(-tt * 140) * rng.uniform(0.1, 0.4) * np.exp(-s * 1.8)
+    return stereo(np.tanh(1.3 * (thump + spray + drops)), 0.3, -0.3)
+
+
+def clink(rng, dur=0.6):
+    """Ice touching ice or glass: a bright inharmonic ping with a fast tick on the attack."""
+    n = int(dur * SR); t = np.arange(n) / SR; x = np.zeros(n)
+    for f, a, d in ((2950, 1.0, 9.0), (4710, 0.6, 12.0), (6380, 0.35, 16.0), (8120, 0.2, 22.0)):
+        x += a * np.sin(2 * np.pi * f * rng.uniform(0.98, 1.02) * t) * np.exp(-t * d)
+    tick = np.zeros(n); m = int(0.003 * SR); tick[:m] = rng.standard_normal(m) * 0.8
+    return stereo(x * np.minimum(1, t / 0.0015) + tick, 0.2, 0.1)
+
+
 KIT = {"whoosh": lambda r: whoosh(r), "swish": lambda r: whoosh(r, 0.28, 900, 6000, 0.4, (0.4, -0.4)), "pop": pop,
-       "riser": riser, "impact": impact, "hit": hit, "chime": chime}
+       "riser": riser, "impact": impact, "hit": hit, "chime": chime, "fizz": fizz, "slash": slash, "splash": splash, "clink": clink}
 
 
 def write(path, x):

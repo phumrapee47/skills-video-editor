@@ -32,7 +32,7 @@ AMB = {"water": ["waves", "waterfall", "river"], "green": ["birds", "forest", "w
        "other": ["cafe", "city"], "indoor": ["cafe", "indoor"]}             # first type preferred; a night city wants city, not crickets
 
 
-SCENE = {"cafe": "indoor", "indoor": "indoor", "beach": "water", "water": "water", "nature": "green", "city": "city", "night": "night"}
+SCENE = {"product": "other", "cafe": "indoor", "indoor": "indoor", "beach": "water", "water": "water", "nature": "green", "city": "city", "night": "night"}
 
 
 def clip_audio(src, a, b):

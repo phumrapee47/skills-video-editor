@@ -15,7 +15,7 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("plan"); ap.add_argument("--top", type=int, default=4); ap.add_argument("--seconds", type=float, default=20)
-    ap.add_argument("--start", type=float, default=0); ap.add_argument("--by-picture", action="store_true"); ap.add_argument("--words"); ap.add_argument("--library")
+    ap.add_argument("--start", type=float, default=0); ap.add_argument("--by-picture", action="store_true"); ap.add_argument("--brief"); ap.add_argument("--words"); ap.add_argument("--library")
     a = ap.parse_args()
     import music_mood, sound_library
     from fonts import font
@@ -23,7 +23,10 @@ if __name__ == "__main__":
     lib = pathlib.Path(a.library) if a.library else sound_library.library_dir()
     tracks = json.load(open(lib / "library.json", encoding="utf-8"))["tracks"]
     tracks = [t for t in tracks if (lib / t["file"]).exists()]
-    if a.by_picture or not a.words:
+    if a.brief:
+        tg = dict(music_mood.BRIEFS[a.brief]); tg["recent"] = music_mood.recent(lib); ranked = sorted(tracks, key=lambda t: -music_mood.picture_score(t, tg))
+        print(f"mood brief: {a.brief}")
+    elif a.by_picture or not a.words:
         tg = music_mood.picture_target(plan, pp.parent); ranked = sorted(tracks, key=lambda t: -music_mood.picture_score(t, tg))
         print(f"picture: {tg['scene']}, median shot {tg['pace']} s")
     else:

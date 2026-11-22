@@ -1,0 +1,401 @@
+"""3D product ad shots in Blender, headless: a can (or bottle) wrapped in the product's label image, a studio set in
+the product's colour, floating flavour pieces, and the shot types of the 3D-ad study (references/ad-3d.md).
+
+Run:  blender -b -P blender_product_ad.py -- --label label.png [--alt a.png b.png] [--slice slice.png]
+        --set "#FFB81C" "#FF7A1E" --out shots_dir [--size 1080x1920] [--fps 30] [--shots reveal hero macro burst trio]
+        [--still [--frame N]] [--samples 24] [--shape can|bottle] [--fruit yuzu|orange|lemon|lime|grapefruit]
+Writes <out>/<shot>/####.png per shot (or one still per shot with --still to check the look first).
+--fruit builds the flavour as real 3D fruit (ad_fruit.py: pored peel, cut faces, juice) instead of --slice pictures.
+Shots: split (the fruit is slashed, halves fly apart in a speed ramp, juice sprays, the can rises out of the middle),
+reveal (falls in spinning, pieces fly past the lens), hero (slow turn, light sweep), macro (slide along the
+label, shallow focus), burst (pieces explode outward), trio (three flavours slide in, slow orbit).
+Use only the user's own product and label art.
+"""
+import math, sys, os, argparse
+import bpy
+from mathutils import Vector
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ad_fruit as AF
+import ad_can as AC
+
+argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+ap = argparse.ArgumentParser()
+ap.add_argument("--label", required=True); ap.add_argument("--alt", nargs="*", default=[]); ap.add_argument("--slice")
+ap.add_argument("--set", nargs=2, default=["#FFB81C", "#FF7A1E"]); ap.add_argument("--out", required=True)
+ap.add_argument("--size", default="1080x1920"); ap.add_argument("--fps", type=int, default=30)
+ap.add_argument("--shots", nargs="*", default=["reveal", "hero", "macro", "burst", "trio"]); ap.add_argument("--still", action="store_true")
+ap.add_argument("--samples", type=int, default=24); ap.add_argument("--shape", default="can")
+ap.add_argument("--fruit", help="real 3D ingredient instead of flat slice pictures: yuzu|orange|lemon|lime|grapefruit")
+ap.add_argument("--frame", type=int, help="with --still: which frame to check")
+ap.add_argument("--label-front", type=float, default=0.5, help="where the logo is across the label image (0-1); a label with the logo twice: 0.25")
+ap.add_argument("--cold", action="store_true", help="condensation beads on the can (Geometry Nodes)")
+ap.add_argument("--engine", default="eevee", choices=["eevee", "cycles"], help="cycles: GPU path tracing + denoise for the final render")
+ap.add_argument("--device", default="auto", choices=["auto", "cuda", "optix", "cpu"], help="cycles device (auto = CUDA/HIP/Metal, OptiX last)")
+ap.add_argument("--view", default="neutral", choices=["neutral", "agx"], help="neutral = Khronos PBR Neutral (true label colours); agx = AgX Medium High Contrast")
+a = ap.parse_args(argv)
+a.label = os.path.abspath(a.label); a.alt = [os.path.abspath(x) for x in a.alt]; a.out = os.path.abspath(a.out)
+if a.slice: a.slice = os.path.abspath(a.slice)
+AC.CYCLES = a.engine == "cycles"
+LEN = {"open": 75, "toppop": 75, "drops": 72, "zerog": 96, "hero_low": 90, "split": 120, "reveal": 75, "hero": 105, "macro": 75, "burst": 75, "trio": 96}
+
+
+def hexrgb(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def lin(c): return tuple(((x + 0.055) / 1.055) ** 2.4 if x > 0.04045 else x / 12.92 for x in c)
+
+
+def reset():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    sc = bpy.context.scene; W, H = map(int, a.size.split("x"))
+    for eng in ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"):
+        try: sc.render.engine = eng; break
+        except TypeError: continue
+    sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = a.fps
+    sc.render.image_settings.file_format = "PNG"; sc.render.film_transparent = False
+    ee = sc.eevee
+    for attr, val in (("taa_render_samples", a.samples), ("use_raytracing", True), ("use_shadows", True), ("use_gtao", True)):
+        try: setattr(ee, attr, val)
+        except Exception: pass
+    try: sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.35
+    except Exception: pass
+    if a.view == "agx":                                                    # the guide's look; can wash out a flat label
+        sc.view_settings.view_transform = "AgX"
+        for lk in ("AgX - Medium High Contrast", "Medium High Contrast"):
+            try: sc.view_settings.look = lk; break
+            except Exception: continue
+    else:
+        for vt in ("Khronos PBR Neutral", "Standard"):                   # keeps the product's own colours (AgX washed them out)
+            try: sc.view_settings.view_transform = vt; break
+            except Exception: continue
+    if a.engine == "cycles":                                               # final quality: GPU path tracing + denoise
+        sc.render.engine = "CYCLES"; cy = sc.cycles
+        try:
+            pr = bpy.context.preferences.addons["cycles"].preferences
+            order = {"auto": ("CUDA", "HIP", "METAL", "ONEAPI", "OPTIX"), "optix": ("OPTIX",), "cuda": ("CUDA",), "cpu": ()}[a.device]
+            for dev in order:                                              # CUDA first: OptiX kernels fail on some drivers
+                try: pr.compute_device_type = dev; pr.get_devices(); break
+                except Exception: continue
+            gpus = [d for d in pr.devices if d.type != "CPU"] if order else []
+            for d in pr.devices: d.use = (d.type != "CPU") if gpus else True
+            cy.device = "GPU" if gpus else "CPU"
+        except Exception: cy.device = "CPU"
+        cy.samples = a.samples; cy.use_denoising = True
+        try: cy.denoiser = "OPENIMAGEDENOISE"
+        except Exception: pass
+        cy.max_bounces = 12; cy.transmission_bounces = 12; cy.volume_bounces = 2; cy.caustics_reflective = False
+        print("CYCLES device", cy.device)
+    return sc
+
+
+def mat(name, color=(1, 1, 1), metal=0.0, rough=0.4, image=None, alpha=False, emit=0.0):
+    m = bpy.data.materials.new(name); m.use_nodes = True; nt = m.node_tree; b = nt.nodes["Principled BSDF"]
+    b.inputs["Base Color"].default_value = (*color, 1); b.inputs["Metallic"].default_value = metal; b.inputs["Roughness"].default_value = rough
+    if image:
+        tx = nt.nodes.new("ShaderNodeTexImage"); tx.image = bpy.data.images.load(image); nt.links.new(tx.outputs["Color"], b.inputs["Base Color"])
+        if alpha:
+            nt.links.new(tx.outputs["Alpha"], b.inputs["Alpha"])
+            try: m.surface_render_method = "BLENDED"
+            except Exception: m.blend_method = "BLEND"
+    if emit:
+        try: b.inputs["Emission Strength"].default_value = emit; b.inputs["Emission Color"].default_value = (*color, 1)
+        except Exception: pass
+    return m
+
+
+def can(label, x=0.0, name="can"):
+    """The can of ad_can.py (blueprint profile, real lid and tab), label wrapped on the printed area, wet with --cold."""
+    me = AC.body_mesh(name, front=a.label_front); body = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(body)
+    body.location = (x, 0, 0.6)
+    m_label = mat(name + "_label", image=label, metal=0.35, rough=0.26)
+    try: m_label.node_tree.nodes["Principled BSDF"].inputs["Coat Weight"].default_value = 0.35        # varnish over the print
+    except Exception: pass
+    m_metal = AC.aluminium(name + "_metal"); me.materials.append(m_label); me.materials.append(m_metal)
+    AC.lid_parts(body, m_metal, name)
+    if a.cold: AC.condensation(body, m_label, seed=len(bpy.data.objects))
+    bpy.context.view_layer.objects.active = body
+    return body
+
+
+def co2_puff(loc, f0, n_end, rise=0.35):
+    """The CO2 mist that escapes when a can or bottle opens: a volume blob with wispy noise density that bursts, rises,
+    spreads and fades."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=1, location=loc); v = bpy.context.object; v.name = "co2"
+    m = bpy.data.materials.new("co2"); m.use_nodes = True; nt = m.node_tree; N = nt.nodes; L = nt.links
+    for nd in list(N):
+        if nd.type == "BSDF_PRINCIPLED": N.remove(nd)
+    out = N["Material Output"]; vol = N.new("ShaderNodeVolumePrincipled"); vol.inputs["Color"].default_value = (1, 1, 1, 1); vol.inputs["Anisotropy"].default_value = 0.4   # glows when backlit
+    tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (1.0, 1.0, 0.35)   # stretched upward: wisps
+    tex = N.new("ShaderNodeTexNoise"); tex.inputs["Scale"].default_value = 3.2; tex.inputs["Detail"].default_value = 10
+    _ = (L.new(tc.outputs["Object"], mp.inputs["Vector"]), L.new(mp.outputs["Vector"], tex.inputs["Vector"]))
+    edge = N.new("ShaderNodeTexGradient"); edge.gradient_type = "SPHERICAL"; L.new(tc.outputs["Object"], edge.inputs["Vector"])
+    ramp = N.new("ShaderNodeMapRange"); ramp.inputs["From Min"].default_value = 0.5; ramp.inputs["From Max"].default_value = 0.78
+    mul = N.new("ShaderNodeMath"); mul.operation = "MULTIPLY"
+    soft = N.new("ShaderNodeMath"); soft.operation = "MULTIPLY"                       # fade to nothing at the edge: no ball outline
+    L.new(tex.outputs["Fac"], ramp.inputs["Value"]); L.new(ramp.outputs["Result"], soft.inputs[0]); L.new(edge.outputs["Fac"], soft.inputs[1])
+    L.new(soft.outputs[0], mul.inputs[0]); L.new(mul.outputs[0], vol.inputs["Density"])
+    L.new(vol.outputs["Volume"], out.inputs["Volume"]); v.data.materials.append(m)
+    dens = mul.inputs[1]
+    for fr, d in ((1, 0), (f0, 0), (f0 + 3, 40), (f0 + 14, 16), (min(f0 + 34, n_end), 0)):
+        dens.default_value = d; dens.keyframe_insert("default_value", frame=fr)
+    x, y, z = loc
+    key(v, 1, scale=(0.01,) * 3, location=loc); key(v, f0, scale=(0.02,) * 3, location=loc)
+    key(v, f0 + 6, scale=(0.05, 0.05, 0.08), location=(x, y, z + rise * 0.25)); key(v, n_end, scale=(0.11, 0.11, 0.17), location=(x, y, z + rise))
+    return v
+
+
+def studio(c1, c2):
+    sc = bpy.context.scene; w = bpy.data.worlds.new("w"); sc.world = w; w.use_nodes = True
+    bg = w.node_tree.nodes["Background"]; bg.inputs["Color"].default_value = (*lin(c2), 1); bg.inputs["Strength"].default_value = 0.35
+    hdri = os.path.join(bpy.utils.system_resource("DATAFILES"), "studiolights", "world", "studio.exr")   # ships with Blender (CC0)
+    if os.path.exists(hdri):                                               # metal and water reflect a studio, not the set colour
+        env = w.node_tree.nodes.new("ShaderNodeTexEnvironment"); env.image = bpy.data.images.load(hdri)
+        b2 = w.node_tree.nodes.new("ShaderNodeBackground"); b2.inputs["Color"].default_value = (*lin(c2), 1); b2.inputs["Strength"].default_value = 0.28
+        w.node_tree.links.new(env.outputs["Color"], bg.inputs["Color"]); bg.inputs["Strength"].default_value = 0.4
+        add = w.node_tree.nodes.new("ShaderNodeAddShader"); w.node_tree.links.new(bg.outputs[0], add.inputs[0]); w.node_tree.links.new(b2.outputs[0], add.inputs[1])
+        w.node_tree.links.new(add.outputs[0], w.node_tree.nodes["World Output"].inputs["Surface"])        # neutral reflections + the set's warm fill
+    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0)); floor = bpy.context.object
+    floor.data.materials.append(mat("floor", lin(c1), 0.0, 0.22))
+    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 9, 10), rotation=(math.radians(90), 0, 0)); wall = bpy.context.object
+    wall.data.materials.append(mat("wall", lin(c2), 0.0, 0.6))
+    def area(name, loc, energy, size, color=(1, 1, 1)):
+        bpy.ops.object.light_add(type="AREA", location=loc); L = bpy.context.object; L.name = name; L.data.energy = energy; L.data.size = size; L.data.color = color
+        d = Vector((0, 0, 0.6)) - L.location; L.rotation_euler = d.to_track_quat("-Z", "Y").to_euler(); return L
+    area("key", (2.6, -3.2, 3.2), 380, 3.0)
+    area("rimL", (-2.8, 1.6, 2.2), 700, 0.6, (1.0, 0.95, 0.85)); area("rimR", (2.8, 1.8, 2.0), 520, 0.6, (1.0, 0.9, 0.8))
+    sweep = area("sweep", (-3.0, -2.0, 1.2), 0, 0.25)                     # animated light sweep across the label
+    return sweep
+
+
+def slices(n, img, seed=3, spread=1.6):
+    import random; random.seed(seed); out = []
+    m = mat("slice", image=img, alpha=True, rough=0.35)
+    for k in range(n):
+        bpy.ops.mesh.primitive_plane_add(size=0.42, location=(random.uniform(-spread, spread), random.uniform(-2.2, 0.8), random.uniform(0.1, 1.6)))
+        s = bpy.context.object; s.data.materials.append(m)
+        s.rotation_euler = (random.uniform(0, 3), random.uniform(0, 3), random.uniform(0, 3)); out.append(s)
+    return out
+
+
+def pieces3d(n, kind, seed=3, spread=1.6, R=0.2):
+    """Real 3D flavour pieces: wheels, halves and whole fruit (shared meshes), scattered like slices() does."""
+    import random; random.seed(seed); out = []
+    kinds = [("wheel", ("wheel", 0.16)), ("half", "top"), ("whole", None)]
+    meshes = {}
+    for nm, keep in kinds:
+        ob = AF.fruit(kind, R if nm != "whole" else R * 0.8, keep, name="piece_" + nm, with_stem=False)
+        meshes[nm] = ob.data; bpy.data.objects.remove(ob)
+    for k in range(n):
+        nm = ("wheel", "wheel", "half", "whole")[k % 4]
+        ob = bpy.data.objects.new(f"piece{k}", meshes[nm]); bpy.context.scene.collection.objects.link(ob)
+        ob.location = (random.uniform(-spread, spread), random.uniform(-2.2, 0.8), random.uniform(0.1, 1.6))
+        ob.rotation_euler = (random.uniform(0, 3), random.uniform(0, 3), random.uniform(0, 3)); out.append(ob)
+    return out
+
+
+def light_blade(f0, z0=2.3, z1=-0.2, x=0.0, y=-1.1):
+    """A thin glowing line that slashes down through the fruit just before it splits (the 'cut')."""
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z0)); b = bpy.context.object; b.name = "blade"
+    b.data.materials.append(mat("blade", (1, 0.98, 0.9), emit=40.0))
+    key(b, f0 - 5, location=(x, y, z0), scale=(0.0, 0.0, 0.0)); key(b, f0 - 2, location=(x, y, (z0 + z1) / 2), scale=(0.012, 0.012, z0 - z1))
+    key(b, f0 + 1, location=(x, y, z1), scale=(0.0, 0.0, 0.0))
+    return b
+
+
+def open_shot(n, F=22, view="45"):
+    """What the product DOES: the can opens. The tab tenses, snaps up, its nose pushes the flap in, CO2 mist bursts out
+    of the hole and a fine spray jumps; the camera keeps moving. view "45" = macro over the lid at 45 deg; "top" = the
+    guide's Top Pop, straight down on the lid. Sound: fizz at frame F."""
+    body = can(a.label); body.rotation_euler.z = math.radians(90)          # opening and label front toward the lens
+    nm = body.name; tp, fp = bpy.data.objects[nm + "_tabpivot"], bpy.data.objects[nm + "_flappivot"]
+    for fr, ang in ((1, 0), (F - 8, -10), (F, -78), (F + 6, -62), (n, -58)): key(tp, fr, rotation_euler=(0, math.radians(ang), 0))
+    for fr, ang in ((1, 0), (F - 2, 0), (F + 2, -58), (n, -60)): key(fp, fr, rotation_euler=(0, math.radians(ang), 0))
+    if view == "top": key(body, 1, rotation_euler=(0, 0, math.radians(60))); key(body, n, rotation_euler=(0, 0, math.radians(100)))
+    else: key(body, 1, rotation_euler=(0, 0, math.radians(80))); key(body, n, rotation_euler=(0, 0, math.radians(97)))
+    lz = 0.6 + AC.LIDZ; hole = (0.0, AC.OPEN_X, lz + 0.01)                 # where the hole is when it opens (rotation ~90 deg)
+    co2_puff(hole, F, n)
+    AF.splash(a.fruit or "yuzu", hole, F, n, AF.ramp(F, fast=4, slow=0.4), n=26, seed=8, axis="z", speed=0.45, g=5.0, size=0.16, disc=0.03)
+    bpy.ops.object.light_add(type="AREA", location=(0, -0.6, 3.2)); sb = bpy.context.object; sb.data.size = 3.5; sb.data.energy = 420
+    sb.rotation_euler = (math.radians(-12), 0, 0)                          # white softbox: aluminium reads silver, not set-coloured
+    if view == "top":
+        sb.location = (1.6, -0.2, lz + 1.2); sb.data.energy = 110; sb.rotation_euler = (0, math.radians(55), 0)   # low side softbox: a gradient, not a white lid
+        bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, lz + 2.6)); fl = bpy.context.object      # black flag overhead: a flat lid
+        fl.data.materials.append(mat("flag", (0.02, 0.02, 0.02), 0.0, 0.9))                              # mirrors whatever is above it (Cycles)
+        for nd in bpy.context.scene.world.node_tree.nodes:                 # a flat lid seen from above mirrors the world overhead:
+            if nd.type == "BACKGROUND" and not nd.inputs["Color"].is_linked: nd.inputs["Strength"].default_value = 0.04   # the warm fill turns a flat lid brown
+        cam = camera((0, -0.06, lz + 1.5), (0, -0.05, lz), 50, fstop=4.0)
+        key(cam, 1, location=(0, -0.06, lz + 1.6)); key(cam, n, location=(0, -0.05, lz + 1.25))
+    else:
+        cam = camera((0, -1.3, lz + 0.55), (0, -0.04, lz - 0.01), 55, fstop=3.2)
+        key(cam, 1, location=(0.12, -1.35, lz + 0.57)); key(cam, n, location=(-0.05, -1.05, lz + 0.41))
+    try: bpy.context.scene.eevee.volumetric_tile_size = "4"                 # finer mist
+    except Exception: pass
+
+
+def drops_shot(n):
+    """Guide shot 1 (Macro): 85 mm, shallow focus, the camera rises slowly along the cold, wet label; the beads catch the
+    studio lights and one bead lets go and runs down."""
+    cold = a.cold; a.cold = True
+    body = can(a.label); body.rotation_euler.z = math.radians(90); a.cold = cold
+    AC.run_drop(body, 18, n - 5, 0.32, -0.22, math.pi)
+    key(body, 1, rotation_euler=(0, 0, math.radians(84))); key(body, n, rotation_euler=(0, 0, math.radians(96)))
+    cam = camera((0.0, -1.55, 0.45), (0, -0.33, 0.55), 85, focus=1.22, fstop=1.6)
+    key(cam, 1, location=(0.06, -1.55, 0.38)); key(cam, n, location=(-0.04, -1.5, 0.86))
+    tgt = bpy.data.objects["CamTarget"]; key(tgt, 1, location=(0, -0.33, 0.42)); key(tgt, n, location=(0, -0.33, 0.9))
+
+
+def zerog_shot(n):
+    """Guide shot 3 (Zero-G): the can floats turning slowly, ice cubes and the flavour drift around it without gravity,
+    70 mm dolly in."""
+    import random; rnd = random.Random(5); zc = 1.05
+    body = can(a.label); body.location = (0, 0, zc)
+    key(body, 1, rotation_euler=(math.radians(8), math.radians(-6), math.radians(40)), location=(0, 0, zc - 0.04))
+    key(body, n, rotation_euler=(math.radians(-6), math.radians(5), math.radians(110)), location=(0, 0, zc + 0.05))
+    for k in range(10):
+        ang = rnd.uniform(0, 2 * math.pi); rr = rnd.uniform(0.62, 1.15); h = rnd.uniform(-0.75, 0.8)
+        p0 = Vector((math.cos(ang) * rr, math.sin(ang) * rr * 0.8, zc + h))
+        if k < 7 or not a.fruit: ob = AC.ice_cube(f"ice{k}", rnd.uniform(0.14, 0.24), k)
+        else: ob = AF.fruit(a.fruit, 0.15, ("wheel", 0.16) if k % 2 else "top", name=f"fl{k}", with_stem=False)
+        drift = Vector((rnd.uniform(-0.08, 0.08), rnd.uniform(-0.08, 0.08), rnd.uniform(0.04, 0.14)))
+        r0 = Vector((rnd.uniform(0, 3), rnd.uniform(0, 3), rnd.uniform(0, 3)))
+        key(ob, 1, location=p0, rotation_euler=r0); key(ob, n, location=p0 + drift, rotation_euler=r0 + Vector((0.6, 0.4, 0.5)))
+    cam = camera((0, -6.6, zc + 0.05), (0, 0, zc), 70, focus=6.4, fstop=3.5)
+    key(cam, 1, location=(0.15, -6.8, zc + 0.12)); key(cam, n, location=(-0.05, -5.4, zc))
+
+
+def hero_low_shot(n):
+    """Guide shot 4 (Hero): 85 mm from slightly below, the can settles still in the centre with the logo to the lens and
+    empty space above for the line."""
+    body = can(a.label)
+    key(body, 1, location=(0, 0, 0.95), rotation_euler=(0, 0, math.radians(20)))
+    key(body, int(n * 0.55), location=(0, 0, 0.6), rotation_euler=(0, 0, math.radians(86)))
+    key(body, n, location=(0, 0, 0.6), rotation_euler=(0, 0, math.radians(90)))
+    cam = camera((0, -6.2, 0.32), (0, 0, 0.95), 85, focus=6.2, fstop=4.0)
+    key(cam, 1, location=(0.1, -6.5, 0.3)); key(cam, n, location=(0, -5.9, 0.34))
+
+
+def split_shot(n):
+    """The hero concept: a real fruit turns in the light, a light blade slashes it, the halves fly apart in a speed ramp,
+    juice sprays out in strands and drops, and the can rises spinning out of the middle of the fruit."""
+    kind = a.fruit or "yuzu"; R = 0.95; zc = 1.0; F = 30
+    rig = bpy.data.objects.new("FruitRig", None); bpy.context.scene.collection.objects.link(rig); rig.location = (0, 0, zc)
+    halves = []
+    for keep in ("top", "bottom"):
+        h = AF.fruit(kind, R, keep, name="half_" + keep); h.parent = rig; h.rotation_euler = (0, math.radians(90), 0); halves.append(h)
+    key(rig, 1, rotation_euler=(0.15, 0, math.radians(-35)), location=(0, 0, zc - 0.05)); key(rig, F, rotation_euler=(0, 0, 0), location=(0, 0, zc + 0.04))
+    w = AF.ramp(F, fast=5, slow=0.3)
+    body = can(a.label); body.location = (0, 0, zc)
+    for fr in range(F - 1, n + 1, 1):
+        s = w(fr); o = 1 - math.exp(-s * 5)
+        for h, sg in zip(halves, (1, -1)):
+            key(h, fr, location=(sg * (0.0005 + 1.05 * o), 0.25 * o, -0.12 * o), rotation_euler=(0, math.radians(90), sg * math.radians(70) * (1 - math.exp(-s * 4))))
+        g = 0.001 if fr < F else 0.15 + 0.85 * (1 - math.exp(-s * 4.5))
+        key(body, fr, scale=(g, g, g), rotation_euler=(0, 0, math.radians(90) - math.radians(600) * math.exp(-s * 3.2)))
+    key(body, 1, scale=(0.001,) * 3)
+    light_blade(F)
+    AF.splash(kind, (0, 0, zc), F, n, w, n=56, seed=11, axis="x", speed=1.25, size=1.35, disc=R * 0.8)
+    cam = camera((0, -4.6, 1.05), (0, 0, zc), 40, focus=4.4, fstop=4.0)
+    key(cam, 1, location=(0.2, -4.4, 1.1)); key(cam, F, location=(0, -4.0, 1.05)); key(cam, F + 12, location=(0, -4.6, 1.0)); key(cam, n, location=(0, -3.7, 0.95))
+
+
+def camera(loc, look, lens=50, focus=None, fstop=2.0):
+    cam = bpy.data.objects.get("Cam")
+    if not cam:
+        bpy.ops.object.camera_add(); cam = bpy.context.object; cam.name = "Cam"; bpy.context.scene.camera = cam
+    cam.location = loc; cam.data.lens = lens
+    d = Vector(look) - Vector(loc)
+    tgt = bpy.data.objects.get("CamTarget")
+    if not tgt:
+        tgt = bpy.data.objects.new("CamTarget", None); bpy.context.scene.collection.objects.link(tgt)
+        con = cam.constraints.new("TRACK_TO"); con.target = tgt; con.track_axis = "TRACK_NEGATIVE_Z"; con.up_axis = "UP_Y"   # stays aimed while it moves
+    tgt.location = look
+    cam.data.dof.use_dof = True; cam.data.dof.aperture_fstop = fstop; cam.data.dof.focus_distance = focus or d.length
+    return cam
+
+
+def key(obj, frame, **kw):
+    for k, v in kw.items(): setattr(obj, k, v); obj.keyframe_insert(k, frame=frame)
+
+
+def ease_all():
+    for ob in bpy.data.objects:
+        ad = ob.animation_data
+        if not ad or not ad.action: continue
+        fcs = getattr(ad.action, "fcurves", None)
+        if fcs is None:                                                    # Blender 5 layered actions
+            try: fcs = [fc for layer in ad.action.layers for strip in layer.strips for cb in strip.channelbags for fc in cb.fcurves]
+            except Exception: fcs = []
+        for fc in fcs:
+            for kp in fc.keyframe_points: kp.interpolation = "BEZIER"; kp.easing = "AUTO"
+
+
+def build(shot):
+    sc = reset(); c1, c2 = hexrgb(a.set[0]), hexrgb(a.set[1]); sweep = studio(c1, c2); n = LEN[shot]
+    sc.frame_start, sc.frame_end = 1, n
+    if shot == "split":
+        split_shot(n)
+    elif shot == "open":
+        open_shot(n)
+    elif shot == "toppop":
+        open_shot(n, view="top")
+    elif shot == "drops":
+        drops_shot(n)
+    elif shot == "zerog":
+        zerog_shot(n)
+    elif shot == "hero_low":
+        hero_low_shot(n)
+    elif shot == "trio":
+        labels = [a.label] + (a.alt + [a.label, a.label])[:2]
+        cans = [can(labels[1], -0.5, "left"), can(labels[0], 0.0, "mid"), can(labels[2], 0.5, "right")]
+        spots = [(-0.5, 0.55), (0.0, -0.05), (0.5, 0.55)]                   # a V: fits a vertical frame, the hero flavour in front
+        for i, c in enumerate(cans):
+            x, y = spots[i]
+            key(c, 1, location=(x + (-3 if i == 0 else 3 if i == 2 else 0), y, 0.6 + (2.5 if i == 1 else 0)))
+            key(c, 30 + i * 6, location=(x, y, 0.6))
+            c.rotation_euler.z = math.radians(-30 + i * 30); key(c, n, rotation_euler=(0, 0, math.radians(-20 + i * 30)))
+        cam = camera((0, -4.4, 1.1), (0, 0.2, 0.62), 40, fstop=5)
+        key(cam, 1, location=(-0.4, -4.6, 1.2)); key(cam, n, location=(0.4, -4.2, 1.05))
+    else:
+        body = can(a.label)
+        cnt = 10 if shot in ("reveal", "burst") else 6
+        pieces = pieces3d(cnt, a.fruit) if a.fruit else slices(cnt, a.slice) if a.slice else []
+        if shot == "reveal":
+            key(body, 1, location=(0, 0, 3.2), rotation_euler=(0.5, 0.3, math.radians(-200)))
+            key(body, 40, location=(0, 0, 0.6), rotation_euler=(0, 0, math.radians(15)))
+            key(body, n, location=(0, 0, 0.6), rotation_euler=(0, 0, math.radians(35)))
+            for i, p in enumerate(pieces):                                 # pieces fly past the lens
+                y0 = p.location.y; key(p, 1, location=(p.location.x, -4.5, p.location.z)); key(p, n, location=(p.location.x * 1.2, y0 + 1.2, p.location.z))
+            cam = camera((0, -3.3, 0.9), (0, 0, 0.66), 40, focus=3.3, fstop=1.8)
+        elif shot == "hero":
+            key(body, 1, rotation_euler=(0, 0, math.radians(-40))); key(body, n, rotation_euler=(0, 0, math.radians(60)))
+            key(sweep.data, 1, energy=0); key(sweep.data, 30, energy=650); key(sweep.data, n, energy=0)
+            key(sweep, 1, location=(-3.0, -2.0, 1.2)); key(sweep, n, location=(3.0, -2.0, 1.2))
+            cam = camera((0, -2.9, 0.8), (0, 0, 0.64), 45, focus=2.9, fstop=2.8)
+            key(cam, 1, location=(0.25, -3.1, 0.85)); key(cam, n, location=(-0.1, -2.6, 0.78))
+            for p in pieces: p.location.y += 1.8
+        elif shot == "macro":
+            key(body, 1, rotation_euler=(0, 0, math.radians(-10))); key(body, n, rotation_euler=(0, 0, math.radians(50)))
+            cam = camera((0.25, -1.25, 0.72), (0, -0.33, 0.66), 60, focus=0.95, fstop=2.0)   # glide across the front of the label
+            key(cam, 1, location=(0.35, -1.25, 0.78)); key(cam, n, location=(-0.3, -1.2, 0.6))
+            for p in pieces: p.location = (p.location.x * 0.3, -1.6, p.location.z)
+        elif shot == "burst":
+            for i, p in enumerate(pieces):
+                ang = i / len(pieces) * 2 * math.pi
+                key(p, 1, location=(0, 0, 0.7), scale=(0.2, 0.2, 0.2))
+                key(p, 40, location=(math.cos(ang) * 1.3, math.sin(ang) * 0.9 - 0.3, 0.6 + math.sin(ang * 2) * 0.6), scale=(1, 1, 1))
+                key(p, n, location=(math.cos(ang) * 1.5, math.sin(ang) * 1.0 - 0.3, 0.7 + math.sin(ang * 2) * 0.7), rotation_euler=(p.rotation_euler.x + 2, p.rotation_euler.y, p.rotation_euler.z + 1))
+            key(body, 1, rotation_euler=(0, 0, 0)); key(body, n, rotation_euler=(0, 0, math.radians(120)))
+            if a.fruit:                                                    # juice bursts out with the pieces, then slow motion
+                AF.splash(a.fruit, (0, 0.35, 0.75), 2, n, AF.ramp(2, fast=6, slow=0.35), n=44, seed=4, axis="z", speed=1.1, size=0.8, disc=0.35)
+            cam = camera((0, -3.4, 0.95), (0, 0, 0.7), 36, focus=3.4, fstop=3.0)
+            key(cam, 1, location=(0, -3.0, 0.9)); key(cam, n, location=(0, -3.7, 1.0))
+    ease_all()
+    os.makedirs(os.path.join(a.out, shot), exist_ok=True)
+    if a.still:
+        sc.frame_set(a.frame or int(n * 0.6)); sc.render.filepath = os.path.join(a.out, shot + "_still.png"); bpy.ops.render.render(write_still=True)
+    else:
+        sc.render.filepath = os.path.join(a.out, shot, ""); bpy.ops.render.render(animation=True)
+
+
+for s in a.shots: build(s)
+print("DONE", a.shots)

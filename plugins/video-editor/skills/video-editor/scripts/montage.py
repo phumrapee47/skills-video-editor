@@ -86,7 +86,7 @@ def moments(src, work):
             px = v.reshape(-1, 3); s["warm"] = float((px[:, 0] - px[:, 2]).mean()); s["luma"] = float(px.mean())
             top = v.reshape(9, 16, 3)[:3].reshape(-1, 3)                  # a wide view shows sky or horizon up top
             s["sky"] = float(((top[:, 2] > top[:, 0] + 10) & (top.mean(axis=1) > 110)).mean())
-    return [s for s in shots if s.get("_v") is not None]
+    return [s for s in shots if s.get("_v") is not None and s.get("luma", 99) > 22]   # a fade to black is not a shot
 
 
 if __name__ == "__main__":
@@ -100,12 +100,18 @@ if __name__ == "__main__":
     ap.add_argument("--logo", nargs="*", default=[], help="burned-in logo per source: corner br/bl/tr/tl (the frame steps away), b/t = drop that whole band (logo + pop-ups), - = none")
     ap.add_argument("--credit", help="footage credit shown small at the end (CC BY footage needs it; music credits go in <out>.credits.txt)")
     ap.add_argument("--lufs", type=float, default=-16.0, help="loudness: music-led travel films sit around -15 to -23 LUFS (references); -14 felt too loud")
-    ap.add_argument("--scene", choices=["city", "night", "beach", "nature", "cafe", "indoor"], help="what the footage shows, set after LOOKING at the frames (beats the colour rules for music and place sounds)")
+    ap.add_argument("--skip", nargs="*", default=[], help="source ranges never to use: a-b (first source) or N:a-b (source N, from 1), e.g. a title card at 0-5.5")
+    ap.add_argument("--scene", choices=["city", "night", "beach", "nature", "cafe", "indoor", "product"], help="what the footage shows, set after LOOKING at the frames (beats the colour rules for music and place sounds)")
     ap.add_argument("--no-place", action="store_true", help="skip place_sound.py (the footage's own sound first, library place sounds where it is bad)")
     a = ap.parse_args()
     out = pathlib.Path(a.out).resolve(); work = out.parent / (out.stem + "_work"); work.mkdir(parents=True, exist_ok=True)
     W, H = map(int, a.size.split("x"))
-    cand = [m for s in a.src for m in moments(pathlib.Path(s).resolve(), work)]
+    skips = {}
+    for sk in a.skip:
+        n, rng = (sk.split(":", 1) if ":" in sk else ("1", sk)); lo, hi = map(float, rng.split("-"))
+        skips.setdefault(str(pathlib.Path(a.src[int(n) - 1]).resolve()), []).append((lo, hi))
+    cand = [m for s in a.src for m in moments(pathlib.Path(s).resolve(), work)
+            if not any(m["start"] < hi and m["end"] > lo for lo, hi in skips.get(str(pathlib.Path(s).resolve()), []))]
     if not cand: sys.exit("no usable moments found")
     if a.music == "auto":                                               # the pictures choose the music (feels, genre, tempo)
         import music_mood, sound_library
@@ -137,6 +143,10 @@ if __name__ == "__main__":
         for s in sorted(cand, key=lambda s: -s["score"]):
             if len(picked) >= len(lens): break
             if s not in picked and all(not (p["src"] == s["src"] and abs(p["best"] - s["best"]) < 5) for p in picked): picked.append(s)
+    if len(picked) < len(lens) and picked:                             # too few distinct views: longer shots, still whole beats
+        beats = max(len(picked), round(a.length / per)); n = len(picked); base = beats // n; extra = beats - base * n
+        lens = [(base + (1 if i < extra else 0)) * per for i in range(n - 1)] + [max(base, 4) * per]
+        print(f"only {n} distinct views: {base}-{base + 1} beats per shot to fill {a.length:.0f} s")
     lens = lens[:len(picked)]
     # story order: bright and cool first, warm and dark late; opener = sharpest of the brightest third
     arc = lambda s: (s["warm"] / 40) - (s["luma"] / 120)
