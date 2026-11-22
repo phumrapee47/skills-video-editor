@@ -210,6 +210,63 @@ def picker_skips_host_and_overlap(tmp):
     assert all(a[1] < b[0] for a, b in zip(spans, spans[1:])), spans
 
 
+@test
+def thai_word_stack(tmp):
+    """thai_words.py cuts Scribe-style Thai characters into timed words; the word stack keeps a split name (อู่ | ทอง)
+    on one line and nothing runs off a 9:16 frame. Skipped when pythainlp is not installed."""
+    try:
+        import pythainlp  # noqa: F401
+    except ImportError:
+        print("      (pythainlp not installed: skipped)"); return
+    text = "ที่นี่คือวัดมหาธาตุ พระเจ้าอู่ทองสถาปนากรุงศรีอยุธยา"
+    chars, t = [], 0.3
+    for c in text:
+        if c == " ": t += 0.6; continue
+        chars.append({"text": c, "start": round(t, 3), "end": round(t + 0.07, 3), "type": "word"}); t += 0.08
+    json.dump({"words": chars}, open(tmp / "scribe.json", "w", encoding="utf-8"), ensure_ascii=False)
+    subprocess.run(PY + [SC / "thai_words.py", tmp / "scribe.json", tmp / "w.json"], check=True, capture_output=True)
+    words = json.load(open(tmp / "w.json", encoding="utf-8"))["words"]
+    assert "".join(w["text"] for w in words) == text.replace(" ", ""), [w["text"] for w in words]
+    assert all(b["start"] >= a["start"] for a, b in zip(words, words[1:])), words
+    make_clip(tmp / "s.mp4", 6, speech="x")
+    json.dump({"output": {"size": [1080, 1920]}, "clips": [{"src": "s.mp4", "in": 0, "out": 6}]}, open(tmp / "p.json", "w"))
+    subprocess.run(PY + [SC / "word_captions.py", tmp / "w.json", tmp / "p.json", tmp / "c.ass", "--style", "stack", "--type", "mix"], check=True, capture_output=True)
+    from word_captions import width_font
+    from fonts import font
+    ys = {}
+    for line in open(tmp / "c.ass", encoding="utf-8"):
+        if not line.startswith("Dialogue"): continue
+        x, y = map(int, re.search(r"\\pos\((-?\d+),(-?\d+)\)", line).groups()); fs = int(re.search(r"\\fs(\d+)", line)[1])
+        txt = line.rsplit("}", 1)[1].strip(); ys[txt] = (line.split(",")[1], y)
+        assert x >= -2 and x + width_font(txt, fs, font("sans")[1]) <= 1080 + 4, (x, fs, txt)
+    if "อู่" in ys and "ทอง" in ys: assert ys["อู่"][1] == ys["ทอง"][1], ys     # same line (each word appears as it is said)
+
+
+@test
+def speaker_turns_follow_mouth(tmp):
+    """reframe.speaker_turns: two synthetic faces, the left one's mouth moves while it asks, then the right one's."""
+    import numpy as np
+    from reframe import faces, frames, speaker_turns
+    W, H, fps = 640, 360, 30; rng = np.random.default_rng(1)
+    p = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
+                          "-pix_fmt", "yuv420p", "-c:v", "libx264", "-crf", "12", str(tmp / "two.mp4")], stdin=subprocess.PIPE)
+    for k in range(8 * fps):
+        f = np.full((H, W, 3), (40, 60, 120), np.uint8)
+        for who, cx in ((0, 170), (1, 470)):
+            f[80:210, cx - 35:cx + 35] = (220, 170, 140)                        # face and neck, skin colour
+            if (who == 0) == (k / fps < 4.0):                                     # talking: the jaw area changes
+                f[125:170, cx - 25:cx + 25] = (220, 170, 140) - rng.integers(0, 90, 3)
+        p.stdin.write(f.tobytes())
+    p.stdin.close(); p.wait()
+    ws = []
+    for text, t in (("Do you like rivers?", 0.5), ("Yes I love rivers very much.", 4.3)):
+        for w in text.split(): ws.append({"text": w, "start": t, "end": t + 0.5}); t += 0.6
+    fcs = faces(frames(str(tmp / "two.mp4"), 0, 8, 3, 192, 108), W, H)
+    assert fcs and fcs[0][0] < W / 2 < fcs[1][0], fcs
+    turns = speaker_turns(str(tmp / "two.mp4"), 0, 8, fcs, W, H, ws)
+    assert [x[2] for x in turns] == [0, 1] and 3.0 < turns[0][1] < 4.6, turns
+
+
 # ---------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")

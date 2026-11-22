@@ -39,10 +39,10 @@ Measured: scene cuts (`scdet`), loudness, frames every 2 s and every 0.25 s.
 | Cut to the speaker, reframe to 9:16 | done: `reframe.py` (crop to person, blur fit for two-shots) |
 | Punch-in zoom on one camera | done (v3): `reframe.py --punch 1.3 --every 3 --words words.json` cuts at pauses, zoom anchored at the top so the face moves down |
 | Word captions | basic: `word_captions.py` (1-3 words, highlighted word, fixed place) |
-| Word-stack kinetic captions | done (v4): `word_captions.py --style stack` (English: stop words small, longest content word big + accent; Thai needs word segmentation first) |
+| Word-stack kinetic captions | done (v4): `word_captions.py --style stack` (English: stop words small, longest content word big + accent); Thai since 1.6.0 via `thai_words.py` |
 | B-roll with speaker circle PiP | done (v5): clip `"broll": [{src, start, end, in, focus, region, pip}]`, bubble top right under the headline |
 | Icon / logo / graph inserts | missing (logos are trademarks: only when the topic is about those companies) |
-| Split screen two speakers | done (v5): `reframe.py --stack` -> `fit: "stack"`, one panel per person framed on the head |
+| Split screen two speakers | done (v5): `reframe.py --stack` -> `fit: "stack"`, one panel per person framed on the head; 1.6.0: `--speaker order|cut` follows whoever talks |
 | Grade + logo | partial: per-clip `filter`; no channel preset or logo slot |
 
 ## Versions built from this study (interview Short, Royal Society clip)
@@ -115,3 +115,26 @@ those areas (headline under the tabs, stacked captions in the bottom band, topic
 Vertical defaults now: headline at 8.5% from the top, captions between 45% and 78% of the height, centred a little left
 (46%) and at most 74% wide, titles at most 80% wide, card items stop at 84% of the width -> 0 of 124.
 Long behind-words (INHOSPITABLE) still get half hidden by the head: the picker now halves the score of words over 9 letters.
+
+## Thai word stack (1.6.0): `scripts/thai_words.py`
+Thai has no spaces, and Scribe returns one character per entry. `thai_words.py scribe.json words.json [--script lines.json]`
+cuts the text into words with pythainlp `newmm` (the known script when given, so spelling is right) and times each word
+from its characters; then `word_captions.py --style stack` works as for English. Thai rules found on the Ayutthaya
+narration (273 words, 4 not heard): stop words come from pythainlp; a Thai line is packed by visible width (vowel and
+tone marks take no width), the key word alone on its line; a 1-2 letter piece that is not a stop word stays with the next
+word, at its size (the name อู่ทอง is cut into อู่ | ทอง); line height 1.12 instead of 0.95 so marks above and below do not
+touch the next line; a caption also ends at each script line; the italic serif has no Thai letters, so Thai stays in
+Kanit and the per-phrase colour carries the mixed look. Tested on the user's own Thai narration (local test, not published).
+
+## Who is talking in a two-shot (1.6.0): `reframe.py --speaker order|cut`
+No model: per speech turn (word gap >= 0.5 s or a sentence end) the person whose mouth and jaw area moves more is the
+speaker; after a question the other person is taken to answer unless the faces clearly disagree. `order` keeps the split
+screen and puts the speaker in the lower panel (panels swap at each turn change: a picture change, as the pace rule
+wants); `cut` shows a close-up (75% of the height) of the speaker, so the B-roll bubble follows them too. The pipeline
+uses `order` (`podcast_short.py --speaker cut|none` to change it).
+Royal Society interview, 7 real two-shots: main speaker right in all 7; answers under ~1.5 s at the very end of a shot
+are missed (the editors cut to the guest's camera there anyway). What it took: the histogram cut test missed cuts
+between two close-ups in one studio (alike colours, 0.13 < 0.15) so "two people" was really two shots -> a cut is also
+a mean pixel change > 8x the median (50 against 2); scaling each face by its own normal motion let a still listener win
+on any twitch, and subtracting upper-face motion erased a speaker who moves her whole head -> raw lower-face motion,
+spikes capped, cut frames and the first 0.6 s of a shot left out.

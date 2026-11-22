@@ -4,5 +4,6 @@ Pillow>=10
 fonttools>=4.40        # thai_text.py: Thai in Pillow without raqm
 # Optional (install only what you use; each is a download - the skill asks first)
 # faster-whisper>=1.0  # free local transcripts (English); Thai: Creative Claw transcribe
+# pythainlp>=5.0      # Thai word captions (thai_words.py); newmm needs no model download
 # rembg[cpu]>=2.0      # cut-outs, words behind the person (downloads a ~176 MB model on first use)
 # Also needed outside pip: ffmpeg 6+ with libass, harfbuzz, x264 (run scripts/doctor.py)

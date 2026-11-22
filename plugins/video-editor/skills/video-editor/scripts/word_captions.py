@@ -8,9 +8,10 @@ Usage: python -I word_captions.py <words.json> <plan.json> <out.ass> [--max-word
               mapped onto the timeline exactly as edit_plan.py lays clips out (speed and transitions included)
   --pos       caption centre height as a fraction of the frame (0.70 = lower third on 9:16, above the UI of Shorts/Reels)
 A new caption starts after --max-words, at a pause >= 0.35 s, or after . , ? ! ; a caption never crosses a cut.
-Thai has no spaces: Scribe returns characters, so for Thai make normal subtitles with align_script.py instead.
+Thai has no spaces: cut the Scribe characters into timed words first with thai_words.py, then use this script as for
+English (Thai stop words from pythainlp; a new caption also starts at each script line; tighter word gaps).
 """
-import argparse, json, pathlib, re, sys
+import argparse, json, pathlib, re, sys, unicodedata
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from edit_plan import build_timeline, ass_time, text_width   # same layout rules as the renderer
@@ -22,6 +23,23 @@ can could would should will shall may might must have has had what which who who
 there here up out about into over also too more most such only own same both each few other because while
 actually really basically literally kind sort like going gonna know think mean yeah thing things something
 we're you're they're it's that's don't can't i'm get got make made way lot right okay yeah well""".split())
+
+
+def is_thai(t): return any("฀" <= c <= "๿" for c in t)
+
+
+def vis_len(t): return sum(1 for c in t if unicodedata.category(c) != "Mn")   # Thai vowel and tone marks take no width
+
+
+_TH_STOP = None
+def th_stop():
+    global _TH_STOP
+    if _TH_STOP is None:
+        try:
+            from pythainlp.corpus import thai_stopwords; _TH_STOP = set(thai_stopwords())
+        except Exception:
+            _TH_STOP = set("ที่ และ ว่า ได้ มี เป็น ใน ของ ไป มา ก็ จะ ไม่ นี้ นั้น ให้ กับ แต่ ครับ ค่ะ คะ นะ จ้ะ คือ แล้ว อยู่ ยัง".split())
+    return _TH_STOP
 
 
 PALETTE = ["FFD200", "FF5DA2", "7FD8FF", "B48CFF", "FF9F43"]   # accent colours cycled per phrase (P15-P17 style)
@@ -49,22 +67,33 @@ def stack_rows(caps, W, H, a, cap_pos, cap_end):
     hi = a.hi.upper(); hi_bgr = hi[4:6] + hi[2:4] + hi[0:2]; rows = []
     mix = getattr(a, "type", "sans") == "mix"
     for k, cap in enumerate(caps):
-        clean = lambda t: re.sub(r"[^\w'’-]", "", t.lower())
-        content = [i for i, (_, _, t) in enumerate(cap) if clean(t) and clean(t) not in STOP]
-        star = max(content, key=lambda i: (len(clean(cap[i][2])) - (3 if clean(cap[i][2]).endswith('ly') else 0), i)) if content else None   # longest content word, later wins ties
+        clean = lambda t: t.strip() if is_thai(t) else re.sub(r"[^\w'’-]", "", t.lower())
+        stop = lambda t: (clean(t) in th_stop() or vis_len(clean(t)) < 2) if is_thai(t) else clean(t) in STOP
+        content = [i for i, (_, _, t) in enumerate(cap) if clean(t) and not stop(t)]
+        star = max(content, key=lambda i: (vis_len(clean(cap[i][2])) - (3 if clean(cap[i][2]).endswith('ly') else 0), i)) if content else None   # longest content word, later wins ties
         lines, cur = [], []
+        thai = is_thai("".join(t for _, _, t in cap))
         for i, (_, _, t) in enumerate(cap):
+            if thai:   # Thai words are short and names split into pieces (อู่ | ทอง): pack by width, the key word alone
+                if i == star and cur: lines.append(cur); cur = []
+                cur.append(i)
+                n = sum(vis_len(cap[j][2]) for j in cur); piece = vis_len(t) <= 2 and t.strip() not in th_stop()   # อู่ of อู่ทอง: keep with the next word
+                if i == star or (n >= 7 and not piece) or n >= 12: lines.append(cur); cur = []
+                continue
             cur.append(i)
             if i in content or len(cur) >= 3: lines.append(cur); cur = []
         if cur: lines.append(cur)
+        if thai:   # a short piece of a name (อู่ of อู่ทอง) is drawn at its neighbour's size
+            content += [i for i in range(len(cap) - 1) if i not in content and vis_len(cap[i][2]) <= 2
+                        and cap[i][2].strip() not in th_stop() and (i + 1 in content)]
         size = lambda i: top if i == star else (big if i in content else small)
         acc = PALETTE[k % len(PALETTE)] if mix else hi; acc_bgr = acc[4:6] + acc[2:4] + acc[0:2]
         def font_of(i):
-            if not mix: return ("", SANS_FILE)
+            if not mix or is_thai(cap[i][2]): return ("", SANS_FILE)   # the serif has no Thai letters: Thai stays in the sans
             if i == star: return (f"\\fn{SERIF[0]}\\b1\\i1", SERIF[1])
             if i not in content: return (f"\\fn{SERIF[0]}\\b0\\i1", SERIF[2])
             return ("", SANS_FILE)
-        lh = [max(size(i) for i in ln) * 0.95 for ln in lines]
+        lh = [max(size(i) for i in ln) * (1.12 if thai else 0.95) for ln in lines]   # Thai marks above and below need room
         pos = cap_pos[k] if cap_pos[k] is not None else a.pos + 0.05
         floor = 0.27 if cap_pos[k] is not None else 0.45
         block = sum(lh); y = min(max(H * pos - block / 2, H * floor), H * (0.78 if H > W else 0.95) - block)   # above the apps' caption area   # a little lower than pop captions: under the chest print
@@ -73,7 +102,7 @@ def stack_rows(caps, W, H, a, cap_pos, cap_end):
             y += h; txts = [cap[i][2].upper() if a.upper else cap[i][2] for i in ln]
             ws = [width_font(t, size(i), font_of(i)[1]) for t, i in zip(txts, ln)]
             maxw = W * (0.74 if H > W else 0.9); cx = W * (0.46 if H > W else 0.5)    # vertical: clear of the right-hand buttons
-            gap = small * 0.28; fit = min(1.0, maxw / (sum(ws) + gap * (len(ln) - 1)))   # never run off the frame
+            gap = small * (0.12 if is_thai("".join(txts)) else 0.28); fit = min(1.0, maxw / (sum(ws) + gap * (len(ln) - 1)))   # never run off the frame
             ws = [w * fit for w in ws]; gap *= fit; sz = {i: int(size(i) * fit) for i in ln}
             x = cx - (sum(ws) + gap * (len(ln) - 1)) / 2
             for i, w, raw in zip(ln, ws, txts):
@@ -116,8 +145,10 @@ if __name__ == "__main__":
                 cap_pos.append(0.40 if c.get("fit") == "stack" else None)   # split screen: over the upper panel's lower part (the listener), the speaker's face is just below the middle line
         for w in inside:
             txt = w["text"].strip(); chars = sum(len(x["text"].strip()) + 1 for x in group) + len(txt)
-            limit = (len(group) >= a.stack_words) if a.style == "stack" else (len(group) >= a.max_words or chars > a.max_chars)
-            if group and (limit or w["start"] - group[-1]["end"] >= 0.35):
+            if is_thai(txt): chars = sum(vis_len(x["text"].strip()) for x in group) + vis_len(txt)   # no spaces, marks take no width
+            limit = (len(group) >= a.stack_words or (is_thai(txt) and chars > 2 * a.max_chars)) if a.style == "stack" else (len(group) >= a.max_words or chars > a.max_chars)
+            new_line = "line" in w and group and group[-1].get("line") != w["line"]      # thai_words.py: a new script line
+            if group and (limit or new_line or w["start"] - group[-1]["end"] >= 0.35):
                 flush(); group = []
             group.append(w)
             if re.search(r"[.,?!;:]$", txt): flush(); group = []
@@ -145,6 +176,6 @@ if __name__ == "__main__":
             for j, (_, _, t) in enumerate(cap):
                 t = esc(t.upper() if a.upper else t)
                 parts.append(f"{{\\c&H{hi_bgr}&}}{t}{{\\c&HFFFFFF&}}" if j == i else t)
-            rows.append(f"Dialogue: 0,{ass_time(s if i else s - 0.05)},{ass_time(e2)},C,,0,0,0,,{{\\pos({round(W * 0.46) if H > W else W // 2},{y})}}" + " ".join(parts))   # vertical: a little left, clear of the buttons
+            rows.append(f"Dialogue: 0,{ass_time(s if i else s - 0.05)},{ass_time(e2)},C,,0,0,0,,{{\\pos({round(W * 0.46) if H > W else W // 2},{y})}}" + ("" if is_thai("".join(parts)) else " ").join(parts))   # Thai is written without spaces   # vertical: a little left, clear of the buttons
     open(a.out, "w", encoding="utf-8").write(head + "\n" + "\n".join(rows) + "\n")
     print(f"{len(caps)} captions, {sum(len(c) for c in caps)} words -> {a.out}")

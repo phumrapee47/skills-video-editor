@@ -91,6 +91,7 @@ if __name__ == "__main__":
     ap.add_argument("--size", default="1080x1920"); ap.add_argument("--segments", nargs="*")
     ap.add_argument("--ok-segments", action="store_true"); ap.add_argument("--broll-pick", nargs="*"); ap.add_argument("--no-broll", action="store_true")
     ap.add_argument("--final", action="store_true")
+    ap.add_argument("--speaker", choices=["order", "cut", "none"], default="order", help="two-shots: order = split screen with whoever talks in the lower panel, cut = close-up of whoever talks, none = fixed split screen")
     a = ap.parse_args()
     a.title = a.title.replace("\\n", "\n"); a.topics = [t.replace("\\n", "\n") for t in a.topics]   # a typed \n is two characters
     wd = pathlib.Path(a.workdir).resolve(); wd.mkdir(parents=True, exist_ok=True); src = pathlib.Path(a.source).resolve()
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     if not st.get("reframe"):
         print("[4/8] reframe: camera cuts, follow the person, split screen, punch-in")
         subprocess.run(script("reframe.py") + [str(plan_p), "--out", str(plan_p), "--stack", "--punch", "1.3", "--every", "3", "--words", str(words_path),
-                                               "--sheet", str(wd / "reframe_check.jpg")], check=True)
+                                               "--sheet", str(wd / "reframe_check.jpg")] + (["--speaker", a.speaker] if a.speaker != "none" else []), check=True)
         st["reframe"] = True; save()
     # 5 key words behind the person
     if not st.get("moments"):
