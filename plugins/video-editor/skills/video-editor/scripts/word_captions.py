@@ -27,7 +27,7 @@ we're you're they're it's that's don't can't i'm get got make made way lot right
 PALETTE = ["FFD200", "FF5DA2", "7FD8FF", "B48CFF", "FF9F43"]   # accent colours cycled per phrase (P15-P17 style)
 from fonts import font as _font
 SANS, SANS_FILE = _font("sans"); _SF, _SFILE = _font("serif_italic")
-SERIF = (_SF, _SFILE, _SFILE)   # bold comes from 1 when the font has no bold italic file
+SERIF = (_SF, _SFILE, _SFILE)   # bold comes from \b1 when the font has no bold italic file
 
 
 def width_font(text, size, path):
@@ -67,14 +67,15 @@ def stack_rows(caps, W, H, a, cap_pos, cap_end):
         lh = [max(size(i) for i in ln) * 0.95 for ln in lines]
         pos = cap_pos[k] if cap_pos[k] is not None else a.pos + 0.05
         floor = 0.27 if cap_pos[k] is not None else 0.45
-        block = sum(lh); y = min(max(H * pos - block / 2, H * floor), H * 0.95 - block)   # a little lower than pop captions: under the chest print
+        block = sum(lh); y = min(max(H * pos - block / 2, H * floor), H * (0.78 if H > W else 0.95) - block)   # above the apps' caption area   # a little lower than pop captions: under the chest print
         end_all = cap[-1][1]; nxt = caps[k + 1][0][0] if k + 1 < len(caps) else end_all + 0.6; hold = min(nxt, end_all + 0.5, cap_end[k])
         for ln, h in zip(lines, lh):
             y += h; txts = [cap[i][2].upper() if a.upper else cap[i][2] for i in ln]
             ws = [width_font(t, size(i), font_of(i)[1]) for t, i in zip(txts, ln)]
-            gap = small * 0.28; fit = min(1.0, W * 0.9 / (sum(ws) + gap * (len(ln) - 1)))   # never run off the frame
+            maxw = W * (0.74 if H > W else 0.9); cx = W * (0.46 if H > W else 0.5)    # vertical: clear of the right-hand buttons
+            gap = small * 0.28; fit = min(1.0, maxw / (sum(ws) + gap * (len(ln) - 1)))   # never run off the frame
             ws = [w * fit for w in ws]; gap *= fit; sz = {i: int(size(i) * fit) for i in ln}
-            x = (W - (sum(ws) + gap * (len(ln) - 1))) / 2
+            x = cx - (sum(ws) + gap * (len(ln) - 1)) / 2
             for i, w, raw in zip(ln, ws, txts):
                 s0 = cap[i][0] - 0.03; t = esc(raw)
                 if re.search(r"[0-9$%฿€£]", raw): col = r"\c&H3B3BFF&"              # numbers and money in red
@@ -144,6 +145,6 @@ if __name__ == "__main__":
             for j, (_, _, t) in enumerate(cap):
                 t = esc(t.upper() if a.upper else t)
                 parts.append(f"{{\\c&H{hi_bgr}&}}{t}{{\\c&HFFFFFF&}}" if j == i else t)
-            rows.append(f"Dialogue: 0,{ass_time(s if i else s - 0.05)},{ass_time(e2)},C,,0,0,0,,{{\\pos({W // 2},{y})}}" + " ".join(parts))
+            rows.append(f"Dialogue: 0,{ass_time(s if i else s - 0.05)},{ass_time(e2)},C,,0,0,0,,{{\\pos({round(W * 0.46) if H > W else W // 2},{y})}}" + " ".join(parts))   # vertical: a little left, clear of the buttons
     open(a.out, "w", encoding="utf-8").write(head + "\n" + "\n".join(rows) + "\n")
     print(f"{len(caps)} captions, {sum(len(c) for c in caps)} words -> {a.out}")

@@ -32,6 +32,7 @@ Paths are relative to the plan file. Times in seconds.
 | Field | Meaning |
 |---|---|
 | `output.target` | loudness target: `youtube`/`shorts` -14 LUFS, `doc` -18.5, `master` -23 (or set `lufs`) |
+| `output.platform` | vertical outputs: `all` (default), `tiktok`, `reels` or `shorts` for the safe-zone check after QA (`<out>.safe.jpg` shows the covered areas) |
 | `output.fit` / `clip.fit` | `crop` (fill), `pad` (letterbox), `blur` (whole frame over a blurred fill; 16:9 footage in 9:16) |
 | `clip.in/out` | source seconds; `speed` changes picture and sound (atempo keeps pitch) |
 | `clip.crop` | `[x, y, w, h]` in source pixels, applied before `fit` (zoom on a screen area, follow a person; `screen_focus.py` and `reframe.py` write it) |

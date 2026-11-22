@@ -126,7 +126,7 @@ def titles_ass(titles, W, H, path):
             plain = lambda t: re.sub(r"\*\*", "", str(t))
             hs = fit_size(hs, [plain(l) for l in str(it["text"]).split("\n")], W * 0.88)
             x_left = round(W * float(it.get("x", 0.12)))
-            isz = fit_size(isz, ["0  " + plain(t) for t in it["items"]], W - x_left - W * 0.05)
+            isz = fit_size(isz, ["0  " + plain(t) for t in it["items"]], (W * 0.84 if H > W else W * 0.95) - x_left)   # clear of the right-hand buttons
             hl = str(it["text"]).count("\n") + 1; head_h = hs * 1.25 * hl
             gap = isz * 1.7; total_h = head_h + hs * 0.6 + gap * n; y0 = H * float(it.get("y", 0.5)) - total_h / 2
             ev(2, s, e, "T", f"\\an5\\pos({W // 2},{round(y0 + head_h / 2)})\\fs{hs}\\fad({fi},{fi}){base}" + anim_tags("pop", 0, fi), ass_text(it["text"], accent))
@@ -140,7 +140,7 @@ def titles_ass(titles, W, H, path):
                 num = "{\\c&H%s&\\fs%d}%d{\\c&HDCF0FA&\\fs%d}  " % (bgr(accent), int(isz * 1.25), i + 1, isz)
                 ev(3, ts, e, "T", f"\\an4\\move({x_left - 140},{yy},{x_left},{yy},0,260)\\fs{isz}\\fad(200,{fi})", num + ass_text(item, accent))
             continue
-        size = fit_size(size, [re.sub(r"\*\*", "", l) for l in str(it["text"]).split("\n")], W * 0.9)
+        size = fit_size(size, [re.sub(r"\*\*", "", l) for l in str(it["text"]).split("\n")], W * (0.8 if H > W else 0.9))
         lines = str(it["text"]).count("\n") + 1; y = y_of(it, size, lines); x = W // 2; kind = it.get("anim", "none")
         dur_ms = int((e - s) * 1000)
         if kind == "words":                                          # one word after another (karaoke-style reveal)
@@ -365,7 +365,7 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     if hl:
         first_card = min((c["start"] for c in tl if c.get("card") and c["start"] > float(hl.get("start", 0.0))), default=total)
         hs, he = float(hl.get("start", 0.0)), float(hl.get("end", first_card))   # a text card takes the whole screen
-        size = int(hl.get("size", round(H * 0.04))); m = float(hl.get("margin", 0.03))   # top band, above the face
+        size = int(hl.get("size", round(H * 0.04))); m = float(hl.get("margin", 0.085 if H > W else 0.03))   # vertical: just below the apps' top tabs (safe_zones.py)
         titles.append({"text": hl["text"], "start": hs, "end": he, "pos": "top", "margin": m, "size": size, "anim": "pop",
                        "underline": True, "accent": hl.get("accent", ACCENT), "fade": 0.2})
         if hl.get("tag"):
@@ -377,6 +377,7 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     tail = []
     if titles:
         ap_ = tmp / "titles.ass"; titles_ass(titles, W, H, ap_)
+        if plan.get("_out"): titles_ass(titles, W, H, plan["_out"] + ".titles.ass")   # kept for the safe-zone check
         tail.append(f"ass='{ap_.resolve().as_posix().replace(':', chr(92) + ':')}'" + ass_fontsdir())
     sub = plan.get("subtitles")
     if sub:
@@ -505,6 +506,7 @@ if __name__ == "__main__":
     o = plan["output"]; W, H = o.get("size", [1920, 1080]); fps = o.get("fps", 30)
     target = o.get("target", "youtube"); lufs = float(o.get("lufs", TARGETS[target]))
     out = rp(o["path"]) if not a.preview else rp(str(pathlib.Path(o["path"]).with_name(pathlib.Path(o["path"]).stem + f"_preview_{a.preview[0]:g}-{a.preview[1]:g}.mp4")))
+    plan["_out"] = out
     tl, total = build_timeline(plan)
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
@@ -525,3 +527,8 @@ if __name__ == "__main__":
         if cards and not a.preview: qa += ["--cards"] + cards
         if plan.get("subtitles") and plan["subtitles"]["src"].lower().endswith(".srt") and not a.preview: qa += ["--subs", plan["subtitles"]["src"]]
         subprocess.run(qa)
+        if H > W and not a.preview:                     # vertical: titles and captions clear of the apps' interface
+            ass = [p for p in [out + ".titles.ass", (plan.get("subtitles") or {}).get("src", "")] if p and p.lower().endswith(".ass") and pathlib.Path(p).exists()]
+            if ass:
+                print("safe zones (" + o.get("platform", "all") + "):")
+                subprocess.run([sys.executable, "-I", str(HERE / "safe_zones.py"), out] + ass + ["--platform", o.get("platform", "all"), "--sheet", out + ".safe.jpg"])

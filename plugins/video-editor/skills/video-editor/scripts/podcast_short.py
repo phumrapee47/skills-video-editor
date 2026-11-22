@@ -31,7 +31,7 @@ def script(name): return [sys.executable, "-I", str(HERE / name)]
 def clean(t): return re.sub(r"[^\w'-]", "", t.lower())
 
 
-def pick_segments(words, length, stop, topic=()):
+def pick_segments(words, length, stop, topic=(), count=1):
     """Sentences (pause >= 0.5 s or end punctuation) scored by content-word rarity; the best window of consecutive
     sentences near the target length, then the weakest sentences dropped until it fits. Returns [(start, end, text)]."""
     sents, cur = [], []
@@ -52,24 +52,34 @@ def pick_segments(words, length, stop, topic=()):
             host.add(k); j = k
             while j > 0 and k - j < 2 and S[j][0] - S[j - 1][1] < 0.8 and not S[j - 1][2].rstrip().endswith("?"): j -= 1; host.add(j)
     for k, (s0, e0, t, _) in enumerate(S):                # sign-offs are the host too ("thank you so much for...")
-        if re.search(r"(thank you|thanks (so much|for)|welcome to|my (next )?guest)", t.lower()):
+        if re.search(r"\b(thank you|thanks (so much|for)|welcome to|my (next )?guest)\b", t.lower()):
             for j in range(k, min(len(S), k + 3)):
                 if j == k or S[j][0] - S[j - 1][1] < 0.8: host.add(j)
                 else: break
+    for k in range(1, len(S)):                            # "Yeah, exactly / that's right": the line before was the host summing up
+        if re.match(r"(yeah|yes)?[ ,]*(that's )?(exactly|absolutely|that's right|right)", S[k][2].lower()) and len(S[k][2]) < 40: host.add(k - 1)
     CONNECT = ("and", "but", "so", "those", "that", "it", "they", "which", "because", "or", "then", "also", "yeah")
     weak_start = lambda k: S[k][2].split()[0].lower().strip(",.") in CONNECT if S[k][2].split() else True
-    best, bi, bj = -1, 0, 0
+    cands = []                                            # (score, i, j) for every good window
     for i in range(len(S)):
         if i in host or weak_start(i): continue           # start on the guest, on a line that stands on its own
-        tot, j = 0.0, i
+        tot, j, best_here = 0.0, i, None
         while j < len(S) and S[j][1] - S[i][0] < length * 1.6 and j not in host:
             tot += S[j][3] * (S[j][1] - S[j][0]); j += 1
             span = S[j - 1][1] - S[i][0]
-            if span >= length * 0.9 and tot / span > best: best, bi, bj = tot / span, i, j
-    win = list(S[bi:bj])
-    while sum(e - s for s, e, _, _ in win) > length * 1.15 and len(win) > 2:   # drop the weakest inner sentences
-        k = min(range(1, len(win)), key=lambda k: win[k][3]); win.pop(k)
-    return [(round(s - 0.08, 2), round(e + 0.12, 2), t) for s, e, t, _ in win]
+            if span >= length * 0.9 and (best_here is None or tot / span > best_here[0]): best_here = (tot / span, i, j)
+        if best_here: cands.append(best_here)
+    picks = []                                            # best first, never overlapping another pick (10 s apart)
+    for sc, i, j in sorted(cands, reverse=True):
+        if all(S[i][0] > S[pj - 1][1] + 10 or S[j - 1][1] + 10 < S[pi][0] for _, pi, pj in picks): picks.append((sc, i, j))
+        if len(picks) >= count: break
+    out = []
+    for sc, i, j in picks:
+        win = list(S[i:j])
+        while sum(e - s for s, e, _, _ in win) > length * 1.15 and len(win) > 2:   # drop the weakest inner sentences
+            k = min(range(1, len(win)), key=lambda k: win[k][3]); win.pop(k)
+        out.append([(round(s - 0.08, 2), round(e + 0.12, 2), t) for s, e, t, _ in win])
+    return out if count > 1 else (out[0] if out else [])
 
 
 if __name__ == "__main__":

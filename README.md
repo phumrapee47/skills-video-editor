@@ -68,6 +68,8 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - Word-stack captions in mixed type (key word big, bold italic serif, colour per phrase; numbers in red)
 - Huge key words behind the person (person mask per frame), B-roll with the speaker in a circle bubble
 - Key words and B-roll found automatically (`pick_moments.py`, `find_broll.py`: free-licence Wikimedia Commons only, downloads only after approval)
+- Several Shorts from one long video: `scripts/podcast_batch.py` picks the best separate threads; titles and approvals for every clip live in one `batch.json`
+- Platform safe zones: every vertical render is checked against the TikTok / Reels / Shorts interface (top tabs, right-hand buttons, bottom caption area) with a shaded check sheet (`scripts/safe_zones.py`)
 - Built from a study of 21 reference podcast Shorts (`references/podcast-shorts.md`), version by version (v2 -> v10)
 
 **6. Other genres**
@@ -172,6 +174,8 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - ซับแบบกองคำ ตัวอักษรผสม (คำเด่นใหญ่ serif ตัวหนาเอียง สีเปลี่ยนตามวลี ตัวเลขสีแดง)
 - คำใหญ่อยู่หลังคน (ตัดคนออกทุกเฟรม), B-roll พร้อมหน้าคนพูดในวงกลม
 - หาคำสำคัญและ B-roll อัตโนมัติ (`pick_moments.py`, `find_broll.py`: ใช้เฉพาะไฟล์ลิขสิทธิ์เปิดจาก Wikimedia Commons ดาวน์โหลดหลังอนุมัติเท่านั้น)
+- หลายคลิปจากวิดีโอยาวเดียว: `scripts/podcast_batch.py` เลือกช่วงที่ดีที่สุดหลายช่วงที่ไม่ซ้อนกัน ชื่อคลิปและการอนุมัติทุกคลิปอยู่ใน `batch.json` ไฟล์เดียว
+- ขอบปลอดภัยของแพลตฟอร์ม: ทุกคลิปแนวตั้งถูกเช็กว่าข้อความไม่ทับแท็บบน ปุ่มขวา และแถบข้อความล่างของ TikTok / Reels / Shorts พร้อมภาพแรเงาให้ดู (`scripts/safe_zones.py`)
 - สร้างจากการศึกษาคลิปพอดแคสต์ตัวอย่าง 21 คลิป (`references/podcast-shorts.md`) ทีละเวอร์ชัน (v2 → v10)
 
 #### 6. แนวอื่น

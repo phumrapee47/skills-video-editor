@@ -68,7 +68,8 @@ if __name__ == "__main__":
         rel = (w["start"] - c["in"]) / c["speed"]
         if any(b["start"] - 0.3 < rel < b["end"] + 0.3 for b in c.get("broll", [])): continue
         rarity = math.log(N / freq[t]); stress = (d / med_d) ** 0.5 * (l / med_l) ** 0.5
-        cand.append({"word": w["text"].strip(" ,.?!").upper(), "t": round(tt, 2), "score": round(rarity * len(t) ** 0.5 * stress, 2),
+        fits = 1.0 if len(t) <= 9 else 0.5          # long words shrink to fit the width and the head hides their middle
+        cand.append({"word": w["text"].strip(" ,.?!").upper(), "t": round(tt, 2), "score": round(rarity * len(t) ** 0.5 * stress * fits, 2),
                      "clip_in": c["in"], "rel": round(rel, 2), "rel_end_max": round((c["out"] - c["in"]) / c["speed"], 2)})
     picks = []
     for x in sorted(cand, key=lambda x: -x["score"]):

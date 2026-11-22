@@ -98,3 +98,20 @@ a typed "
 " in the title was two characters, so the headline underline crossed the text -> converted on input.
 Still weak: long behind-words (INFRASTRUCTURE) get half hidden by the head, and a B-roll title match can still be a
 poor picture ("Often flooded" was a dry field): the gate is where a person says no.
+
+## Several Shorts from one video: `scripts/podcast_batch.py`
+`python -I scripts/podcast_batch.py talk.mp4 work --count 5 --words words.json --music bed.mp3` picks the best separate
+threads (never overlapping, 10 s apart, same host and sign-off rules) and writes `work/batch.json`. Fill in each clip's
+title/topics (or draft them from the printed lines), rerun; set `broll_pick` / `no_broll` and `final` per clip in the
+same file as each gate comes up. Royal Society test: 2 threads (flood warnings, heat as a silent killer), both to
+finished Shorts in ~4 min total, QA pass, 0 safe-zone hits. Bugs found on the way: a rerun ignored the saved
+transcript path and started a fresh 10-minute Whisper run (looked like a hang); a "" in the sign-off regex had
+become an invisible backspace, so host sign-offs were never filtered (a test now rejects control characters).
+
+## Platform safe zones (`scripts/safe_zones.py`)
+TikTok, Reels and Shorts draw tabs at the top (~7%), a like/comment/share column on the right (x > 0.84, y 0.38-0.88)
+and caption/music text at the bottom (~15-20%). The first check of the pipeline Short found 38 of 124 text events in
+those areas (headline under the tabs, stacked captions in the bottom band, topic-card items under the buttons).
+Vertical defaults now: headline at 8.5% from the top, captions between 45% and 78% of the height, centred a little left
+(46%) and at most 74% wide, titles at most 80% wide, card items stop at 84% of the width -> 0 of 124.
+Long behind-words (INHOSPITABLE) still get half hidden by the head: the picker now halves the score of words over 9 letters.

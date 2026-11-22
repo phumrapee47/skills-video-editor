@@ -44,6 +44,17 @@ def fonts_resolve(tmp):
 
 
 @test
+def no_control_characters(tmp):
+    """No hidden control characters in the code: a typed backslash-b once became a real backspace inside a regex,
+    and the sign-off filter silently never matched."""
+    bad = []
+    for f in list((ROOT / "scripts").glob("*.py")) + list((ROOT / "tests").glob("*.py")):
+        for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            if any(ord(ch) < 32 and ch not in "	" for ch in line): bad.append(f"{f.name}:{n}")
+    assert not bad, bad
+
+
+@test
 def retime_roundtrip(tmp):
     """retime.py: the map is monotonic and to_new(to_old(t)) == t at every anchor."""
     from retime import _interp
@@ -163,6 +174,40 @@ def find_shots_prefers_sharp(tmp):
     shots = json.load(open(tmp / "shots.json"))["shots"]
     early = max(s["score"] for s in shots if s["end"] <= 3.1); late = max(s["score"] for s in shots if s["start"] >= 3)
     assert early > late, (early, late)
+
+
+@test
+def safe_zones_flag(tmp):
+    """safe_zones.py flags a title under the apps' top tabs and passes the vertical defaults (headline below them)."""
+    from edit_plan import titles_ass
+    from safe_zones import ass_boxes, check
+    titles_ass([{"text": "Top title", "start": 0, "end": 2, "pos": "top", "margin": 0.02, "size": 80}], 1080, 1920, tmp / "bad.ass")
+    titles_ass([{"text": "Top title", "start": 0, "end": 2, "pos": "top", "margin": 0.085, "size": 80}], 1080, 1920, tmp / "ok.ass")
+    assert check(ass_boxes(tmp / "bad.ass")), "title in the top tabs was not flagged"
+    assert not check(ass_boxes(tmp / "ok.ass")), check(ass_boxes(tmp / "ok.ass"))
+
+
+@test
+def picker_skips_host_and_overlap(tmp):
+    """podcast_short.pick_segments: no host question, no sign-off, several picks that never overlap."""
+    from podcast_short import pick_segments
+    from word_captions import STOP
+    talk = []
+    def say(text, t):
+        for w in text.split():
+            talk.append({"text": w, "start": round(t, 2), "end": round(t + 0.3, 2), "type": "word"}); t += 0.35
+        return t + 0.8
+    t = 0.0
+    for k in range(6):
+        t = say(f"What happens to rivers number {k}?", t)                              # host question
+        for j in range(5): t = say(f"Floodwater{k} erodes riverbanks{j} quickly during monsoon{k} season{j}.", t)
+    t = say("Thank you so much for joining us today.", t)
+    picks = pick_segments(talk, 12, STOP, (), count=3)
+    assert len(picks) >= 2, picks
+    flat = [x for p in picks for x in p]
+    assert not any(x[2].endswith("?") or "Thank you" in x[2] for x in flat), flat
+    spans = sorted((p[0][0], p[-1][1]) for p in picks)
+    assert all(a[1] < b[0] for a, b in zip(spans, spans[1:])), spans
 
 
 # ---------------------------------------------------------------------------------------------------------------
