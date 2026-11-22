@@ -60,7 +60,8 @@
      "beat": "payoff",
      "shot": "hero_low"
     }
-   ]
+   ],
+   "shape": "can"
   },
   "bottle": {
    "aka": [
@@ -73,12 +74,11 @@
    "actions": [
     {
      "id": "cap_twist",
-     "do": "the cap spirals off upward, a puff of mist escapes",
+     "do": "the cap turns, lets go and pops up spinning in slow motion, a puff of CO2 escapes the neck",
      "sound": "plastic click + hiss",
      "camera": "macro on the neck",
      "beat": "payoff",
-     "shot": null,
-     "build": "cap object rotating on Z while rising; volume puff like the can open"
+     "shot": "twist"
     },
     {
      "id": "pour",
@@ -106,7 +106,8 @@
      "beat": "payoff",
      "shot": null
     }
-   ]
+   ],
+   "shape": "bottle"
   },
   "pouch": {
    "aka": [
@@ -120,12 +121,11 @@
    "actions": [
     {
      "id": "tear_open",
-     "do": "the tear notch rips along the line, foil edge curls, air puffs out",
+     "do": "the top strip tears off from the notch along a jagged line, crisps burst out of the opening in slow motion",
      "sound": "foil rip + crinkle",
      "camera": "close on the top edge",
      "beat": "payoff",
-     "shot": null,
-     "build": "bag mesh split along a jagged path; upper strip rotates away; cloth-like crinkle via shape keys"
+     "shot": "tear"
     },
     {
      "id": "contents_burst",
@@ -133,8 +133,7 @@
      "sound": "crunchy burst",
      "camera": "wide, slow push",
      "beat": "hook",
-     "shot": null,
-     "build": "real 3D chips/candies (displaced curved discs) on ballistic paths with a speed ramp"
+     "shot": "tear"
     },
     {
      "id": "puff",
@@ -144,7 +143,8 @@
      "beat": "hook",
      "shot": null
     }
-   ]
+   ],
+   "shape": "pouch"
   },
   "filled_bar": {
    "aka": [
@@ -157,12 +157,11 @@
    "actions": [
     {
      "id": "snap_ooze",
-     "do": "snapped in half: crumbs fly, the filling (caramel, cream) stretches into strands and sags",
+     "do": "snapped in half: the ends bend down, crumbs fly, the filling stretches into strands that thin, sag and break",
      "sound": "crisp snap + sticky stretch",
      "camera": "macro side, slow motion",
      "beat": "hook",
-     "shot": null,
-     "build": "bar halves with layered cross-section texture; filling as a metaball/curve strand that thins as halves part; crumbs as tiny shards"
+     "shot": "snap"
     },
     {
      "id": "bite",
@@ -181,7 +180,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": "bar"
   },
   "crispy_bar": {
    "aka": [
@@ -207,7 +207,8 @@
      "beat": "payoff",
      "shot": null
     }
-   ]
+   ],
+   "shape": "bar"
   },
   "box": {
    "aka": [
@@ -233,7 +234,8 @@
      "beat": "payoff",
      "shot": null
     }
-   ]
+   ],
+   "shape": "box"
   },
   "jar": {
    "aka": [
@@ -260,7 +262,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": "lathe"
   },
   "tube": {
    "aka": [
@@ -287,7 +290,8 @@
      "shot": null,
      "build": "curve with growing bevel, ridged profile, keyed along a spiral path"
     }
-   ]
+   ],
+   "shape": null
   },
   "dropper": {
    "aka": [
@@ -313,7 +317,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "spray": {
    "aka": [
@@ -340,7 +345,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "lipstick": {
    "aka": [
@@ -364,7 +370,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "cup": {
    "aka": [
@@ -399,7 +406,8 @@
      "beat": "hook",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "ice_cream": {
    "aka": [
@@ -424,7 +432,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "sneaker": {
    "aka": [
@@ -456,7 +465,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "earbuds": {
    "aka": [
@@ -481,7 +491,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   },
   "device": {
    "aka": [
@@ -517,7 +528,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "shape": null
   }
  },
  "ingredients": {
@@ -767,5 +779,14 @@
    "pace": "smooth slow turns, parts separate and return",
    "light": "white or pastel, soft shadows"
   }
+ },
+ "shot_needs": {
+  "open": "can",
+  "toppop": "can",
+  "drops": "can",
+  "twist": "bottle",
+  "tear": "pouch",
+  "snap": "bar",
+  "trio": "can"
  }
 }

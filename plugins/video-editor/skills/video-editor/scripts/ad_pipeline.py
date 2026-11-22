@@ -1,0 +1,337 @@
+"""3D product ad from one shot list, with approval gates: concept -> storyboard -> animatic -> preview -> final.
+
+Usage:
+  python -I ad_pipeline.py init <dir> --brief-file brief.json          (everything from the brief, see below)
+  python -I ad_pipeline.py init <dir> --product "yuzu sparkling can" (--label label.png | --photo front.jpg [--back b.jpg]
+         | --product-json product.json | --shape bottle|pouch|box|bar) [--label-front 0.25] [--alt a.png b.png]
+         [--fruit yuzu] [--set "#FFC21C" "#FF8A1E"] [--brief fresh] [--track happy-alley] [--fps 24] [--length 15]
+         [--card "Taste the bright side" --handle @brand]
+  then Claude checks the copy and adjusts the shots in <dir>/shots.json (titles, beats, camera paths, cold)
+brief.json: {"product": "what it is", "photo": "front.jpg", "back": "back.jpg", "shape": "auto", "family": "fresh",
+  "length_s": 15, "fps": 24, "fruit": "yuzu", "audience": "...", "usp": "...", "platforms": ["tiktok", "reels"],
+  "copy": {"hook": "Sunshine", "details": ["ice cold", "crack it open"], "payoff": "...", "name": "LUMA | YUZU",
+  "price": "45 THB", "cta": "Taste the bright side"}, "handle": "@brand", "track": "happy-alley"}
+  Only the user's approved claims go into "copy"; the storyboard shows every line for approval.
+  python -I ad_pipeline.py run <dir>              run the next stage; it stops at its gate
+  python -I ad_pipeline.py run <dir> --approve    the user approved what the last stage showed: go on
+  python -I ad_pipeline.py status <dir>
+
+Stages (each gate needs the user's yes, passed on with --approve):
+  board     one still per shot at its key frame -> board.jpg with shot, length in beats, event, title, sound
+  animatic  every shot small and fast (360x640, 4 samples), cut to the music with titles and sound -> animatic.mp4
+  preview   full size EEVEE -> preview.mp4 + QA + safe zones
+  final     first a one-frame Cycles test -> time estimate (gate); then Cycles on the GPU, resumable -> final.mp4
+Timing: the music is chosen at init (mood family brief, or --track), its beat grid measured (music_beats.py); every shot
+lasts a whole number of beats ("beats") and its physical event (the slash, the tab snap, the burst) lands on a beat
+("event_beat", counted from the shot start). The music starts on a beat. Change those numbers and rerun the stage.
+shots.json per shot: id, type, beats, event_beat, cold, camera ({"from","to","look","look_to","lens","fstop"}),
+title ({"text","style",...,"at": s from the shot start}), sfx ([{"sound","at": "event"|"start","offset","rel_db"}]).
+"""
+import argparse, glob, json, math, os, pathlib, shutil, subprocess, sys, time
+
+SC = pathlib.Path(__file__).resolve().parent; ROOT = SC.parent
+sys.path.insert(0, str(SC))
+PY = [sys.executable, "-I"]
+STAGES = ["board", "animatic", "preview", "final_test", "final", "done"]
+SECONDS = {"twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0,
+           "hero": 2.5, "trio": 3.2, "reveal": 2.5}
+EVENT_S = {"twist": 1.0, "tear": 0.92, "snap": 1.0, "split": 1.0, "open": 0.73, "toppop": 0.73, "drops": 0.6, "burst": 0.07}         # when the physical event happens
+COLD = {"drops", "zerog", "hero_low"}
+SFX = {"twist": [("twist", "event", -0.45, -11), ("fizz", "event", 0.0, -13)], "tear": [("rip", "event", -0.25, -9)], "snap": [("snap", "event", 0.0, -8)],
+       "split": [("slash", "event", -0.33, -11), ("splash", "event", -0.02, -8)], "open": [("fizz", "event", -0.03, -7)],
+       "toppop": [("fizz", "event", -0.03, -7)], "burst": [("splash", "event", 0.0, -10)],
+       "zerog": [("clink", "start", 0.45, -15), ("clink", "start", 1.6, -18)], "hero_low": [("hit", "start", 1.6, -17)]}
+
+
+def blender_exe():
+    return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)
+
+
+def load(d): return json.load(open(pathlib.Path(d) / "shots.json", encoding="utf-8"))
+
+
+def save(d, st): json.dump(st, open(pathlib.Path(d) / "shots.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+
+
+def run(cmd, **kw):
+    r = subprocess.run([str(c) for c in cmd], capture_output=True, text=True, encoding="utf-8", errors="replace", **kw)
+    if r.returncode: sys.exit(f"failed: {' '.join(map(str, cmd))[:200]}\n{(r.stderr or r.stdout)[-1500:]}")
+    return r.stdout
+
+
+# ---------------------------------------------------------------- init
+SHOT_NEEDS = {"open": "can", "toppop": "can", "drops": "can", "trio": "can", "twist": "bottle", "tear": "pouch", "snap": "bar"}
+STYLE = {   # title look per mood family and beat role (references/ad-3d.md)
+    "fresh":  {"hook": {"style": "echo", "y": 0.24, "repeat": 2, "size": 260, "dir": "up", "at": 1.2}, "detail": {"style": "spaced", "y": 0.16, "size": 92, "at": 0.25},
+               "payoff": {"style": "spaced", "y": 0.1, "size": 76, "at": 0.8}, "name": {"style": "split", "y": 0.15, "size": 190, "at": 0.4}},
+    "luxury": {"hook": {"style": "spaced", "y": 0.2, "size": 64, "at": 1.0}, "detail": {"style": "spaced", "y": 0.14, "size": 56, "at": 0.4},
+               "payoff": {"style": "spaced", "y": 0.12, "size": 56, "at": 0.8}, "name": {"style": "spaced", "y": 0.15, "size": 110, "at": 0.5}},
+    "tech":   {"hook": {"style": "big", "y": 0.18, "size": 220, "anim": "pop", "at": 0.6}, "detail": {"style": "spaced", "y": 0.14, "size": 70, "at": 0.25},
+               "payoff": {"style": "big", "y": 0.12, "size": 160, "anim": "pop", "at": 0.6}, "name": {"style": "big", "y": 0.15, "size": 200, "anim": "pop", "at": 0.4}},
+    "clean":  {"hook": {"style": "spaced", "y": 0.18, "size": 70, "at": 1.0}, "detail": {"style": "spaced", "y": 0.14, "size": 60, "at": 0.4},
+               "payoff": {"style": "spaced", "y": 0.12, "size": 60, "at": 0.8}, "name": {"style": "spaced", "y": 0.15, "size": 100, "at": 0.5}}}
+PRESETS = {"bottle": {"shape": "bottle", "liquid": "#9CB84A", "cap": "#2E6B30", "fill": 0.9}, "pouch": {"shape": "pouch", "size_mm": [180, 250, 70]},
+           "box": {"shape": "box", "size_mm": [190, 270, 60]}, "bar": {"shape": "bar", "size_mm": [120, 32, 18], "coating": "#4A2615", "filling": "#C8741E"}}
+
+
+def from_brief(a):
+    """Fill the init arguments from a brief file (the brief wins over defaults, flags win over the brief)."""
+    b = json.load(open(a.brief_file, encoding="utf-8")); base = pathlib.Path(a.brief_file).resolve().parent
+    rel = lambda x: str((base / x).resolve()) if x and not os.path.isabs(x) else x
+    for k, attr in (("product", "product"), ("photo", "photo"), ("back", "back"), ("label", "label"), ("fruit", "fruit"), ("track", "track"),
+                    ("handle", "handle"), ("set", "set"), ("family", "brief"), ("fps", "fps"), ("length_s", "length"), ("product_json", "product_json")):
+        if b.get(k) is not None and getattr(a, attr) in (None, "", ap_defaults.get(attr)):
+            setattr(a, attr, rel(b[k]) if k in ("photo", "back", "label", "product_json") else b[k])
+    if b.get("shape") and b["shape"] != "auto" and not a.shape: a.shape = b["shape"]
+    if (b.get("copy") or {}).get("cta") and a.card == ap_defaults["card"]: a.card = b["copy"]["cta"]
+    return b
+
+
+def copy_titles(shots, roles, copy, family):
+    """Put the brief's lines on the shots by beat role: hook -> the first shot, details -> the detail shots, payoff, the
+    product name (+ price) on the hero shot. Style per mood family."""
+    st = STYLE.get(family, STYLE["fresh"]); dets = list(copy.get("details") or [])
+    for s, role in zip(shots, roles):
+        line = {"hook": copy.get("hook"), "payoff": copy.get("payoff"), "hero": copy.get("name"), "range": copy.get("range")}.get(role)
+        if role == "detail" and dets: line = dets.pop(0)
+        if not line: continue
+        look = dict(st["name" if role in ("hero", "range") else role if role in st else "detail"])
+        if look.get("style") == "split" and "|" not in line: look.update({"style": "big", "anim": "pop"})
+        t = [dict(look, text=line)]
+        if role == "hero" and copy.get("price"): t.append({"text": copy["price"], "pos": "center", "y": look["y"] + 0.12, "anim": "pop", "size": 150, "color": [255, 255, 255], "at": 1.2})
+        s["title"] = t if len(t) > 1 else t[0]
+
+
+def init(a):
+    import ad_concept
+    d = pathlib.Path(a.dir); d.mkdir(parents=True, exist_ok=True)
+    brief = from_brief(a) if a.brief_file else {}
+    if not a.product: sys.exit("init needs --product (what it is) or a brief file with \"product\"")
+    prod_json, shape = None, "can"
+    if a.photo:                                                            # the user's photo -> product.json + textures
+        cmd = PY + [SC / "product_from_photo.py", a.photo, "--out", d / "product"] + (["--back", a.back] if a.back else []) + (["--shape", a.shape] if a.shape else [])
+        print(run(cmd).strip()); prod_json = d / "product" / "product.json"
+    elif a.product_json: prod_json = pathlib.Path(a.product_json).resolve()
+    elif a.shape and a.shape != "can":
+        prod_json = d / "product.json"; json.dump(PRESETS[a.shape], open(prod_json, "w"), indent=1)
+    if prod_json:
+        pj = json.load(open(prod_json, encoding="utf-8")); shape = {"lathe": "bottle", "jar": "bottle"}.get(pj["shape"], pj["shape"])
+        if not a.set: a.set = pj.get("set")
+    elif not a.label: sys.exit("the can needs --label (a 2:1 label image), or give --photo / --product-json / --shape")
+    a.set = a.set or ["#FFC21C", "#FF8A1E"]
+    c = ad_concept.concept(a.product, family=a.brief, flavours=1 + len(a.alt))
+    fruit = a.fruit or c.get("fruit")
+    stub = d / "_music.json"
+    json.dump({"output": {"path": "x.mp4"}, "clips": [], "audio": []}, open(stub, "w"))
+    cmd = PY + [SC / "music_mood.py", "pick", stub, "--brief", a.brief, "--apply"] + (["--track", a.track] if a.track else [])
+    print(run(cmd).strip().splitlines()[-1])
+    mus = json.load(open(stub))["audio"][0]; stub.unlink()
+    src = (d / mus["src"]).resolve() if not os.path.isabs(mus["src"]) else pathlib.Path(mus["src"])
+    bj = d / "_beats.json"
+    run(PY + [SC / "music_beats.py", src, "--start", mus.get("in", 0), "--dur", 60, "--json", bj])
+    beats = json.load(open(bj)); bj.unlink()
+    shots, todo, roles = [], [], []
+    for k, (beat, typ, do, snd) in enumerate(c["board"], 1):
+        if typ == "card" or typ.startswith("TO BUILD"):
+            if typ.startswith("TO BUILD"): todo.append(typ)
+            continue
+        if SHOT_NEEDS.get(typ, shape) != shape: todo.append(f"{typ} (built for a {SHOT_NEEDS[typ]})"); continue
+        if typ in [x["type"] for x in shots]: continue
+        roles.append(beat)
+        nb = max(2, round(SECONDS.get(typ, 2.5) / beats["period"]))
+        sh = {"id": f"s{len(shots) + 1}_{typ}", "type": typ, "beats": nb, "cold": typ in COLD, "camera": None, "title": None,
+              "does": do, "sfx": [{"sound": s, "at": at, "offset": o, "rel_db": db} for s, at, o, db in SFX.get(typ, [])]}
+        if typ in EVENT_S: sh["event_beat"] = max(1, round(EVENT_S[typ] / beats["period"]))
+        shots.append(sh)
+    if a.length:                                                           # fit the brief's length: scale the beats
+        want = max(len(shots) * 2, round(a.length / beats["period"]) - 3); have = sum(x["beats"] for x in shots)
+        for x in shots:
+            x["beats"] = max(2, round(x["beats"] * want / have))
+            if "event_beat" in x: x["event_beat"] = min(x["event_beat"], x["beats"] - 1)
+    if brief.get("copy"): copy_titles(shots, roles, brief["copy"], a.brief)
+    st = {"stage": "board", "approved": [], "fps": a.fps, "size": "1080x1920", "brief": a.brief, "brief_file": brief or None,
+          "product": {"desc": a.product, "label": str(pathlib.Path(a.label).resolve()) if a.label else None, "label_front": a.label_front,
+                      "json": str(prod_json) if prod_json else None, "shape": shape,
+                      "alt": [str(pathlib.Path(x).resolve()) for x in a.alt], "fruit": fruit, "set": a.set},
+          "music": {"src": str(src), "in": beats["first"], "bpm": beats["bpm"], "period": beats["period"], "strength": beats["strength"]},
+          "shots": shots, "card": {"text": a.card + (f"\n**{a.handle}**" if a.handle else ""), "bg": "0x" + a.set[1].lstrip("#"), "beats": 3},
+          "to_build": todo, "timings": {}}
+    save(d, st)
+    print(f"music: {src.name} {beats['bpm']} BPM (beat {beats['period']} s, strength {beats['strength']}), starts on the beat at {beats['first']:.2f} s")
+    for s in shots: print(f"  {s['id']:<14} {s['beats']} beats = {s['beats'] * beats['period']:.2f} s" + (f", event on beat {s['event_beat']}" if 'event_beat' in s else "") + f"  {s['does'][:70]}")
+    if todo: print("not built yet (the concept still wants them):", ", ".join(todo))
+    for s_ in shots:
+        if s_.get("title"): print(f"  title on {s_['id']}: " + " / ".join(x["text"] for x in (s_["title"] if isinstance(s_["title"], list) else [s_["title"]])))
+    print(f"\nnext: check or write the copy in {d / 'shots.json'}, then: python -I ad_pipeline.py run {d}")
+
+
+# ---------------------------------------------------------------- derived spec
+def derived(st):
+    fps, per = st["fps"], st["music"]["period"]; out = []
+    for s in st["shots"]:
+        n = max(8, round(s["beats"] * per * fps))
+        sp = {"id": s["id"], "type": s["type"], "frames": n, "cold": s.get("cold", False)}
+        if "event_beat" in s: sp["event"] = min(n - 4, max(2, round(s["event_beat"] * per * fps) + 1))
+        sp["key"] = min(n, sp["event"] + round(0.45 * fps)) if "event" in sp else round(n * 0.6)
+        if s.get("camera"): sp["camera"] = s["camera"]
+        out.append(sp)
+    return out
+
+
+def blender(st, d, out, size, samples, still=False, engine="eevee", only=None):
+    spec = d / f"_spec_{out.name}.json"; json.dump({"shots": derived(st)}, open(spec, "w"), indent=1)
+    p = st["product"]
+    if not still:                                                          # resume only frames of an unchanged shot
+        import hashlib
+        for x in derived(st):
+            if only and x["id"] not in only: continue
+            fp = hashlib.sha1(json.dumps([x, p, st["fps"], size, samples, engine], sort_keys=True).encode()).hexdigest()
+            sd = pathlib.Path(out) / x["id"]; mark = sd / ".spec"
+            if sd.exists() and (not mark.exists() or mark.read_text() != fp): shutil.rmtree(sd)
+            sd.mkdir(parents=True, exist_ok=True); mark.write_text(fp)
+    cmd = [blender_exe(), "-b", "-P", SC / "blender_product_ad.py", "--"] + (["--label", p["label"]] if p.get("label") else []) + (["--product", p["json"]] if p.get("json") else []) + [
+           "--label-front", p.get("label_front", 0.5),
+           "--set", *p["set"], "--out", out, "--size", size, "--fps", st["fps"], "--samples", samples, "--spec", spec, "--engine", engine]
+    if p.get("alt"): cmd += ["--alt", *p["alt"]]
+    if p.get("fruit"): cmd += ["--fruit", p["fruit"]]
+    if still: cmd += ["--still"]
+    if only: cmd += ["--shots", *only]
+    t0 = time.time(); out = run(cmd); blender.log = out; return time.time() - t0
+
+
+def encode(st, frames_dir, sid):
+    mp4 = frames_dir / f"{sid}.mp4"
+    run(["ffmpeg", "-v", "error", "-y", "-framerate", st["fps"], "-i", frames_dir / sid / "%04d.png", "-c:v", "libx264", "-crf", 16, "-pix_fmt", "yuv420p", mp4])
+    return mp4
+
+
+def titles_of(s):
+    t = s.get("title")
+    return [x for x in (t if isinstance(t, list) else [t]) if x]
+
+
+def make_plan(st, d, frames_dir, out_name):
+    """Edit plan: shots back to back, the end card, titles at their shot times, the music from its first beat, sound
+    design (pops, whoosh, chime) plus each shot's physical sounds."""
+    fps, per = st["fps"], st["music"]["period"]; sp = derived(st)
+    clips, titles, sfx, t = [], [], [], 0.0
+    for s, x in zip(st["shots"], sp):
+        dur = x["frames"] / fps
+        clips.append({"src": os.path.relpath(frames_dir / f"{x['id']}.mp4", d).replace("\\", "/"), "in": 0, "out": round(dur, 3), "speech": False, "volume_db": -90})
+        for tt in titles_of(s):                                             # one title or a list (name + price)
+            ti = {k: v for k, v in tt.items() if k not in ("at", "dur")}
+            ti["start"] = round(t + tt.get("at", 0.3), 2); ti["end"] = round(min(t + dur - 0.15, ti["start"] + tt.get("dur", 99)), 2)
+            titles.append(ti)
+        for e in s.get("sfx", []):
+            at = t + ((x.get("event", 1) - 1) / fps if e.get("at") == "event" else 0) + e.get("offset", 0)
+            sfx.append({"src": f"sfx/{e['sound']}.wav", "role": "sfx", "start": round(max(0, at), 3), "rel_db": e.get("rel_db", -12), "why": f"{s['id']} {e['sound']}"})
+        t += dur
+    card = st["card"]; cdur = card.get("beats", 3) * per + 0.3
+    for ti in titles:
+        if ti["end"] > t - 0.35: ti["end"] = round(t - 0.35, 2)          # off before the card fades in
+    clips.append({"card": {"text": card["text"], "bg": card.get("bg", "0xFF9A1E"), "size": card.get("size", 128)}, "in": 0, "out": round(cdur, 3),
+                  "transition": {"type": "fade", "dur": 0.3}})
+    total = t + cdur - 0.3; m = st["music"]
+    plan = {"output": {"path": out_name, "size": list(map(int, st["size"].split("x"))), "fps": fps, "target": "shorts", "lufs": -14},
+            "clips": clips, "titles": titles, "music_mix": {"gap_db": 0, "under_db": 0},
+            "audio": [{"src": os.path.relpath(m["src"], d).replace("\\", "/") if os.path.splitdrive(m["src"])[0] == os.path.splitdrive(str(d.resolve()))[0] else m["src"],
+                       "role": "music", "in": round(m["in"], 3), "start": 0, "end": round(total, 2), "fade_in": 0.05, "fade_out": 1.5, "mood_pick": True}]}
+    pp = d / (pathlib.Path(out_name).stem + ".json"); json.dump(plan, open(pp, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    import make_sfx; make_sfx.make(d / "sfx")
+    run(PY + [SC / "sound_design.py", pp])
+    plan = json.load(open(pp, encoding="utf-8")); plan["audio"] += sfx
+    json.dump(plan, open(pp, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    return pp
+
+
+def render_edit(pp, check_safe=True):
+    out = run(PY + [SC / "edit_plan.py", pp])
+    qa = [l for l in out.splitlines() if l.startswith(("PASS", "FAIL", "WARN", "RESULT"))]
+    mp4 = pp.parent / json.load(open(pp, encoding="utf-8"))["output"]["path"]
+    if check_safe and (mp4.parent / (mp4.name + ".titles.ass")).exists():
+        qa.append(run(PY + [SC / "safe_zones.py", mp4, mp4.parent / (mp4.name + ".titles.ass")]).strip().splitlines()[-1])
+    return mp4, qa
+
+
+# ---------------------------------------------------------------- board sheet
+def board_sheet(st, d, stills_dir, name="board.jpg"):
+    from PIL import Image, ImageDraw, ImageFont
+    sp = derived(st); per = st["music"]["period"]; fps = st["fps"]
+    fonts = sorted((ROOT / "assets" / "fonts").glob("Kanit*.ttf"))
+    f1 = ImageFont.truetype(str(fonts[0]), 24) if fonts else ImageFont.load_default()
+    W, H, CAP, cols = 432, 768, 150, min(4, len(sp)); rows = math.ceil(len(sp) / cols)
+    sheet = Image.new("RGB", (cols * (W + 16) + 16, rows * (H + CAP + 16) + 16), (24, 24, 26)); dr = ImageDraw.Draw(sheet)
+    for i, (s, x) in enumerate(zip(st["shots"], sp)):
+        X, Y = 16 + (i % cols) * (W + 16), 16 + (i // cols) * (H + CAP + 16)
+        im = stills_dir / f"{x['id']}_still.png"
+        if im.exists(): sheet.paste(Image.open(im).convert("RGB").resize((W, H)), (X, Y))
+        lens = (s.get("camera") or {}).get("lens")
+        lines = [f"{i + 1}. {s['type']}  {x['frames'] / fps:.2f}s = {s['beats']} beats" + (f"  {lens}mm" if lens else ""),
+                 (f"event on beat {s['event_beat']} (frame {x['event']})" if "event" in x else s.get("does", "")[:40]),
+                 "title: " + (" / ".join(x.get("text", "").replace("\n", " ") for x in titles_of(s))[:34] or "-"),
+                 "sound: " + (", ".join(e["sound"] for e in s.get("sfx", [])) or "music")]
+        for k, ln in enumerate(lines): dr.text((X + 6, Y + H + 8 + k * 34), ln, fill=(235, 235, 235), font=f1)
+    out = d / name; sheet.save(out, quality=88); return out
+
+
+# ---------------------------------------------------------------- stages
+def stage(d, st):
+    s = st["stage"]; fr = st["fps"]; nfr = sum(x["frames"] for x in derived(st))
+    if s == "board":
+        sec = blender(st, d, d / "board", "432x768", 8, still=True)
+        out = board_sheet(st, d, d / "board"); st["timings"]["board_s"] = round(sec)
+        return f"[gate: storyboard] look at {out}: one frame per shot ({nfr} frames, {nfr / fr:.1f} s + card). Approve the concept, shots and copy"
+    if s == "animatic":
+        fd = d / "animatic"; sec = blender(st, d, fd, "360x640", 4)
+        for x in derived(st): encode(st, fd, x["id"])
+        mp4, qa = render_edit(make_plan(st, d, fd, "animatic.mp4"), check_safe=False); st["timings"]["animatic_s_per_frame"] = round(sec / nfr, 2)
+        return f"[gate: animatic] watch {mp4} (rough look, real timing, music, titles, sound). Approve timing and moves\n  " + "\n  ".join(qa)
+    if s == "preview":
+        fd = d / "preview"; sec = blender(st, d, fd, st["size"], 16)
+        for x in derived(st): encode(st, fd, x["id"])
+        mp4, qa = render_edit(make_plan(st, d, fd, "preview.mp4")); st["timings"]["preview_s_per_frame"] = round(sec / nfr, 2)
+        return f"[gate: preview] watch {mp4} (full size, EEVEE). Approve the look before the long final render\n  " + "\n  ".join(qa)
+    if s == "final_test":                                                  # one Cycles frame per shot at half size: look + cost
+        W, H = map(int, st["size"].split("x")); fd = d / "final_test"
+        blender(st, d, fd, f"{W // 2}x{H // 2}", 128, still=True, engine="cycles")
+        rs = {l.split()[1]: float(l.split()[2]) for l in blender.log.splitlines() if l.startswith("RENDER_S ")}
+        est = {x["id"]: rs.get(x["id"], max(rs.values() or [20])) * 4 * x["frames"] for x in derived(st)}   # x4 pixels at full size
+        st["timings"]["cycles_s_per_frame"] = {k: round(v * 4, 1) for k, v in rs.items()}
+        final_sheet = board_sheet(st, d, fd, "final_test.jpg")
+        lines = "\n  ".join(f"{k}: ~{rs.get(k, 0) * 4:.0f} s/frame -> {v / 60:.0f} min" for k, v in est.items())
+        return (f"[gate: final cost] Cycles look per shot: {final_sheet}\n  {lines}\n  total ~{sum(est.values()) / 3600:.1f} h "
+                f"for {nfr} frames (resumable). Approve to start the final render")
+    if s == "final":
+        fd = d / "final"; blender(st, d, fd, st["size"], 128, engine="cycles")
+        for x in derived(st): encode(st, fd, x["id"])
+        mp4, qa = render_edit(make_plan(st, d, fd, "final.mp4"))
+        return f"[done] {mp4}\n  " + "\n  ".join(qa)
+    return "all stages done"
+
+
+if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("cmd", choices=["init", "run", "status"]); ap.add_argument("dir")
+    ap.add_argument("--product"); ap.add_argument("--label"); ap.add_argument("--label-front", type=float, default=0.5)
+    ap.add_argument("--alt", nargs="*", default=[]); ap.add_argument("--fruit"); ap.add_argument("--set", nargs=2)
+    ap.add_argument("--brief", default="fresh"); ap.add_argument("--track"); ap.add_argument("--fps", type=int, default=24)
+    ap.add_argument("--card", default="Available now"); ap.add_argument("--handle", default="")
+    ap.add_argument("--photo"); ap.add_argument("--back"); ap.add_argument("--product-json"); ap.add_argument("--shape", choices=["can", "bottle", "lathe", "pouch", "box", "bar"])
+    ap.add_argument("--brief-file"); ap.add_argument("--length", type=float, help="target seconds (shots scaled in whole beats)")
+    ap.add_argument("--approve", action="store_true", help="the user approved the last gate")
+    ap_defaults = {x.dest: x.default for x in ap._actions}
+    a = ap.parse_args(); d = pathlib.Path(a.dir)
+    if a.cmd == "init":
+        init(a); sys.exit(0)
+    st = load(d)
+    if a.cmd == "status":
+        print("stage:", st["stage"], " approved:", ", ".join(st["approved"]) or "-", " timings:", st.get("timings")); sys.exit(0)
+    if a.approve:
+        if st.get("shown") != st["stage"]: sys.exit(f"nothing shown yet for '{st['stage']}': run without --approve first")
+        st["approved"].append(st["stage"]); st["stage"] = STAGES[STAGES.index(st["stage"]) + 1]; st.pop("shown", None)
+    if st["stage"] == "done": print("all stages done"); sys.exit(0)
+    if not blender_exe(): sys.exit("Blender not found: install Blender 4.2+ or set BLENDER=<path to blender>")
+    msg = stage(d, st); st["shown"] = st["stage"]
+    if st["stage"] == "final": st["approved"].append("final"); st["stage"] = "done"; st.pop("shown", None)
+    save(d, st); print(msg)

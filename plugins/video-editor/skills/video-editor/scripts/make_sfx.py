@@ -127,8 +127,41 @@ def clink(rng, dur=0.6):
     return stereo(x * np.minimum(1, t / 0.0015) + tick, 0.2, 0.1)
 
 
+def twist(rng, dur=0.9):
+    """A plastic cap unscrewing: quick ratchet clicks (the seal ring breaking) speeding up, then the gas hiss."""
+    n = int(dur * SR); t = np.arange(n) / SR; x = np.zeros(n); m = int(0.006 * SR)
+    for k in range(9):
+        i = int((0.04 + 0.42 * (k / 9) ** 0.8) * SR)
+        if i + m < n: x[i:i + m] += rng.standard_normal(m) * np.exp(-np.arange(m) / (0.0012 * SR)) * rng.uniform(0.5, 0.9)
+    hiss = bandsweep(rng.standard_normal(n), 2500, 8000, 0.6, 0.02) * np.exp(-np.maximum(t - 0.5, 0) * 5) * (t > 0.5) * 0.7
+    return stereo(x + hiss, -0.15, 0.15)
+
+
+def rip(rng, dur=0.55):
+    """A foil/plastic bag tearing: a crackling noise burst that rises in pitch, many tiny crinkles."""
+    n = int(dur * SR); t = np.arange(n) / SR
+    body = bandsweep(rng.standard_normal(n), 1200, 7000, 0.5, 0.7) * np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 0.7
+    crack = np.zeros(n)
+    for _ in range(90):
+        i = int(rng.uniform(0.0, dur * 0.95) * SR); m = int(0.002 * SR)
+        if i + m < n: crack[i:i + m] += rng.standard_normal(m) * rng.uniform(0.2, 0.8)
+    return stereo(np.tanh(1.5 * (body + crack)), -0.5, 0.5)
+
+
+def snap(rng, dur=0.5):
+    """Chocolate breaking: one sharp dry crack, a short woody knock, a few crumbs ticking."""
+    n = int(dur * SR); t = np.arange(n) / SR
+    crack = bandsweep(rng.standard_normal(n), 2000, 9000, 0.5, 0.01) * np.exp(-t * 80)
+    knock = np.sin(2 * np.pi * np.cumsum(900 * np.exp(-t * 30) + 400) / SR) * np.exp(-t * 45) * 0.5
+    ticks = np.zeros(n)
+    for _ in range(12):
+        i = int(rng.uniform(0.05, dur * 0.9) * SR); m = int(0.003 * SR)
+        if i + m < n: ticks[i:i + m] += rng.standard_normal(m) * rng.uniform(0.05, 0.2)
+    return stereo(np.tanh(2 * (crack + knock + ticks)), -0.1, 0.1)
+
+
 KIT = {"whoosh": lambda r: whoosh(r), "swish": lambda r: whoosh(r, 0.28, 900, 6000, 0.4, (0.4, -0.4)), "pop": pop,
-       "riser": riser, "impact": impact, "hit": hit, "chime": chime, "fizz": fizz, "slash": slash, "splash": splash, "clink": clink}
+       "riser": riser, "impact": impact, "hit": hit, "chime": chime, "fizz": fizz, "slash": slash, "splash": splash, "clink": clink, "twist": twist, "rip": rip, "snap": snap}
 
 
 def write(path, x):

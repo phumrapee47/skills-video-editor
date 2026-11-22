@@ -178,6 +178,7 @@ def condensation(body, label_mat, density=7000, seed=1, rmin=0.0022, rmax=0.012)
     gi, go = N.new("NodeGroupInput"), N.new("NodeGroupOutput")
     sel = N.new("GeometryNodeMaterialSelection"); sel.inputs["Material"].default_value = label_mat
     dist = N.new("GeometryNodeDistributePointsOnFaces"); dist.distribute_method = "POISSON"
+    if CYCLES: density *= 0.5                                              # real refraction makes each bead read stronger
     dist.inputs["Distance Min"].default_value = rmin * 2.2; dist.inputs["Density Max"].default_value = density; dist.inputs["Seed"].default_value = seed
     L.new(gi.outputs[0], dist.inputs["Mesh"]); L.new(sel.outputs["Selection"], dist.inputs["Selection"])
     oi = N.new("GeometryNodeObjectInfo"); oi.inputs["Object"].default_value = drop

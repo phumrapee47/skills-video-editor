@@ -83,6 +83,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 **6. Other genres**
 - Product/ad: best moments by picture (`find_shots.py`), cuts on the music's bar grid (`music_beats.py`)
 - **3D product ads** (Blender, headless): `ad_concept.py` plans the concept from what the product can do (a can opens, a bag tears, a filled bar snaps) and what its ingredient can do (a yuzu is split, juice sprays) -> beat board; `blender_product_ad.py` renders the shots: real 3D fruit with pored peel and cut flesh (`ad_fruit.py`), a can built to a 330 ml blueprint with lid, pull tab and Geometry Nodes condensation (`ad_can.py`), juice strands, CO2 mist, ice; shots split, drops, top pop, zero-G, hero; EEVEE previews, Cycles finals; mood families (luxury / fresh / tech / clean) choose light, motion, type and music (`references/ad-3d.md`)
+- **3D ads from the user's product photo** (`ad_pipeline.py`): a brief file (product, photo, mood family, length, approved copy) -> `product_from_photo.py` rebuilds the product in 3D (silhouette -> profile, cap, unwrapped label, brand colours) -> shapes can, bottle or any round product, box, pouch, filled bar, each with what it does (open, twist the cap, tear the bag, snap the bar with the filling stretching) -> four approval gates: storyboard sheet, animatic, EEVEE preview, Cycles look + time estimate; shots last whole beats of the music and every physical event lands on a beat; renders resume
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -200,6 +201,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 #### 6. แนวอื่น
 - โฆษณาสินค้า: หาช่วงภาพที่ดีที่สุด (`find_shots.py`) ตัดตามห้องเพลง (`music_beats.py`)
 - **โฆษณา 3D** (Blender): `ad_concept.py` คิดคอนเซปต์จากสิ่งที่สินค้าทำได้ (กระป๋องเปิดฝา ถุงฉีก ขนมหักแล้วไส้ยืด) และสิ่งที่วัตถุดิบทำได้ (ผ่ายูซุ น้ำส้มพุ่ง) ออกมาเป็นลำดับฉาก แล้ว `blender_product_ad.py` เรนเดอร์ช็อต: ผลไม้ 3D ผิวมีรูขุมขน เนื้อในตอนผ่า (`ad_fruit.py`) กระป๋องตาม blueprint 330 ml มีฝา ห่วงดึง หยดน้ำเกาะด้วย Geometry Nodes (`ad_can.py`) สายน้ำส้ม ไอ CO2 น้ำแข็ง ช็อตผ่าผล มาโครหยดน้ำ เปิดฝามุมบน ลอยไร้แรงโน้มถ่วง และ hero พรีวิวด้วย EEVEE ตัวจริงด้วย Cycles
+- **โฆษณา 3D จากรูปสินค้าจริง** (`ad_pipeline.py`): brief file (สินค้า รูป ตระกูลอารมณ์ ความยาว copy ที่อนุมัติ) -> `product_from_photo.py` สร้างสินค้า 3D จากรูป (เงา -> ทรง ฝา ฉลากที่คลี่ออก สีแบรนด์) -> ทรงกระป๋อง ขวด กล่อง ถุง ขนมแท่ง พร้อมท่าของแต่ละทรง (เปิดฝา บิดฝา ฉีกถุง หักขนมแล้วไส้ยืด) -> 4 ขั้นอนุมัติ: สตอรีบอร์ด animatic พรีวิว EEVEE และภาพ Cycles พร้อมประมาณเวลา ความยาวช็อตเป็นบีตเพลง เหตุการณ์ลงตรงบีต render ต่อจากที่ค้างได้
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 

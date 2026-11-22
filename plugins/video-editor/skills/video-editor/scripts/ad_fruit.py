@@ -14,6 +14,9 @@ import bpy, bmesh
 import numpy as np
 from mathutils import Vector, noise
 
+CYCLES = False   # set by blender_product_ad.py: Cycles' real SSS/transmission whitens flesh and juice -> lighter settings
+
+
 FRUITS = {   # sRGB colours; lump = peel lumpiness; squash = height/width; segs = segments in the cross-section
     "yuzu":       dict(peel=("#F5D21C", "#D9B814"), flesh="#FFD84E", pith="#FBF1CF", segs=10, lump=0.045, squash=0.86, pores=95, juice="#FFC21C"),
     "orange":     dict(peel=("#FF8C10", "#F06A05"), flesh="#FF9A1A", pith="#FFF0D6", segs=11, lump=0.012, squash=0.96, pores=120, juice="#FF8A10"),
@@ -184,7 +187,7 @@ def flesh_material(kind):
     th = N.new("ShaderNodeTexImage"); th.image = height; th.extension = "EXTEND"; L.new(tc.outputs["UV"], th.inputs["Vector"])
     bump = N.new("ShaderNodeBump"); bump.inputs["Strength"].default_value = 0.7; _set(bump, "Distance", 0.01)
     L.new(th.outputs["Color"], bump.inputs["Height"]); L.new(bump.outputs["Normal"], b.inputs["Normal"])
-    _set(b, "Subsurface Weight", 0.35); _set(b, "Subsurface Scale", 0.05); _set(b, "Coat Weight", 0.6); _set(b, "Coat Roughness", 0.04)
+    _set(b, "Subsurface Weight", 0.1 if CYCLES else 0.35); _set(b, "Subsurface Scale", 0.05); _set(b, "Coat Weight", 0.3 if CYCLES else 0.6); _set(b, "Coat Roughness", 0.04)
     _set(b, "Specular IOR Level", 0.65)
     return m
 
@@ -193,7 +196,7 @@ def juice_material(kind):
     f = FRUITS[kind]; m = bpy.data.materials.get("juice_" + kind)
     if m: return m
     c = lin(f["juice"]); m = _principled("juice_" + kind, c, 0.02); b = m.node_tree.nodes["Principled BSDF"]
-    _set(b, "Transmission Weight", 0.75); _set(b, "IOR", 1.34); _set(b, "Subsurface Weight", 0.25)
+    _set(b, "Transmission Weight", 0.35 if CYCLES else 0.75); _set(b, "IOR", 1.34); _set(b, "Subsurface Weight", 0.5 if CYCLES else 0.25)
     _set(b, "Emission Color", (*c, 1)); _set(b, "Emission Strength", 0.25)                 # backlit juice glows
     for attr, val in (("use_raytrace_refraction", True), ("surface_render_method", "DITHERED")):
         try: setattr(m, attr, val)

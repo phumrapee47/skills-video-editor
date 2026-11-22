@@ -13,7 +13,7 @@ Claude still reads the brief and the product photos: this is the checklist of wh
 import argparse, json, pathlib, sys
 
 CAT = json.loads((pathlib.Path(__file__).resolve().parent.parent / "assets" / "ad_concepts.json").read_text(encoding="utf-8"))
-LEN_S = {"split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0, "hero": 2.5, "trio": 3.2, "reveal": 2.5}
+LEN_S = {"twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0, "hero": 2.5, "trio": 3.2, "reveal": 2.5}
 
 
 def find(group, words):
@@ -28,8 +28,12 @@ def find(group, words):
 
 def concept(product, ingredient=None, family="fresh", flavours=1):
     p, _ = find("products", product); ing, ing_word = find("ingredients", ingredient or product)
+    shape = CAT["products"].get(p, {}).get("shape") or "can"; needs = CAT.get("shot_needs", {})
+    fits = lambda x: not x.get("shot") or needs.get(x["shot"], shape) == shape      # a shot built for another shape is not built here
     acts = [dict(a, of=p) for a in CAT["products"].get(p, {}).get("actions", [])]
     evs = [dict(e, of=ing) for e in CAT["ingredients"].get(ing, {}).get("events", [])]
+    for x in acts + evs:
+        if not fits(x): x["build"] = f"shot '{x['shot']}' is built for a {needs[x['shot']]} only"; x["shot"] = None
     built = lambda xs, beat: [x for x in xs if x["beat"] == beat and x.get("shot")]
     board = []
     hooks = [x for x in acts + evs if x["beat"] == "hook"]                                   # the product's own action first
@@ -42,12 +46,12 @@ def concept(product, ingredient=None, family="fresh", flavours=1):
     for det in dets:                                                       # what the product shows close up, then the ingredient
         if det["shot"] not in [b[1] for b in board]: board.append(("detail", det["shot"], det["do"], det["sound"]))
     pay = (built(acts, "payoff") or [x for x in acts if x["beat"] == "payoff"] or [None])[0]
-    if pay and pay is not hook: board.append(("payoff", pay.get("shot") or f"TO BUILD:{pay['id']}", pay["do"], pay["sound"]))
-    board.append(("hero", "hero", "slow hero turn, light sweep, name on screen", "soft whoosh"))
+    if pay and pay is not hook and pay.get("shot") not in [b[1] for b in board]: board.append(("payoff", pay.get("shot") or f"TO BUILD:{pay['id']}", pay["do"], pay["sound"]))
+    board.append(("hero", "hero_low", "the product settles still, logo to the lens, low angle, name on screen", "soft thud"))
     if flavours > 1: board.append(("range", "trio", f"{flavours} flavours line up", "pops on the names"))
     board.append(("end", "card", "line + handle on the brand colour", "chime"))
     todo = [x for x in acts + evs if not x.get("shot")]
-    return {"product": p, "ingredient": ing, "fruit": ing_word if CAT["ingredients"].get(ing, {}).get("fruit") else None, "family": family, "family_rules": CAT["families"].get(family),
+    return {"product": p, "shape": shape, "ingredient": ing, "fruit": ing_word if CAT["ingredients"].get(ing, {}).get("fruit") else None, "family": family, "family_rules": CAT["families"].get(family),
             "actions": acts, "events": evs, "board": board, "to_build": todo,
             "shots": [b[1] for b in board if b[1] != "card" and not b[1].startswith("TO BUILD")], "seconds": round(sum(LEN_S.get(b[1], 2.4) for b in board), 1)}
 

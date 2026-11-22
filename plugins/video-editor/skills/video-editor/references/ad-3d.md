@@ -128,3 +128,53 @@ Pitfalls found:
   fill turns it brown. Top view: low side softbox, warm fill off, neutral HDRI.
 - Blender 5's Random Value node exposes only the sockets of its type: find sockets by name, not index.
 - A shot that forces `--cold` must restore the flag, or every later shot in the same run gets wet.
+
+## 1.10: one shot list, approval gates, music-locked timing (`scripts/ad_pipeline.py`)
+Why: a final Cycles render costs hours; the concept, the copy, the timing and the look must be approved before it, in
+that order, each on the cheapest thing that shows it.
+1. `init <dir> --product ... --label ... [--fruit] [--brief] [--track] [--fps 24]`: the concept (`ad_concept.py`) becomes
+   `shots.json`; the music is chosen (mood brief or a track) and its beat grid measured; every shot gets a length in
+   whole beats and its physical event (slash, tab snap, burst) an `event_beat`; the music starts on a beat. Claude
+   then writes the copy (`title`, one or a list per shot) and adjusts shots, beats, `camera` paths, `cold`.
+2. `run` -> **storyboard**: one still per shot at its key frame (432x768, ~15 s for 5 shots) on a sheet with the shot,
+   its length in beats, the event, the title and the sounds. Gate: the user approves the concept and copy.
+3. `run --approve` -> **animatic**: all shots at 360x640, 4 samples (~2 min for 15 s), cut to the music with titles,
+   sound design and each shot's physical sounds, QA. Gate: timing and moves.
+4. **preview**: full size EEVEE + QA + safe zones. Gate: the look.
+5. **final_test**: one Cycles frame -> time estimate for the whole ad. Gate: the cost. Then **final**: Cycles,
+   resumable (frames on disk are skipped: rerun the same command after a stop).
+- Never pass `--approve` for the user: each gate is the user's yes (development runs say so when they do).
+- Change anything in `shots.json` and rerun `run` (without `--approve`) to redo the current stage; finished frames are
+  reused only for shots that did not change (a fingerprint of each shot's spec, size, samples and engine sits in its frame folder).
+- Tempo: the library's BPM tag and the measured one agree on half/double-time tracks (Happy Alley: 73.8 BPM, a beat
+  0.81 s) - the beat grid is the music's, cuts of 3-5 beats then run 2.4-4 s.
+- The final-cost gate renders one Cycles frame per shot at half size (render time measured inside Blender, x4 for
+  full size) and puts them on a sheet: the user sees the final look before paying hours for it. It caught that Cycles
+  is 0.3-0.6 stops brighter than EEVEE and that its real SSS/transmission turns flesh, juice and beaded labels pale
+  and pink. Cycles profile now: `--cycles-exposure -0.8`, flesh SSS 0.1 / coat 0.3, juice transmission 0.35 with
+  SSS 0.5, condensation density x0.5. LUMA v5: ~3.3 h for 369 frames on a laptop RTX 4050.
+
+## 1.11: the user's product from photos, more shapes and what they do, the brief
+- **Photo -> product** (`scripts/product_from_photo.py front.jpg [--back b.jpg] [--shape]`): cut-out (alpha; plain
+  background by colour; busy background with rembg and a model already on disk, never a download) -> shape guess
+  (bar / box / bottle / round) -> round products: the radius profile from the silhouette rows, the cap above the neck,
+  every row's visible arc unwrapped by asin into one texture with the photo's shading divided out, the back from
+  `--back` or each row's own colour -> boxes and pouches: the front picture on the faces -> the studio `set` colours
+  from the product's own palette. Check `check.jpg` (outline per row, cap line, texture). Round trip on a rendered
+  500 ml bottle: diameter 66.5 vs 66 mm, cap 193.3 vs 193 mm. Shoot straight on, from far, plain background.
+- **Shapes** (`scripts/ad_shapes.py`, all scaled to the can's envelope so every camera works): bottle (preset: clear
+  PET, liquid to a fill level, label band, knurled cap; or the photo texture), any lathe product, box (front/back
+  prints), pillow pouch (swelling sheets, crimped seals), filled bar (two halves with a painted broken face:
+  shell, biscuit, caramel; ridges). `hero_obj()` puts the product in every generic shot; a bar is turned so its long
+  side faces the lens, tilted and scaled up.
+- **What they do** (new shots): `twist` (bottle: the cap turns, lets go, pops up spinning in slow motion, CO2 at the
+  neck), `tear` (pouch: the top strip tears from the notch along a jagged line, crisps burst out), `snap` (bar: the
+  ends bend down, crumbs fly, the caramel stretches into strands that thin, sag and break into drooping tails).
+  Sounds: `twist`, `rip`, `snap`. A shot built for another shape is never offered (`shot_needs` in the catalogue).
+- **Brief** (`ad_pipeline.py init <dir> --brief-file brief.json`): product, photo/back or shape, family, length,
+  fps, audience, USP, platforms and the approved copy (hook, details, payoff, name, price, cta) -> titles placed by
+  beat role in the family's style, shots scaled in whole beats to the length. The storyboard shows every line.
+- Pitfalls: old shots assumed the logo faced the lens at 0 deg - every product now shows its front at 90 deg; a bar
+  is long - side on, tight on the break, or its ends leave a 9:16 frame and the strands hide behind a half; strands
+  need halves that part slowly (11 cm-equivalent) or the filling breaks into beads at once; glossy chocolate mirrors
+  a bright floor - keep it satin.

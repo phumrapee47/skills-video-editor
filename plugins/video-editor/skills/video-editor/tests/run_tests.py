@@ -394,14 +394,19 @@ def yamnet_tags_speech_and_music(tmp):
 @test
 def ad_concept_board(tmp):
     """ad_concept.py: a yuzu can leads with the fruit split and pays off with the can opening; a filled bar leads with
-    its own snap-and-ooze (marked TO BUILD); every shot named in the catalogue exists in blender_product_ad.py."""
+    its own snap; a bottle gets the cap twist and never a can-only shot; unbuilt ideas stay marked TO BUILD; every shot
+    named in the catalogue exists in blender_product_ad.py."""
     import ad_concept
     c = ad_concept.concept("yuzu sparkling can", flavours=3)
     beats = {b[0]: b[1] for b in c["board"]}
     assert c["product"] == "can" and c["fruit"] == "yuzu", c
     assert beats["hook"] == "split" and beats["payoff"] == "open" and "trio" in c["shots"], beats
     c = ad_concept.concept("caramel chocolate bar", family="luxury")
-    assert c["board"][0][1] == "TO BUILD:snap_ooze", c["board"][0]
+    assert c["board"][0][1] == "snap", c["board"][0]                             # the product's own action leads
+    c = ad_concept.concept("green tea bottle")
+    assert "twist" in c["shots"] and not {"open", "toppop", "drops"} & set(c["shots"]), c["shots"]   # no can-only shots on a bottle
+    c = ad_concept.concept("lip balm stick")
+    assert c["board"][0][1].startswith("TO BUILD"), c["board"][0]                # unbuilt ideas stay visible
     src = (SC / "blender_product_ad.py").read_text(encoding="utf-8")
     lens = set(re.findall(r'"(\w+)": \d+', re.search(r"LEN = \{[^}]*\}", src).group(0)))
     named = {x["shot"] for g in ("products", "ingredients") for e in ad_concept.CAT[g].values()
@@ -416,6 +421,66 @@ def sfx_kit_levels(tmp):
     for k in make_sfx.KIT: assert k in sound_design.LEVEL and k in sound_design.PEAK and k in sound_design.RANK, k
     p = make_sfx.make(tmp / "kit", only=["slash", "splash"])
     assert all(v.stat().st_size > 10000 for v in p.values()), p
+
+
+@test
+def ad_pipeline_beats_and_gates(tmp):
+    """ad_pipeline.py: every shot lasts whole beats, each physical event lands on a beat (its sound placed on it),
+    titles stay inside their shot and leave before the end card, the music starts on its first beat; --approve is
+    refused until a stage has been shown."""
+    import ad_pipeline as AP
+    per, fps = 0.5, 24
+    st = {"stage": "board", "approved": [], "fps": fps, "size": "1080x1920", "brief": "fresh",
+          "product": {"label": "x.png", "set": ["#FFC21C", "#FF8A1E"]},
+          "music": {"src": str(tmp / "m.wav"), "in": 1.25, "bpm": 120, "period": per},
+          "card": {"text": "Hi", "bg": "0xFF9A1E", "beats": 3},
+          "shots": [{"id": "s1_split", "type": "split", "beats": 5, "event_beat": 2, "title": {"text": "One", "at": 0.3},
+                     "sfx": [{"sound": "slash", "at": "event", "offset": 0.0, "rel_db": -11}]},
+                    {"id": "s2_hero_low", "type": "hero_low", "beats": 4, "title": [{"text": "Two", "at": 0.2}, {"text": "45 THB", "at": 1.0}], "sfx": []}]}
+    sp = AP.derived(st)
+    for s, x in zip(st["shots"], sp): assert abs(x["frames"] / fps - s["beats"] * per) <= 1 / fps, x
+    assert abs((sp[0]["event"] - 1) / fps - 2 * per) <= 1 / fps, sp[0]
+    fd = tmp / "f"; fd.mkdir()
+    for x in sp: ff("-f", "lavfi", "-i", f"color=c=orange:s=108x192:r={fps}:d={x['frames'] / fps}", "-pix_fmt", "yuv420p", fd / f"{x['id']}.mp4")
+    ff("-f", "lavfi", "-i", "sine=f=440:d=12", tmp / "m.wav")
+    plan = json.load(open(AP.make_plan(st, tmp, fd, "o.mp4"), encoding="utf-8"))
+    slash = next(e for e in plan["audio"] if e["src"].endswith("slash.wav"))
+    assert abs(slash["start"] - 2 * per) <= 1 / fps, slash
+    music = next(e for e in plan["audio"] if e.get("role") == "music"); assert music["in"] == 1.25
+    shot_end = sum(x["frames"] for x in sp) / fps
+    assert len(plan["titles"]) == 3 and all(t["end"] <= shot_end - 0.35 + 1e-6 for t in plan["titles"]), plan["titles"]
+    json.dump(st, open(tmp / "shots.json", "w"))
+    r = subprocess.run(PY + [SC / "ad_pipeline.py", "run", tmp, "--approve"], capture_output=True, text=True)
+    assert r.returncode != 0 and "nothing shown yet" in (r.stderr + r.stdout), r.stderr
+
+
+@test
+def product_from_photo_round_trip(tmp):
+    """product_from_photo.py on a drawn bottle (known profile, cap, front mark) and a drawn box: the shape guess, the
+    radius profile in mm, where the cap starts, and the unwrapped texture keeps the front mark in its middle."""
+    import numpy as np
+    from PIL import Image, ImageDraw
+    W, H = 600, 1300; im = Image.new("RGB", (W, H), (255, 255, 255)); d = ImageDraw.Draw(im)
+    cx = W // 2; body_r, neck_r, cap_r = 150, 60, 72                       # px; height 1200 px = 240 mm -> 0.2 mm/px
+    d.rectangle([cx - body_r, 400, cx + body_r, 1250], fill=(120, 200, 90))    # body
+    d.polygon([(cx - body_r, 400), (cx + body_r, 400), (cx + neck_r, 230), (cx - neck_r, 230)], fill=(120, 200, 90))
+    d.rectangle([cx - neck_r, 160, cx + neck_r, 230], fill=(200, 230, 200))   # neck
+    d.rectangle([cx - cap_r, 50, cx + cap_r, 160], fill=(30, 110, 40))        # cap
+    d.rectangle([cx - 30, 700, cx + 30, 900], fill=(220, 20, 20))             # a red mark on the front
+    im.save(tmp / "bottle.png")
+    r = subprocess.run(PY + [SC / "product_from_photo.py", tmp / "bottle.png", "--out", tmp / "b", "--height-mm", "240"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-500:]
+    p = json.load(open(tmp / "b" / "product.json"))
+    assert p["shape"] == "bottle", p["shape"]
+    mid = [rz for rz in p["profile"] if 100 < rz[1] < 140]
+    assert mid and all(abs(rr - 30) < 1.5 for rr, _ in mid), mid[:3]              # 150 px x 0.2 mm = 30 mm radius
+    assert abs(p["cap_from_mm"] - (1250 - 160) * 0.2) < 4, p["cap_from_mm"]
+    tex = np.asarray(Image.open(tmp / "b" / p["texture"]).convert("RGB")).astype(int); th, tw = tex.shape[:2]
+    centre = tex[int(th * (1 - 450 / 1200)), tw // 2]; side = tex[int(th * (1 - 450 / 1200)), int(tw * 0.62)]
+    assert centre[0] > 180 and centre[1] < 80 and side[1] > 150, (centre, side)  # red in the middle, green beside it
+    box = Image.new("RGB", (800, 1000), (250, 250, 250)); ImageDraw.Draw(box).rectangle([200, 150, 600, 850], fill=(40, 90, 160)); box.save(tmp / "box.png")
+    subprocess.run(PY + [SC / "product_from_photo.py", tmp / "box.png", "--out", tmp / "x"], check=True, capture_output=True)
+    q = json.load(open(tmp / "x" / "product.json")); assert q["shape"] == "box" and abs(q["size_mm"][0] / q["size_mm"][1] - 400 / 700) < 0.03, q
 
 
 def blender_exe():
