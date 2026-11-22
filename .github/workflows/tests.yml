@@ -21,7 +21,7 @@ jobs:
       - name: ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: python packages
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pythainlp   # pythainlp: Thai word-stack test (optional for users)
       - name: doctor
         run: python -I scripts/doctor.py
       - name: compile every script
