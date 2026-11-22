@@ -331,6 +331,66 @@ def music_mood_pick(tmp):
     assert json.load(open(tmp / "p2.json"))["audio"][0]["src"].endswith("fast.wav")
 
 
+@test
+def sound_catalog_balanced(tmp):
+    """assets/sound_catalog.json: every item has a licence and a credit; the balanced set covers every feel, no Holiday/Polka."""
+    import sound_library
+    cat = json.load(open(sound_library.CATALOG, encoding="utf-8"))
+    assert len(cat) > 1500 and all(e.get("license") and e.get("credit") and e.get("url") for e in cat)
+    assert not [e for e in cat if e["source"] == "commons" and any(x in e["license"].upper() for x in ("SA", "NC", "ND"))]
+    pick = sound_library.balanced(cat, 400)
+    assert len(pick) == 400 and not [e for e in pick if e["genre"] in ("Holiday", "Polka")]
+    feels = {f for e in cat if e["source"] == "incompetech" for f in e.get("feels", [])} - {"Ren Faire", "Medieval"}
+    got = {f for e in pick for f in e.get("feels", [])}
+    assert feels <= got, feels - got
+
+
+@test
+def music_by_picture_avoids_comedy(tmp):
+    """music_mood.picture_score: for a fast city edit a Bright/Grooving electronica track beats a Humorous one and an Eerie one."""
+    import music_mood
+    tg = {"feels": {"Bright": 1.5, "Grooving": 2.2, "Uplifting": 1.0, "Driving": 1.5}, "genres": {"Electronica": 1, "Funk": 1}, "bpm": (100, 135), "pace": 0.9}
+    good = {"feels": ["Bright", "Grooving"], "genre": "Electronica", "bpm": 118}
+    funny = {"feels": ["Bright", "Humorous", "Bouncy"], "genre": "Unclassifiable", "bpm": 120}
+    eerie = {"feels": ["Eerie", "Mysterious"], "genre": "Horror", "bpm": 110}
+    assert music_mood.picture_score(good, tg) > music_mood.picture_score(funny, tg) > music_mood.picture_score(eerie, tg)
+
+
+@test
+def place_sound_moments_and_replace(tmp):
+    """place_sound.py: steady surf-like noise becomes a moment (music ducks), a silent clip is muted; music_mix set."""
+    import numpy as np, wave
+    def wav(path, x):
+        with wave.open(str(path), "wb") as w: w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes((np.clip(x, -1, 1) * 32767).astype("<i2").tobytes())
+    rng = np.random.default_rng(3); t = np.arange(16000 * 4) / 16000
+    surf = rng.standard_normal(len(t)) * 0.12 * (0.8 + 0.2 * np.sin(2 * np.pi * 0.15 * t))
+    wav(tmp / "surf.wav", surf); wav(tmp / "silent.wav", np.zeros(len(t)))
+    for name in ("surf", "silent"):
+        ff("-f", "lavfi", "-i", "color=c=0x2060a0:s=320x180:d=4", "-i", tmp / f"{name}.wav", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", tmp / f"{name}.mp4")
+    json.dump({"output": {"path": "o.mp4", "size": [320, 180]}, "clips": [{"src": "surf.mp4", "in": 0, "out": 3.5}, {"src": "silent.mp4", "in": 0, "out": 3.5}],
+               "audio": []}, open(tmp / "p.json", "w"))
+    r = subprocess.run(PY + [SC / "place_sound.py", tmp / "p.json", "--library", tmp / "nolib"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr[-400:]
+    p = json.load(open(tmp / "p.json")); c0, c1 = p["clips"]
+    assert c1["volume_db"] == -90, c1                                          # nothing to hear: muted
+    assert p["music_mix"]["under_db"] < p["music_mix"]["gap_db"]
+    if "MOMENT" in r.stdout: assert c0.get("speech") and c0.get("talk"), c0  # the surf is a moment when the classifier hears water
+
+
+@test
+def yamnet_tags_speech_and_music(tmp):
+    """audio_tags.py (YAMNet): a tone chord reads as music-ish, white noise not as speech. Skipped without the model."""
+    import audio_tags, numpy as np
+    if not (audio_tags.MODEL_DIR / "yamnet_onnx" / "yamnet.onnx").exists(): print("      (YAMNet model not installed: skipped)"); return
+    t = np.arange(16000 * 3) / 16000
+    chord = sum(np.sin(2 * np.pi * f * t) for f in (261.6, 329.6, 392.0)) * 0.15 * (1 + 0.3 * np.sin(2 * np.pi * 2 * t))
+    sc, labels = audio_tags.scores(chord.astype(np.float32)); g = audio_tags.groups(sc, labels)
+    assert g["music"] > g["people"], g
+    noise = np.random.default_rng(1).standard_normal(16000 * 3).astype(np.float32) * 0.1
+    sc, labels = audio_tags.scores(noise); g = audio_tags.groups(sc, labels)
+    assert g["people"] < 0.3, g
+
+
 # ---------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")

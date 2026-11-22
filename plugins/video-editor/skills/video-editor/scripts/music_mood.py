@@ -129,6 +129,61 @@ def scan(folder):
     print("wrote", lib_p); return lib_p
 
 
+AVOID_FEELS = {"Humorous", "Eerie", "Unnerving", "Aggressive", "Suspenseful", "Ren Faire", "Medieval"}
+AVOID_GENRES = {"Holiday", "Polka", "Horror", "Silent Film Score", "Stings", "Musical"}
+
+
+def picture_target(plan, base, pace=None):
+    """What the footage asks for: feels and genres to look for, from what the clips show and how fast they change."""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)); import place_sound
+    clips = [c for c in plan["clips"] if not c.get("card") and c.get("src")]
+    kinds = []
+    for c in clips[:: max(1, len(clips) // 16)]:
+        src = c["src"] if pathlib.Path(c["src"]).is_absolute() else str((pathlib.Path(base) / c["src"]).resolve())
+        kinds.append(place_sound.look(src, c["in"], c["out"], c.get("crop")))
+    share = {k: kinds.count(k) / max(1, len(kinds)) for k in ("water", "green", "city", "night", "other")}
+    scene = plan.get("scene")                                           # set by Claude after looking at the frames: beats colour rules
+    if scene: share = {"cafe": {"other": 1.0}, "indoor": {"other": 1.0}, "beach": {"water": 1.0}, "water": {"water": 1.0}, "nature": {"green": 1.0},
+                       "city": {"city": 1.0}, "night": {"night": 0.6, "city": 0.4}}.get(scene, share)
+    durs = sorted((c["out"] - c["in"]) / c.get("speed", 1.0) for c in clips)
+    pace = pace or (durs[len(durs) // 2] if durs else 2.0)            # a montage passes its planned shot length
+    want_f, want_g = {"Uplifting": 1.0}, {}
+    if pace < 1.3: want_f.update({"Driving": 1.5, "Bright": 1.5, "Grooving": 1.2, "Bouncy": 0.6}); bpm = (100, 135)
+    else:                                                               # travel films and vlogs: soft, smooth beds (user: v3 "Lobby Time",
+        want_f.update({"Relaxed": 1.6, "Calming": 1.5, "Grooving": 0.8, "Bright": 0.3}); bpm = (60, 115)   # calm jazz, "easy to keep watching")
+        for f in ("Driving", "Bouncy", "Action", "Intense", "Epic"): want_f[f] = want_f.get(f, 0) - 1.0
+    share = {k: share.get(k, 0.0) for k in ("water", "green", "city", "night", "other")}
+    if share["city"] > 0.3: want_f["Grooving"] = want_f.get("Grooving", 0) + 0.8; want_g.update({"Jazz": 1.2, "Electronica": 0.6, "Urban": 0.5, "Funk": 0.4, "Latin": 0.4})
+    if share["water"] + share["green"] > 0.3: want_f["Calming"] = want_f.get("Calming", 0) + 0.8; want_g.update({"World": 1, "Contemporary": 0.8, "Cinematic": 1, "Soundtrack": 0.6, "Classical": 0.5})
+    if share.get("night", 0) > 0.3: want_f["Mysterious"] = 1.0; want_g.update({"Electronica": 1, "Jazz": 1})
+    if scene in ("cafe", "indoor"): want_g.update({"Jazz": 1.5, "Latin": 1.2, "Contemporary": 0.8, "World": 0.6}); want_f["Relaxed"] = want_f.get("Relaxed", 0) + 0.8; bpm = (60, 110)
+    return {"feels": want_f, "genres": want_g, "bpm": bpm, "pace": round(pace, 2), "scene": scene or {k: round(v, 2) for k, v in share.items() if v}}
+
+
+def recent(lib):
+    """Tracks used by the last edits (newest last), so every city clip does not get the same song."""
+    p = pathlib.Path(lib) / "used.json"
+    try: return json.load(open(p, encoding="utf-8"))
+    except Exception: return []
+
+
+def mark_used(lib, track_id, keep=8):
+    p = pathlib.Path(lib) / "used.json"; u = [x for x in recent(lib) if x != track_id] + [track_id]
+    json.dump(u[-keep:], open(p, "w", encoding="utf-8"))
+
+
+def picture_score(t, tg):
+    feels = set(t.get("feels") or []); sc = sum(w for f, w in tg["feels"].items() if f in feels)
+    if t.get("id") in tg.get("recent", []): sc -= 2.0                     # used in a recent edit: let another fitting track win
+    sc += tg["genres"].get(t.get("genre") or "", 0)
+    sc -= 3 * len(feels & AVOID_FEELS) + (5 if t.get("genre") in AVOID_GENRES else 0)
+    bpm = t.get("bpm") or t.get("bpm_measured") or 0; lo, hi = tg["bpm"]
+    sc += 0.8 if lo <= bpm <= hi or lo <= bpm * 2 <= hi or lo <= bpm / 2 <= hi else -0.5
+    if not feels:                                                       # untagged (Scott Buckley): measured mood, a little less trusted
+        v, a = t.get("valence", 0), t.get("arousal", 0); sc += 1.5 - 1.2 * ((v - 0.35) ** 2 + (a - (0.3 if tg["pace"] < 1.3 else -0.2)) ** 2) ** 0.5
+    return round(sc, 2)
+
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) > 2 and sys.argv[1] == "_features":
@@ -139,17 +194,26 @@ if __name__ == "__main__":
     ap.add_argument("cmd", choices=["scan", "pick"]); ap.add_argument("target")
     ap.add_argument("--library"); ap.add_argument("--words"); ap.add_argument("--mood", choices=list(MOODS))
     ap.add_argument("--apply", action="store_true"); ap.add_argument("--no-talk", action="store_true", help="music-led edit (montage, no speech)")
+    ap.add_argument("--by-picture", action="store_true", help="choose from what the footage shows and its pace (montages, travel)")
+    ap.add_argument("--top", type=int, default=3); ap.add_argument("--choose", type=int, default=1, help="with --apply: use the n-th of the ranking (after an audition)")
+    ap.add_argument("--track", help="with --apply: this track (id or part of the file name) instead of the ranking")
     a = ap.parse_args()
     if a.cmd == "scan": scan(a.target); sys.exit(0)
     pp = pathlib.Path(a.target).resolve(); plan = json.load(open(pp, encoding="utf-8"))
-    lib = pathlib.Path(a.library or "."); lib_p = lib if lib.suffix == ".json" else lib / "library.json"
+    if not a.library:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)); import sound_library; a.library = str(sound_library.library_dir())
+    lib = pathlib.Path(a.library); lib_p = lib if lib.suffix == ".json" else lib / "library.json"
     if not lib_p.exists(): lib_p = scan(lib)
     tracks = json.load(open(lib_p, encoding="utf-8"))["tracks"]
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)); import brand
     B = brand.load(plan, pp.parent)
     if B.get("music"): tracks = [t for t in tracks if t["file"] in B["music"]] or tracks
     tracks = [t for t in tracks if not t.get("avoid")]
-    if a.mood: tv, ta = MOODS[a.mood]; hits = {"--mood": a.mood}
+    tg = None
+    if a.by_picture:
+        tg = picture_target(plan, pp.parent); tg["recent"] = recent(lib_p.parent); tv = ta = 0.0; hits = {}
+        print(f"picture: scene {tg['scene']}, median shot {tg['pace']} s -> feels {tg['feels']}, genres {tg['genres']}, BPM {tg['bpm']}")
+    elif a.mood: tv, ta = MOODS[a.mood]; hits = {"--mood": a.mood}
     else:
         words = []
         if a.words:
@@ -160,13 +224,19 @@ if __name__ == "__main__":
         shown = [t.get("text", "") for t in plan.get("titles", [])] + [t.get("text", "") for c in plan["clips"] for t in c.get("titles", [])]
         shown += [c["card"].get("text", "") for c in plan["clips"] if c.get("card")] + [(plan.get("headline") or {}).get("text", "")]
         tv, ta, hits = clip_mood(words, talk=not a.no_talk and bool(words), extra=" ".join(map(str, shown)).replace("*", ""))
-    print(f"edit mood: valence {tv:+.2f}, arousal {ta:+.2f} -> {mood_of(tv, ta)}   (topic words: {hits or 'none'})")
-    ranked = sorted(tracks, key=lambda t: (track_point(t)[0] - tv) ** 2 + (track_point(t)[1] - ta) ** 2)
-    for k, t in enumerate(ranked[:3]):
+    if tg:
+        ranked = sorted(tracks, key=lambda t: -picture_score(t, tg))
+    else:
+        print(f"edit mood: valence {tv:+.2f}, arousal {ta:+.2f} -> {mood_of(tv, ta)}   (topic words: {hits or 'none'})")
+        ranked = sorted(tracks, key=lambda t: (track_point(t)[0] - tv) ** 2 + (track_point(t)[1] - ta) ** 2 + (2 if set(t.get("feels") or []) & AVOID_FEELS else 0))
+    for k, t in enumerate(ranked[:a.top]):
         v, ar = track_point(t)
-        print(f"  {k + 1}. {t['file']:30s} {'/'.join(t.get('moods') or [t['measured_mood'] + ' (measured)'])}  v{v:+.2f} a{ar:+.2f}  {t['bpm']} BPM")
+        tags = ", ".join(t.get("feels") or []) or (t.get("measured_mood", "?") + " (measured)")
+        print(f"  {k + 1}. {t.get('title', t['file'])[:34]:34s} [{t.get('genre') or '-'}] {tags[:40]:40s} {t.get('bpm')} BPM" + (f"  score {picture_score(t, tg)}" if tg else ""))
     if a.apply and ranked:
-        t = ranked[0]; src = (lib_p.parent / t["file"]).resolve()
+        t = ranked[min(len(ranked), max(1, a.choose)) - 1]
+        if a.track: t = next((x for x in tracks if a.track in (x.get("id") or "") or a.track.lower() in x["file"].lower()), t)
+        src = (lib_p.parent / t["file"]).resolve(); mark_used(lib_p.parent, t.get("id") or t["file"])
         try: rel = str(src.relative_to(pp.parent)).replace("\\", "/")
         except ValueError: rel = str(src).replace("\\", "/")
         old = [x for x in plan.get("audio", []) if x.get("role") == "music"]

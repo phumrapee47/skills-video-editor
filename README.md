@@ -75,6 +75,8 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - Sound design: synthesised effect kit (whoosh, pop, riser, impact...; no downloads) placed where the picture changes, levels set against the speech (`scripts/sound_design.py`)
 - Brand kit: one `brand.json` for fonts, accent colours, grade, corner logo, end card and effect level (`scripts/brand.py`)
 - Music by mood: scan a music folder once, read the edit's mood from its words and titles, pick the closest track (`scripts/music_mood.py`)
+- Free sound library: catalogue of 1,700+ CC BY / CC0 tracks and place recordings (Kevin MacLeod, Scott Buckley, Wikimedia Commons) with tags and credits; audio fetched on request into `~/.video-editor/sounds`, credits written for every render (`scripts/sound_library.py`)
+- Travel and vlog montages from raw footage (`scripts/montage.py`): best moments, story order, cuts in beats, travel titles (pin, poem, spaced, stamp); the place's own sound first (YAMNet hears waterfalls, waves, birds, markets: `scripts/place_sound.py`), soft music chosen from the pictures and auditioned by ear (`scripts/music_audition.py`), -16 LUFS
 - Built from a study of 21 reference podcast Shorts (`references/podcast-shorts.md`), version by version (v2 -> v10)
 
 **6. Other genres**
@@ -186,6 +188,8 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - เสียงประกอบอัตโนมัติ: สังเคราะห์เสียง whoosh, pop, riser, impact เอง (ไม่ต้องดาวน์โหลด) วางตรงจุดที่ภาพเปลี่ยน ระดับเสียงเทียบกับเสียงพูด (`scripts/sound_design.py`)
 - Brand kit: ไฟล์ `brand.json` ไฟล์เดียวกำหนดฟอนต์ สี โทนภาพ โลโก้มุมจอ การ์ดปิดท้าย และระดับเสียงเอฟเฟกต์ (`scripts/brand.py`)
 - เลือกเพลงตามอารมณ์: วิเคราะห์คลังเพลงครั้งเดียว อ่านอารมณ์คลิปจากคำพูดและหัวข้อ แล้วเลือกเพลงที่ใกล้ที่สุด (`scripts/music_mood.py`)
+- คลังเสียงฟรี: รายชื่อเพลงและเสียงสถานที่กว่า 1,700 รายการ (CC BY / CC0 จาก Kevin MacLeod, Scott Buckley, Wikimedia Commons) พร้อมแท็กและเครดิต ดาวน์โหลดเมื่อต้องใช้ และเขียนเครดิตให้ทุกคลิป (`scripts/sound_library.py`)
+- คลิปท่องเที่ยว/vlog จากฟุตเทจดิบ (`scripts/montage.py`): คัดช่วงดี เรียงเรื่องเล่า ตัดตามจังหวะเพลง ตัวหนังสือแบบท่องเที่ยว ให้เสียงสถานที่มาก่อน (YAMNet ฟังเสียงน้ำตก คลื่น นก ตลาด) เลือกเพลงนุ่มๆ จากภาพแล้วให้คนเลือกด้วยหูจาก audition ความดัง -16 LUFS
 - สร้างจากการศึกษาคลิปพอดแคสต์ตัวอย่าง 21 คลิป (`references/podcast-shorts.md`) ทีละเวอร์ชัน (v2 → v10)
 
 #### 6. แนวอื่น

@@ -119,6 +119,30 @@ def titles_ass(titles, W, H, path):
         fi = int(float(it.get("fade", 0.25)) * 1000); size = int(it.get("size", round(H * 0.07)))
         if it.get("color"): r, g, b = it["color"]; base = "\\c&H%02X%02X%02X&" % (b, g, r)
         else: base = ""
+        st = it.get("style")
+        if st in ("pin", "poem", "spaced", "stamp"):                  # ---- travel styles (references/vlog-travel.md)
+            vert = H > W; dur_ms = int((e - s) * 1000)
+            if st == "pin":                                          # location: pin mark + place name, lower-left (top-left in vlogs)
+                sz = int(it.get("size", round(H * (0.026 if vert else 0.034)))); x = round(W * 0.05)
+                y = round(H * (0.12 if it.get("pos") == "top" else (0.70 if vert else 0.88)))
+                pin = (f"m {sz * 0.35:.0f} {sz:.0f} l 0 {sz * 0.45:.0f} b 0 0 {sz * 0.7:.0f} 0 {sz * 0.7:.0f} {sz * 0.45:.0f} l {sz * 0.35:.0f} {sz:.0f}")
+                ev(1, s, e, "S", f"\\an4\\move({x - 30},{y},{x},{y},0,300)\\1c&H{bgr(accent)}&\\bord{max(2, ol // 2)}\\3c&H000000&\\p1\\fad(250,{fi})", pin)
+                ev(1, s + 0.12, e, "T", f"\\an4\\move({x + int(sz * 0.95) - 30},{y},{x + int(sz * 0.95)},{y},0,300)\\fs{sz}\\fad(250,{fi}){base}", ass_text(it["text"], accent))
+            elif st == "stamp":                                      # time of day, lower-left, pops in
+                sz = int(it.get("size", round(H * (0.03 if vert else 0.045)))); x = round(W * 0.05); y = round(H * (0.70 if vert else 0.88))
+                ev(1, s, e, "T", f"\\an4\\pos({x},{y})\\fs{sz}\\fad(0,{fi})" + anim_tags("pop", dur_ms, fi) + base, ass_text(it["text"], accent))
+            else:                                                    # poem: serif italic line low; spaced: small spaced capitals
+                serif = _font("serif_italic")[0]
+                sz = int(it.get("size", round(H * (0.028 if st == "spaced" else (0.03 if vert else 0.04)))))
+                y = round(H * float(it.get("y", (0.5 if it.get("pos") == "center" else (0.68 if vert else 0.86)))))
+                txt = str(it["text"]).upper() if st == "spaced" else str(it["text"])
+                maxw = W * (0.84 if vert else 0.9); lines = txt.replace("**", "").split("\n")
+                wide = max(text_width(l, sz) + (len(l) * sz / 3 if st == "spaced" else 0) for l in lines)   # letter spacing adds sz/3 per letter
+                if wide > maxw: sz = int(sz * maxw / wide)                    # never off the frame (a 9:16 frame is narrow)
+                font =f"\\fn{SANS}\\fsp{max(2, sz // 3)}\\b0" if st == "spaced" else f"\\fn{serif}\\i1\\b0"
+                fin = int(float(it.get("fade_in", 0.6)) * 1000)
+                ev(1, s, e, "T", f"\\an5\\pos({W // 2},{y})\\fs{sz}{font}\\bord{max(3, ol * 3 // 4)}\\shad{sh * 2}\\4a&H60&\\fad({fin},{max(fi, 400)}){base}", ass_text(txt, accent))   # thin type over bright skies: firmer edge
+            continue
         if "items" in it:                                            # ---- topic card
             dim = it.get("dim", 0.45)
             if dim:                                                  # dim the whole frame (not a box around text)
@@ -381,8 +405,9 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     for w in warn: print("WARNING", w)
     tail = []
     B = plan.get("_brand") or {}
-    if brand.grade(B):                                     # channel grade on the picture only: text keeps its colours
-        fg.append(f"[{acc}]{brand.grade(B)}[graded]"); acc = "graded"
+    gr = brand.grade({"grade": plan["grade"]}) if plan.get("grade") else brand.grade(B)   # the plan's own grade wins over the brand's
+    if gr:                                                 # grade on the picture only: text keeps its colours
+        fg.append(f"[{acc}]{gr}[graded]"); acc = "graded"
     if (B.get("logo") or {}).get("src"):
         hide = [(c["start"], c["end"]) for c in tl if c.get("card")] + [(float(it["start"]), float(it["end"])) for it in titles if "items" in it]
         end = next(((c["start"], c["end"]) for c in tl if c.get("brand_end")), None)
@@ -544,8 +569,14 @@ if __name__ == "__main__":
                "speech": [[round(x, 2), round(y, 2)] for x, y in sorted(talk)]},
               open(out + ".timeline.json", "w", encoding="utf-8"), indent=1)
     print(f"wrote {out} ({total:.2f} s timeline)")
+    try:                                                    # CC BY music and place sounds need a credit in the description
+        import sound_library
+        cr = sound_library.credits(str(plan_path))
+        if cr: open(out + ".credits.txt", "w", encoding="utf-8").write(chr(10).join(cr) + chr(10)); print(f"credits: {len(cr)} line(s) in {pathlib.Path(out).name}.credits.txt")
+    except Exception as ex: print("credits: not written", ex)
     if not a.no_qa:
         qa = [sys.executable, "-I", str(HERE / "qa_check.py"), out, "--target", target, "--sheet", out + ".sheet.jpg", "--json", out + ".qa.json"]
+        if o.get("lufs") is not None: qa += ["--lufs", str(lufs)]
         cards = [f"{c['start']:.2f}:{c['end']:.2f}" for c in tl if c.get("card")]
         if cards and not a.preview: qa += ["--cards"] + cards
         if plan.get("subtitles") and plan["subtitles"]["src"].lower().endswith(".srt") and not a.preview: qa += ["--subs", plan["subtitles"]["src"]]

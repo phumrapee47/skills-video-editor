@@ -55,12 +55,14 @@ def check_format(path, info):
     report("format", "WARN" if bad else "PASS", msg + ("; " + "; ".join(bad) if bad else ""))
 
 
-def check_loudness(path, target):
+def check_loudness(path, target, lufs=None):
     e = ff(["-i", path, "-vn", "-af", "ebur128=peak=true", "-f", "null", "-"])
     summ = e[e.rfind("Summary:"):]
     I = float(re.search(r"I:\s+(-?[\d.]+) LUFS", summ)[1]); lra = float(re.search(r"LRA:\s+([\d.]+) LU", summ)[1])
     tp = re.search(r"Peak:\s+(-?[\d.]+|-inf) dBFS", summ); tp = float(tp[1]) if tp and tp[1] != "-inf" else -99
-    t, tol = TARGETS[target]; msg = f"{I:.1f} LUFS (target {t} +-{tol}), true peak {tp:.1f} dBTP, LRA {lra:.1f} LU"
+    t, tol = TARGETS[target]
+    if lufs is not None: t = lufs                                       # the plan's own loudness (e.g. -16 for a music-led travel film)
+    msg = f"{I:.1f} LUFS (target {t} +-{tol}), true peak {tp:.1f} dBTP, LRA {lra:.1f} LU"
     status = "PASS"
     if abs(I - t) > tol: status = "FAIL" if abs(I - t) > 2 * tol else "WARN"
     if tp > -1.0: status = "FAIL" if tp > 0 else ("WARN" if status == "PASS" else status); msg += " (peak too hot)"
@@ -127,7 +129,7 @@ def sheet(path, dur, out):
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("video"); ap.add_argument("--subs"); ap.add_argument("--target", choices=TARGETS, default="youtube")
+    ap.add_argument("video"); ap.add_argument("--subs"); ap.add_argument("--target", choices=TARGETS, default="youtube"); ap.add_argument("--lufs", type=float)
     ap.add_argument("--sheet"); ap.add_argument("--json"); ap.add_argument("--fade", type=float, default=1.5)
     ap.add_argument("--cards", nargs="*", default=[], help="a:b spans that are intended text cards on a dark background (not 'black')")
     a = ap.parse_args()
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     print(f"QA {a.video} ({dur:.1f} s)")
     check_format(a.video, info)
     if any(s["codec_type"] == "audio" for s in info["streams"]):
-        check_loudness(a.video, a.target); check_silence(a.video)
+        check_loudness(a.video, a.target, a.lufs); check_silence(a.video)
     check_picture(a.video, dur, a.fade)
     if a.subs: check_subs(a.subs, dur)
     if a.sheet: sheet(a.video, dur, a.sheet)
