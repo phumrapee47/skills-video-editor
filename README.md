@@ -72,6 +72,9 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - Platform safe zones: every vertical render is checked against the TikTok / Reels / Shorts interface (top tabs, right-hand buttons, bottom caption area) with a shaded check sheet (`scripts/safe_zones.py`)
 - Thai word-stack captions: `scripts/thai_words.py` cuts Scribe's Thai characters into timed words (pythainlp), then the same stack style as English (lines packed by visible width, split names kept together)
 - Follows whoever is talking in a two-shot (`reframe.py --speaker order|cut`, no model: mouth and jaw motion per speech turn): split screen with the speaker in the lower panel, or a close-up of the speaker
+- Sound design: synthesised effect kit (whoosh, pop, riser, impact...; no downloads) placed where the picture changes, levels set against the speech (`scripts/sound_design.py`)
+- Brand kit: one `brand.json` for fonts, accent colours, grade, corner logo, end card and effect level (`scripts/brand.py`)
+- Music by mood: scan a music folder once, read the edit's mood from its words and titles, pick the closest track (`scripts/music_mood.py`)
 - Built from a study of 21 reference podcast Shorts (`references/podcast-shorts.md`), version by version (v2 -> v10)
 
 **6. Other genres**
@@ -180,6 +183,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - ขอบปลอดภัยของแพลตฟอร์ม: ทุกคลิปแนวตั้งถูกเช็กว่าข้อความไม่ทับแท็บบน ปุ่มขวา และแถบข้อความล่างของ TikTok / Reels / Shorts พร้อมภาพแรเงาให้ดู (`scripts/safe_zones.py`)
 - ซับไทยแบบกองคำ: `scripts/thai_words.py` ตัดคำไทยจากผลถอดเสียง Scribe พร้อมเวลา (pythainlp) แล้วใช้สไตล์กองคำแบบเดียวกับภาษาอังกฤษ (จัดบรรทัดตามความกว้างจริง ชื่อที่ถูกตัดเป็นชิ้นอยู่บรรทัดเดียวกัน)
 - ตามคนพูดในภาพสองคน (`reframe.py --speaker order|cut` ไม่ใช้โมเดล ดูการขยับปากและกรามในแต่ละช่วงพูด): แบ่งจอโดยให้คนพูดอยู่จอล่าง หรือตัดไปภาพใกล้ของคนพูด
+- เสียงประกอบอัตโนมัติ: สังเคราะห์เสียง whoosh, pop, riser, impact เอง (ไม่ต้องดาวน์โหลด) วางตรงจุดที่ภาพเปลี่ยน ระดับเสียงเทียบกับเสียงพูด (`scripts/sound_design.py`)
+- Brand kit: ไฟล์ `brand.json` ไฟล์เดียวกำหนดฟอนต์ สี โทนภาพ โลโก้มุมจอ การ์ดปิดท้าย และระดับเสียงเอฟเฟกต์ (`scripts/brand.py`)
+- เลือกเพลงตามอารมณ์: วิเคราะห์คลังเพลงครั้งเดียว อ่านอารมณ์คลิปจากคำพูดและหัวข้อ แล้วเลือกเพลงที่ใกล้ที่สุด (`scripts/music_mood.py`)
 - สร้างจากการศึกษาคลิปพอดแคสต์ตัวอย่าง 21 คลิป (`references/podcast-shorts.md`) ทีละเวอร์ชัน (v2 → v10)
 
 #### 6. แนวอื่น

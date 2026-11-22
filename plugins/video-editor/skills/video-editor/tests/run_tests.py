@@ -267,6 +267,70 @@ def speaker_turns_follow_mouth(tmp):
     assert [x[2] for x in turns] == [0, 1] and 3.0 < turns[0][1] < 4.6, turns
 
 
+def two_clip_plan(tmp, extra=None):
+    for k, c in enumerate(("testsrc2", "smptebars")): make_clip(tmp / f"c{k}.mp4", 3, c, speech="Testing the sound.")
+    plan = {"output": {"path": "out.mp4", "size": [640, 360], "fps": 25, "target": "youtube"},
+            "clips": [{"src": "c0.mp4", "in": 0, "out": 3, "titles": [{"text": "Hello", "start": 0.2, "end": 2}]},
+                      {"src": "c1.mp4", "in": 0, "out": 3, "transition": {"type": "fade", "dur": 0.5}}], "audio": []}
+    plan.update(extra or {}); json.dump(plan, open(tmp / "plan.json", "w", encoding="utf-8"))
+    return tmp / "plan.json"
+
+
+@test
+def sound_design_places_effects(tmp):
+    """make_sfx.py kit + sound_design.py: a pop on the title, a whoosh on the 0.5 s fade, levels set against speech;
+    the render still matches its timeline."""
+    pp = two_clip_plan(tmp)
+    r = subprocess.run(PY + [SC / "sound_design.py", pp], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr[-500:]
+    sd = [a for a in json.load(open(pp, encoding="utf-8"))["audio"] if a.get("sd")]
+    kinds = {pathlib.Path(a["src"]).stem for a in sd}
+    assert {"pop", "whoosh"} <= kinds and all("rel_db" in a for a in sd), sd
+    w = [a for a in sd if pathlib.Path(a["src"]).stem == "whoosh"][0]; assert 2.3 < w["start"] + 0.3 < 2.9, w   # peaks in the fade
+    r = subprocess.run(PY + [SC / "edit_plan.py", pp, "--no-qa"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr[-500:]
+    assert abs(float(probe(tmp / "out.mp4")["format"]["duration"]) - 5.5) < 0.3
+
+
+@test
+def brand_kit_render(tmp):
+    """brand.json: logo drawn in its corner, end card added, grade and accent applied without breaking the render."""
+    from PIL import Image
+    Image.new("RGBA", (200, 200), (255, 0, 0, 255)).save(tmp / "logo.png")
+    json.dump({"accent": "2EC4B6", "grade": "warm", "logo": {"src": "logo.png", "pos": "top-left", "size": 0.15, "opacity": 1.0},
+               "end_card": {"text": "Bye **now**", "sub": "@test", "dur": 1.5}}, open(tmp / "brand.json", "w"))
+    pp = two_clip_plan(tmp, {"brand": "brand.json"})
+    r = subprocess.run(PY + [SC / "edit_plan.py", pp, "--no-qa"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stderr[-500:]
+    assert abs(float(probe(tmp / "out.mp4")["format"]["duration"]) - (5.5 + 1.5 - 0.3)) < 0.3      # end card with its fade
+    ff("-ss", "1", "-i", tmp / "out.mp4", "-frames:v", "1", "-vf", "crop=60:40:30:25", "-pix_fmt", "rgb24", "-f", "rawvideo", tmp / "lg.raw")
+    px = (tmp / "lg.raw").read_bytes(); r_, g_ = sum(px[0::3]) / (len(px) / 3), sum(px[1::3]) / (len(px) / 3)
+    assert r_ > 180 and g_ < 90, (r_, g_)                                                           # the red logo is there
+
+
+@test
+def music_mood_pick(tmp):
+    """music_mood.py: listener tags win; sad words pick the sad track, an excited music-led ad the playful one; Thai words count."""
+    import music_mood
+    assert music_mood.clip_mood([{"text": "สงครามและการล้อมเมือง", "start": 0, "end": 2}])[2].get("epic")
+    d = tmp / "lib"; d.mkdir()
+    ff("-f", "lavfi", "-i", "sine=f=220:d=12", d / "slow.wav"); ff("-f", "lavfi", "-i", "sine=f=880:d=12", d / "fast.wav")
+    subprocess.run(PY + [SC / "music_mood.py", "scan", d], check=True, capture_output=True)
+    lib = json.load(open(d / "library.json"))
+    for t in lib["tracks"]: t["moods"] = ["sad"] if t["file"] == "slow.wav" else ["playful"]
+    json.dump(lib, open(d / "library.json", "w"))
+    make_clip(tmp / "s.mp4", 4, speech="x")
+    words = [{"text": t, "start": i * 0.4, "end": i * 0.4 + 0.3} for i, t in enumerate("we lost everything and she died in grief".split())]
+    json.dump({"words": words}, open(tmp / "w.json", "w"))
+    json.dump({"output": {"path": "o.mp4"}, "clips": [{"src": "s.mp4", "in": 0, "out": 4}], "audio": []}, open(tmp / "p.json", "w"))
+    subprocess.run(PY + [SC / "music_mood.py", "pick", tmp / "p.json", "--library", d, "--words", tmp / "w.json", "--apply"], check=True, capture_output=True)
+    assert json.load(open(tmp / "p.json"))["audio"][0]["src"].endswith("slow.wav")
+    json.dump({"output": {"path": "o.mp4"}, "clips": [{"src": "s.mp4", "in": 0, "out": 4, "titles": [{"text": "So fun! We won!", "start": 0, "end": 2}]}],
+               "audio": []}, open(tmp / "p2.json", "w"))
+    subprocess.run(PY + [SC / "music_mood.py", "pick", tmp / "p2.json", "--library", d, "--no-talk", "--apply"], check=True, capture_output=True)
+    assert json.load(open(tmp / "p2.json"))["audio"][0]["src"].endswith("fast.wav")
+
+
 # ---------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")

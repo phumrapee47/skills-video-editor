@@ -21,7 +21,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("source"); ap.add_argument("workdir"); ap.add_argument("--count", type=int, default=5); ap.add_argument("--length", type=float, default=40)
     ap.add_argument("--words"); ap.add_argument("--lang", default="en"); ap.add_argument("--music"); ap.add_argument("--context", default="")
-    ap.add_argument("--platform", default="all")
+    ap.add_argument("--platform", default="all"); ap.add_argument("--brand", help="brand.json for every clip (scripts/brand.py)")
+    ap.add_argument("--music-lib", help="music folder: each clip gets the track that fits its mood (music_mood.py)")
     a = ap.parse_args()
     wd = pathlib.Path(a.workdir).resolve(); wd.mkdir(parents=True, exist_ok=True); src = pathlib.Path(a.source).resolve()
     bp = wd / "batch.json"
@@ -53,6 +54,8 @@ if __name__ == "__main__":
                "--context", c.get("context", ""), "--words", batch["words"], "--segments", *c["segments"]]
         if c.get("topics"): cmd += ["--topics", *c["topics"]]
         if batch.get("music"): cmd += ["--music", batch["music"]]
+        if batch.get("music_lib") or a.music_lib: cmd += ["--music-lib", batch.get("music_lib") or str(pathlib.Path(a.music_lib).resolve())]
+        if batch.get("brand") or a.brand: cmd += ["--brand", batch.get("brand") or str(pathlib.Path(a.brand).resolve())]
         if c.get("no_broll"): cmd += ["--no-broll"]
         elif c.get("broll_pick") is not None: cmd += ["--broll-pick", *c["broll_pick"]]
         if c.get("final"): cmd += ["--final"]

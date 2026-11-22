@@ -49,7 +49,8 @@ Paths are relative to the plan file. Times in seconds.
 | `clip.captions` | `false` = `word_captions.py` skips this clip (an intro shot under a topic card) |
 | `clip.speech` | `false` for ambience-only clips (their sound is not treated as speech); `talk: [[a, b], ...]` marks speech inside a clip |
 | `subtitles.src` | `.srt` (styled with `style`, QA-checked) or `.ass` (burned with its own style, e.g. `word_captions.py`) |
-| `audio.role` | `voice` (ducks music), `music` (looped, loudness-matched to speech, ducked), `sfx` (placed as is) |
+| `audio.role` | `voice` (ducks music), `music` (looped, loudness-matched to speech, ducked), `sfx` (placed as is, or with `rel_db` at that level against the speech: `sound_design.py` writes these) |
+| `brand` | path to a `brand.json`: fonts, accent, caption palette, grade, logo, end card, effect level (`references/sound-and-brand.md`) |
 | `music_mix` | `gap_db` music level in gaps vs speech; `under_db` while speech plays. Vlog/stream: -8 / -30 (music off under talk). Narrated documentary: -8 / -11 (soft bed under the voice). See `music-rules.md` |
 
 Speech times for ducking come from, in order: subtitle cues, voice tracks, clip `talk` spans; if none are given they are

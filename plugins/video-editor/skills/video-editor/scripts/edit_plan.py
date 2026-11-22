@@ -21,7 +21,9 @@ HERE = pathlib.Path(__file__).parent
 TARGETS = {"youtube": -14.0, "shorts": -14.0, "doc": -18.5, "master": -23.0}
 import pathlib as _pl, sys as _sys
 _sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))   # python -I leaves the script folder off the path
-from fonts import font as _font, ass_fontsdir
+from fonts import font as _font
+import fonts as _fonts, brand
+def ass_fontsdir(): return _fonts.ass_fontsdir()            # follows a brand kit's font folder
 SANS, FONT = _font("sans")          # bundled Kanit Bold (assets/fonts), system fallback
 HEAVY, HEAVY_FILE = _font("heavy")
 
@@ -144,10 +146,13 @@ def titles_ass(titles, W, H, path):
         lines = str(it["text"]).count("\n") + 1; y = y_of(it, size, lines); x = W // 2; kind = it.get("anim", "none")
         dur_ms = int((e - s) * 1000)
         if kind == "words":                                          # one word after another (karaoke-style reveal)
-            words = str(it["text"]).split(" "); step = int(float(it.get("word_step", 0.12)) * 1000); parts = []
+            words = str(it["text"]).split(" "); step = int(float(it.get("word_step", 0.12)) * 1000); parts = []; on = False
             for i, w in enumerate(words):
-                t0 = i * step
-                parts.append("{\\alpha&HFF&\\t(%d,%d,\\alpha&H00&)}%s" % (t0, t0 + 120, ass_text(w, accent)))
+                t0 = i * step; txt = "{\\c&H%s&}" % bgr(accent) if on else ""
+                for j, seg in enumerate(w.split("**")):                   # **accent** may span several words
+                    if j: on = not on; txt += "{\\c&H%s&}" % (bgr(accent) if on else "DCF0FA")
+                    txt += seg.replace("{", "(").replace("}", ")").replace("\n", "\\N")
+                parts.append("{\\alpha&HFF&\\t(%d,%d,\\alpha&H00&)}%s" % (t0, t0 + 120, txt))
             ev(1, s, e, "T", f"\\an5\\pos({x},{y})\\fs{size}\\fad(0,{fi}){base}", " ".join(parts))
         elif kind == "slide":
             dx = int(it.get("slide_px", W * 0.18)) * (1 if it.get("from", "left") == "left" else -1)
@@ -375,6 +380,14 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     warn = [f"title '{it['text'][:20]}' ends at {it['end']:.2f} s, after the {total:.2f} s timeline" for it in titles if it["end"] > total + 0.01]
     for w in warn: print("WARNING", w)
     tail = []
+    B = plan.get("_brand") or {}
+    if brand.grade(B):                                     # channel grade on the picture only: text keeps its colours
+        fg.append(f"[{acc}]{brand.grade(B)}[graded]"); acc = "graded"
+    if (B.get("logo") or {}).get("src"):
+        hide = [(c["start"], c["end"]) for c in tl if c.get("card")] + [(float(it["start"]), float(it["end"])) for it in titles if "items" in it]
+        end = next(((c["start"], c["end"]) for c in tl if c.get("brand_end")), None)
+        cmd += ["-loop", "1", "-t", f"{total:.3f}", "-i", B["logo"]["src"]]
+        fg += brand.logo_filters(B, n, acc, "logoed", W, H, hide, end); acc = "logoed"; n += 1
     if titles:
         ap_ = tmp / "titles.ass"; titles_ass(titles, W, H, ap_)
         if plan.get("_out"): titles_ass(titles, W, H, plan["_out"] + ".titles.ass")   # kept for the safe-zone check
@@ -430,10 +443,11 @@ def render_audio(plan, tl, total, tmp):
         fout = max(0.01, nxt["tdur"]) if nxt else 0.01
         place(speech if c.get("speech", True) else other, x, c["start"], g, edge, fout)
         if c.get("speech", False) and c.get("talk"): talk += [(c["start"] + a, c["start"] + b) for a, b in c["talk"]]
-    music_items = []
+    music_items, rel_sfx = [], []
     for a in plan.get("audio", []):
         role = a.get("role", "sfx")
         if role == "music": music_items.append(a); continue
+        if role == "sfx" and "rel_db" in a: rel_sfx.append(a); continue   # placed after the speech level is known
         x = decode(a["src"], a.get("in"), (a["out"] - a.get("in", 0)) if "out" in a else None)
         place(speech if role == "voice" else other, x, float(a["start"]), db(float(a.get("volume_db", 0))), float(a.get("fade_in", 0.01)), float(a.get("fade_out", 0.01)))
         if role == "voice": talk.append((float(a["start"]), float(a["start"]) + len(x) / SR))
@@ -454,6 +468,11 @@ def render_audio(plan, tl, total, tmp):
         k = int(0.4 * SR); c = np.concatenate([[0.0], np.cumsum(mask)]); idx = np.arange(N)
         mask = (c[np.clip(idx + k // 2, 0, N)] - c[np.clip(idx - k // 2, 0, N)]) / k
     sp_level = rms(speech[mask > 0.5]) if (mask > 0.5).any() else db(-20)
+    for a in rel_sfx:                                       # sound design: level set against the speech, loudest 100 ms
+        x = decode(a["src"], a.get("in"), (a["out"] - a.get("in", 0)) if "out" in a else None)
+        if not len(x): continue
+        hop = int(0.1 * SR); e = np.sqrt(np.convolve((x ** 2).mean(axis=1), np.ones(hop) / hop, "same")).max() + 1e-9
+        place(other, x, float(a["start"]), sp_level / e * db(float(a["rel_db"])), 0.003, float(a.get("fade_out", 0.01)))
     music = np.zeros((N, 2))
     for m in music_items:
         x = decode(m["src"], m.get("in")); s0 = float(m.get("start", 0)); e0 = float(m.get("end", total))
@@ -492,6 +511,10 @@ if __name__ == "__main__":
     plan_path = pathlib.Path(a.plan).resolve(); base = plan_path.parent
     plan = json.load(open(plan_path, encoding="utf-8"))
     plan["_base"] = str(base)
+    B = brand.load(plan, base); plan["_brand"] = B
+    if B:                                                   # brand kit: fonts, accent, end card (grade and logo in render_video)
+        brand.use_fonts(B); SANS, FONT = _font("sans"); HEAVY, HEAVY_FILE = _font("heavy"); ACCENT = B.get("accent", ACCENT)
+        brand.apply_end_card(plan, B)
     def rp(p): return str((base / p).resolve()) if p else p
     for c in plan["clips"]:
         if c.get("card"):                                   # {"card": {"text", "bg", "size", "anim"}, "in": 0, "out": seconds}

@@ -129,7 +129,15 @@ if __name__ == "__main__":
     ap.add_argument("--style", choices=["pop", "stack"], default="pop", help="pop: 1-3 words, spoken word highlighted; stack: words pile up into a block, key words big")
     ap.add_argument("--type", choices=["sans", "mix"], default="sans", help="stack: mix = italic serif + heavy sans, accent colour per phrase, numbers in red")
     ap.add_argument("--stack-words", type=int, default=6, help="stack: most words in one block before it clears")
+    ap.add_argument("--brand", help="brand.json (default: the plan's \"brand\"): its accent, palette and fonts")
     a = ap.parse_args()
+    import brand as _brand
+    _pl = json.load(open(a.plan, encoding="utf-8")); _base = pathlib.Path(a.plan).resolve().parent
+    B = _brand.load_file(a.brand) if a.brand else _brand.load(_pl, _base)
+    if B:
+        _brand.use_fonts(B); SANS, SANS_FILE = _font("sans"); _SF, _SFILE = _font("serif_italic"); SERIF = (_SF, _SFILE, _SFILE)
+        if B.get("accent") and a.hi == "FFD200": a.hi = B["accent"]
+        if B.get("palette"): PALETTE[:] = [c.upper().lstrip("#") for c in B["palette"]]
     words = [w for w in json.load(open(a.words, encoding="utf-8"))["words"] if w.get("type", "word") == "word" and w["text"].strip()]
     plan = json.load(open(a.plan, encoding="utf-8")); W, H = plan["output"].get("size", [1920, 1080])
     tl, total = build_timeline(plan); src = a.src or next(c["src"] for c in plan["clips"] if not c.get("card"))

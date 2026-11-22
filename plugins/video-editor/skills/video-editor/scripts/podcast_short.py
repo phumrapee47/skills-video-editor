@@ -91,6 +91,9 @@ if __name__ == "__main__":
     ap.add_argument("--size", default="1080x1920"); ap.add_argument("--segments", nargs="*")
     ap.add_argument("--ok-segments", action="store_true"); ap.add_argument("--broll-pick", nargs="*"); ap.add_argument("--no-broll", action="store_true")
     ap.add_argument("--final", action="store_true")
+    ap.add_argument("--brand", help="brand.json: fonts, colours, grade, logo, end card (scripts/brand.py)")
+    ap.add_argument("--music-lib", help="music folder (music_mood.py library): pick the track by the clip's mood when --music is not given")
+    ap.add_argument("--no-sfx", action="store_true", help="skip the automatic sound effects (sound_design.py)")
     ap.add_argument("--speaker", choices=["order", "cut", "none"], default="order", help="two-shots: order = split screen with whoever talks in the lower panel, cut = close-up of whoever talks, none = fixed split screen")
     a = ap.parse_args()
     a.title = a.title.replace("\\n", "\n"); a.topics = [t.replace("\\n", "\n") for t in a.topics]   # a typed \n is two characters
@@ -130,6 +133,7 @@ if __name__ == "__main__":
             plan["clips"].insert(0, {"src": rel(src), "in": s0, "out": s0 + 1.75, "speed": 0.5, "volume_db": -90, "speech": False, "captions": False, "fit": "crop"})
             plan["clips"][1]["transition"] = {"type": "fade", "dur": 0.3}
             plan["titles"].append({"text": a.title, "items": a.topics, "start": 0.0, "end": 3.4, "dim": 0.5})
+        if a.brand: plan["brand"] = rel(a.brand)
         if a.music: plan["audio"].append({"src": rel(a.music), "role": "music", "start": 0, "fade_out": 2.0})
         json.dump(plan, open(plan_p, "w", encoding="utf-8"), indent=1, ensure_ascii=False); st["plan"] = True; save()
     # 4 reframe
@@ -156,10 +160,19 @@ if __name__ == "__main__":
         st["broll"] = True; save()
     # 7 captions
     if not st.get("captions"):
-        print("[7/8] captions (word stack, mixed type)")
+        print("[7/8] captions (word stack, mixed type) + sound design")
         subprocess.run(script("word_captions.py") + [str(words_path), str(plan_p), str(wd / "caps.ass"), "--style", "stack", "--type", "mix"], check=True)
         plan = json.load(open(plan_p, encoding="utf-8")); plan["subtitles"] = {"src": str(wd / "caps.ass").replace("\\", "/")}
-        json.dump(plan, open(plan_p, "w", encoding="utf-8"), indent=1, ensure_ascii=False); st["captions"] = True; save()
+        json.dump(plan, open(plan_p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        if a.music_lib and not a.music:                  # background track chosen by the mood of the kept words
+            subprocess.run(script("music_mood.py") + ["pick", str(plan_p), "--library", a.music_lib, "--words", str(words_path), "--apply"], check=True)
+            plan = json.load(open(plan_p, encoding="utf-8"))
+            for m in plan["audio"]:
+                if m.get("mood_pick"): m.setdefault("start", 0); m.setdefault("fade_out", 2.0)
+            json.dump(plan, open(plan_p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        if not a.no_sfx:                                 # whoosh, pop, riser, impact where the picture already changes
+            subprocess.run(script("sound_design.py") + [str(plan_p)], check=True)
+        st["captions"] = True; save()
     # 8 preview (gate 3) / final
     if not a.final:
         print("[8/8] preview: first 12 s at half size")
