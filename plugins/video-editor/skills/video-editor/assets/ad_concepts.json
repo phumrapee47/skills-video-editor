@@ -59,6 +59,14 @@
      "camera": "85 mm from slightly below",
      "beat": "payoff",
      "shot": "hero_low"
+    },
+    {
+     "id": "crown_land",
+     "do": "drops into a pool of its own drink: a crown splash rises round it (low in front, the label stays clear), drops fly off the fingers, ripple rings spread",
+     "sound": "whoosh + splash",
+     "camera": "low, near the liquid surface, 50 mm",
+     "beat": "payoff",
+     "shot": "crown"
     }
    ],
    "shape": "can"
@@ -105,6 +113,14 @@
      "camera": "close two-shot",
      "beat": "payoff",
      "shot": null
+    },
+    {
+     "id": "crown_land",
+     "do": "drops into a pool of its own drink: a crown splash rises round it (low in front, the label stays clear), drops fly off the fingers, ripple rings spread",
+     "sound": "whoosh + splash",
+     "camera": "low, near the liquid surface, 50 mm",
+     "beat": "payoff",
+     "shot": "crown"
     }
    ],
    "shape": "bottle"
@@ -585,10 +601,10 @@
    "events": [
     {
      "id": "fall_splash",
-     "do": "berries drop into juice, crown splashes",
+     "do": "the product drops into berry juice with berries: a crown splashes round it, ripples spread",
      "sound": "plops",
      "beat": "hook",
-     "shot": null
+     "shot": "crown"
     },
     {
      "id": "crush",
@@ -597,7 +613,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "liquid": "#B5234E"
   },
   "coffee": {
    "aka": [
@@ -626,7 +643,8 @@
      "beat": "payoff",
      "shot": null
     }
-   ]
+   ],
+   "liquid": "#6B4126"
   },
   "chocolate": {
    "aka": [
@@ -648,7 +666,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "liquid": "#4E2A17"
   },
   "milk": {
    "aka": [
@@ -659,12 +678,13 @@
    "events": [
     {
      "id": "crown_splash",
-     "do": "a milk crown splash rises and falls",
+     "do": "the product drops into milk: a crown splash rises round it and falls back, ripples spread",
      "sound": "splash",
      "beat": "hook",
-     "shot": null
+     "shot": "crown"
     }
-   ]
+   ],
+   "liquid": "#F3EFE6"
   },
   "ice": {
    "aka": [
@@ -704,7 +724,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "liquid": "#BFE6C8"
   },
   "flower": {
    "aka": [
@@ -743,7 +764,8 @@
      "beat": "detail",
      "shot": null
     }
-   ]
+   ],
+   "liquid": "#E8A020"
   },
   "water": {
    "aka": [
@@ -759,7 +781,8 @@
      "beat": "hook",
      "shot": null
     }
-   ]
+   ],
+   "liquid": "#CDE6F2"
   }
  },
  "families": {

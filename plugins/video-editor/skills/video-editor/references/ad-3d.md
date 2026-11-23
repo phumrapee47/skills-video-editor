@@ -250,3 +250,42 @@ first 3 s, the hook within 6 s, captions, short text) and direct-response practi
   screen, readable text (<= 8 words, <= 4 words/s), works muted, length, voiceover fits.
 - **Hook variants** (`ad_pipeline.py variants <dir> --n 3 [--source animatic]`): the opening shot re-shot with
   another camera move and `copy.hooks` lines; the rest of the ad is shared (only the first shot renders again).
+
+## 1.15: the cut and liquids (`scripts/ad_cut.py`; why: `references/ad-craft.md`)
+The user judged the old cut (a glowing bar sweeping down, the halves popping apart) too easy. A cut reads as real when
+the cutter or its trace is seen, the fruit reacts and the camera feels the hit.
+- **Split** (`split_shot`): the fruit turns so its cut plane faces 30 deg to the lens; a thin steel blade (wedge,
+  bevelled, motion-blurred) sweeps through in 7 frames; a seam of light runs down the skin along the cut edge
+  (`seam`: a curve on the real rim of the half, drawn top to bottom, then it retracts and hides - it lives on the rig,
+  not a half, so it would float in the gap); juice beads well up along it 1-4 frames before the halves open (`beads`);
+  the halves tip and wobble; juice films stretch between the two faces (`sheets`: strips whose ends are HOOK-ed to
+  empties parented to each half, a middle hook sags with the gap, glossy and see-through face on; each tears at its
+  own frame in the slow motion by a noise threshold); mist and pulp fly out along the cut plane (`flyers`).
+- **Camera shake** (`ad_look.shake`): a 5-frame decaying jolt on the event frame of split, snap, tear, twist, crown,
+  open, toppop - after the designed move, so every move gets it.
+- **Crown** (new shot `crown`, 84 frames, event 24): the product drops into its own drink; the floor becomes the
+  liquid (`pool`, radius 30: no edge in frame) with ripple rings behind a moving front, fading out; a crown wall
+  (`crown`: 128x16 grid, flared, fingers growing out of the rim, thin, glossy, see-through face on) rises fast, hangs
+  in the slow motion and falls back; it is **low in front and tall behind so the label stays clear**; drops fly off;
+  the can settles 4 cm into the liquid. Liquid colour: `--liquid "#hex"` (the pipeline takes it from the ingredient:
+  milk, coffee, chocolate, berry, water, honey, mint in `assets/ad_concepts.json`), else the fruit's juice, else the
+  set colour. In the catalogue: can/bottle `crown_land` (payoff), milk `crown_splash` and berry `fall_splash` (hooks).
+- **Set**: one seamless cyclorama (`ad_look.cyclorama`: floor curving up into the wall, radius 6.5; the wall a
+  gradient from the floor colour; gloss fades out in the first metre) instead of a floor plane + a wall with a corner
+  line; **contact shadow** (`ad_look.contact_shadow`): a soft dark pool under the product, tighter and darker the
+  closer it is to the floor.
+- **Brief `board`**: pick the shots (`["split", "macro", "crown", "hero_low"]`); unknown ones come from the catalogue.
+- **Stills of several frames in one run**: `--still --frame 26 29 33 40` -> `<shot>_still_<frame>.png`.
+
+### Pitfalls found building 1.15
+- EEVEE extracts a sun from the HDRI's hot spot (World > Sun, threshold 10) and it casts shadows: on a curved sweep
+  that drew a hard dark band across the backdrop. `world.use_sun_shadow = False` (the key light shadows the product).
+  It was not the light threshold, the pool or the lights: hide things one at a time and sample a pixel column.
+- A glossy curve mirrors the HDRI's horizon as a line: keep the sweep matte above the floor.
+- A HOOK bound to an empty right after setting its location binds to the identity (matrix_world is not updated until
+  `view_layer.update()`): the film's middle jumped 1 m up into an arch. Set `matrix_world` and update before binding.
+- With the Principled coat on, a bump on "Normal" alone is invisible (the coat reflects with its own flat normal):
+  feed "Coat Normal" too.
+- Films that tear by the gap tear in the first real-speed frames (the gap is 0.6 two frames after the cut): tear them
+  by frame, inside the slow motion.
+- The brief's `label_front` was never read (only the flag): the hero showed the label's seam. Fixed in `from_brief`.

@@ -583,6 +583,45 @@ def blender_fruit_cut_faces(tmp):
 
 
 @test
+def blender_cut_and_crown(tmp):
+    """1.15: the split shows a blade, a seam of light that is gone once the halves part, juice films hooked between the
+    faces; the camera shakes on the cut; the set is one seamless sweep with a contact shadow; the crown splash rises
+    and falls back into a pool while the can settles into the liquid. Skipped without Blender."""
+    exe = blender_exe()
+    if not exe: print("  (skipped: no Blender)"); return
+    ff("-f", "lavfi", "-i", "color=c=orange:s=256x128", "-frames:v", "1", tmp / "label.png")
+    base = ["--label", str(tmp / "label.png"), "--fruit", "yuzu", "--out", str(tmp / "o"), "--still", "--frame", "1", "--size", "54x96", "--samples", "1"]
+    code = (f"import sys, bpy; sys.path.insert(0, r'{SC}')\n"
+            f"src = open(r'{SC / 'blender_product_ad.py'}', encoding='utf-8').read()\n"
+            f"sys.argv = ['b', '--'] + {base!r} + ['--shots', 'split']; exec(src, {{'__name__': '__main__', '__file__': r'{SC / 'blender_product_ad.py'}'}})\n"
+            "sc = bpy.context.scene; O = bpy.data.objects; F = 30\n"
+            "vis = lambda o, f: (sc.frame_set(f), not o.hide_render)[1]\n"
+            "def at(f): sc.frame_set(f); return sc.camera.matrix_world.translation.copy()\n"
+            "jerk = lambda f: (at(f) - (at(f - 1) + at(f + 1)) / 2).length          # bend of the camera path at frame f\n"
+            "films = [o for o in O if o.name.startswith('film') and o.type == 'MESH']\n"
+            "print('SPLIT', 'blade' in O, vis(O['seam'], F - 3), vis(O['seam'], F + 4), len(films), all(any(m.type == 'HOOK' for m in f.modifiers) for f in films),\n"
+            "      'cyclorama' in O, 'contact_shadow' in O, not any(o.name == 'Plane' for o in O), round(max(jerk(F + k) for k in range(1, 4)) / max(1e-6, jerk(F + 20)), 1))\n"
+            f"sys.argv = ['b', '--'] + {base!r} + ['--shots', 'crown']; exec(src, {{'__name__': '__main__', '__file__': r'{SC / 'blender_product_ad.py'}'}})\n"
+            "sc = bpy.context.scene; O = bpy.data.objects; cr = O['crown']; zs = []\n"
+            "for f in range(1, 85, 3): sc.frame_set(f); zs.append(cr.scale.z)\n"
+            "sc.frame_set(84); can = O['can']; dg = bpy.context.evaluated_depsgraph_get()\n"
+            "from mathutils import Vector\n"
+            "low = min((o.evaluated_get(dg).matrix_world @ Vector(c)).z for o in [can] + list(can.children_recursive) if o.type == 'MESH' for c in o.evaluated_get(dg).bound_box)\n"
+            "print('CROWN', round(max(zs), 3), round(zs[-1], 3), 'pool' in O, round(low, 3), O['pool'].location.z)\n")
+    r = subprocess.run([exe, "-b", "--python-exit-code", "1", "--python-expr", code], capture_output=True, text=True, timeout=900)
+    out = r.stdout + r.stderr
+    sp = next((l.split()[1:] for l in out.splitlines() if l.startswith("SPLIT")), None); cw = next((l.split()[1:] for l in out.splitlines() if l.startswith("CROWN")), None)
+    assert sp and cw, out[-4000:]
+    assert sp[:3] == ["True", "True", "False"], sp                         # blade; seam lit at the cut, gone after
+    assert int(sp[3]) >= 3 and sp[4] == "True", sp                         # juice films hooked to the halves
+    assert sp[5:8] == ["True", "True", "True"], sp                         # seamless sweep, contact shadow, no flat floor plane
+    assert float(sp[8]) > 5, sp                                            # the camera jolts on the cut, far more than its glide later
+    zmax, zend, pool, low, zp = float(cw[0]), float(cw[1]), cw[2], float(cw[3]), float(cw[4])
+    assert zmax > 0.4 and zend < zmax * 0.6 and pool == "True", cw         # the crown rises and falls back
+    assert low < zp, cw                                                    # the can sits in the liquid, not on top of it
+
+
+@test
 def blender_can_blueprint(tmp):
     """ad_can.py: the can matches a 330 ml blueprint (66 mm wide, ~116 mm tall, scene unit 100 mm), the body is closed
     (no holes in the lathe), the lid panel sits below the seam rim, and condensation makes hundreds of beads on the

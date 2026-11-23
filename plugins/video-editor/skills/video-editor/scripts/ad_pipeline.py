@@ -10,7 +10,8 @@ Usage:
 brief.json: {"product": "what it is", "photo": "front.jpg", "back": "back.jpg", "shape": "auto", "family": "fresh",
   "length_s": 15, "fps": 24, "fruit": "yuzu", "audience": "...", "usp": "...", "platforms": ["tiktok", "reels"],
   "copy": {"hook": "Sunshine", "details": ["ice cold", "crack it open"], "payoff": "...", "name": "LUMA | YUZU",
-  "price": "45 THB", "cta": "Taste the bright side"}, "handle": "@brand", "track": "happy-alley"}
+  "price": "45 THB", "cta": "Taste the bright side"}, "handle": "@brand", "track": "happy-alley",
+  "board": ["split", "macro", "crown", "hero_low"]}   (optional: pick the shots; default: the concept's board)
   Only the user's approved claims go into "copy"; the storyboard shows every line for approval.
   python -I ad_pipeline.py run <dir>              run the next stage; it stops at its gate
   python -I ad_pipeline.py run <dir> --approve    the user approved what the last stage showed: go on
@@ -33,11 +34,11 @@ SC = pathlib.Path(__file__).resolve().parent; ROOT = SC.parent
 sys.path.insert(0, str(SC))
 PY = [sys.executable, "-I"]
 STAGES = ["board", "animatic", "preview", "final_test", "final", "done"]
-SECONDS = {"twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0,
+SECONDS = {"crown": 2.8, "twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0,
            "hero": 2.5, "trio": 3.2, "reveal": 2.5}
-EVENT_S = {"twist": 1.0, "tear": 0.92, "snap": 1.0, "split": 1.0, "open": 0.73, "toppop": 0.73, "drops": 0.6, "burst": 0.07}         # when the physical event happens
+EVENT_S = {"crown": 0.8, "twist": 1.0, "tear": 0.92, "snap": 1.0, "split": 1.0, "open": 0.73, "toppop": 0.73, "drops": 0.6, "burst": 0.07}         # when the physical event happens
 COLD = {"drops", "zerog", "hero_low"}
-SFX = {"twist": [("twist", "event", -0.45, -11), ("fizz", "event", 0.0, -13)], "tear": [("rip", "event", -0.25, -9)], "snap": [("snap", "event", 0.0, -8)],
+SFX = {"crown": [("whoosh", "event", -0.5, -16), ("splash", "event", 0.0, -8)], "twist": [("twist", "event", -0.45, -11), ("fizz", "event", 0.0, -13)], "tear": [("rip", "event", -0.25, -9)], "snap": [("snap", "event", 0.0, -8)],
        "split": [("slash", "event", -0.33, -11), ("splash", "event", -0.02, -8)], "open": [("fizz", "event", -0.03, -7)],
        "toppop": [("fizz", "event", -0.03, -7)], "burst": [("splash", "event", 0.0, -10)],
        "zerog": [("clink", "start", 0.45, -15), ("clink", "start", 1.6, -18)], "hero_low": [("hit", "start", 1.6, -17)]}
@@ -92,7 +93,8 @@ def from_brief(a):
     rel = lambda x: str((base / x).resolve()) if x and not os.path.isabs(x) else x
     if b.get("label_metal") and not getattr(a, "label_metal", None): a.label_metal = b["label_metal"]
     for k, attr in (("product", "product"), ("photo", "photo"), ("back", "back"), ("label", "label"), ("fruit", "fruit"), ("track", "track"),
-                    ("handle", "handle"), ("set", "set"), ("family", "brief"), ("fps", "fps"), ("length_s", "length"), ("product_json", "product_json")):
+                    ("handle", "handle"), ("set", "set"), ("family", "brief"), ("fps", "fps"), ("length_s", "length"), ("product_json", "product_json"),
+                    ("label_front", "label_front")):
         if b.get(k) is not None and getattr(a, attr) in (None, "", ap_defaults.get(attr)):
             setattr(a, attr, rel(b[k]) if k in ("photo", "back", "label", "product_json") else b[k])
     if b.get("shape") and b["shape"] != "auto" and not a.shape: a.shape = b["shape"]
@@ -168,6 +170,10 @@ def init(a):
     a.set = a.set or ["#FFC21C", "#FF8A1E"]
     c = ad_concept.concept(a.product, family=a.brief, flavours=1 + len(a.alt))
     fruit = a.fruit or c.get("fruit")
+    if brief.get("board"):                                                 # the brief picks the shots, e.g. a crown splash instead of the opening
+        known = {b[1]: b for b in c["board"]}; acts = {x["shot"]: x for x in c["actions"] + c["events"] if x.get("shot")}
+        c["board"] = [known.get(t) or ((acts[t]["beat"], t, acts[t]["do"], acts[t]["sound"]) if t in acts else ("detail", t, t, "none"))
+                      for t in brief["board"]] + [b for b in c["board"] if b[1] == "card"]
     stub = d / "_music.json"
     json.dump({"output": {"path": "x.mp4"}, "clips": [], "audio": []}, open(stub, "w"))
     cmd = PY + [SC / "music_mood.py", "pick", stub, "--brief", a.brief, "--apply"] + (["--track", a.track] if a.track else [])
@@ -209,7 +215,7 @@ def init(a):
           "product": {"desc": a.product, "label": str(pathlib.Path(a.label).resolve()) if a.label else None, "label_front": a.label_front,
                       "label_metal": getattr(a, "label_metal", None),
                       "json": str(prod_json) if prod_json else None, "shape": shape,
-                      "alt": [str(pathlib.Path(x).resolve()) for x in a.alt], "fruit": fruit, "set": a.set},
+                      "alt": [str(pathlib.Path(x).resolve()) for x in a.alt], "fruit": fruit, "set": a.set, "liquid": c.get("liquid")},
           "music": {"src": str(src), "in": beats["first"], "bpm": beats["bpm"], "period": beats["period"], "strength": beats["strength"]},
           "shots": shots, "card": {"text": a.card + (f"\n**{a.handle}**" if a.handle else ""), "bg": "0x" + a.set[1].lstrip("#"), "beats": 3},
           "to_build": todo, "timings": {}, "structure": structure, "copy": brief.get("copy") or {}, "vo": brief.get("vo"),
@@ -269,6 +275,7 @@ def blender(st, d, out, size, samples, still=False, engine="eevee", only=None):
     if p.get("alt"): cmd += ["--alt", *p["alt"]]
     if p.get("label_metal"): cmd += ["--label-metal", p["label_metal"]]
     if p.get("fruit"): cmd += ["--fruit", p["fruit"]]
+    if p.get("liquid"): cmd += ["--liquid", p["liquid"]]                    # the crown pool: milk, coffee, berry juice...
     if still: cmd += ["--still"]
     if only: cmd += ["--shots", *only]
     t0 = time.time(); out = run(cmd); blender.log = out; return time.time() - t0

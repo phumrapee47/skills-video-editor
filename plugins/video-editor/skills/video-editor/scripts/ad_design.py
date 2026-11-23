@@ -33,10 +33,11 @@ MOVES = {   # size: what the frame shows; sig: a signature move
     "whip_in":     {"size": "medium", "sig": True, "says": "whips in from the side and lands on the product"},
     "push_tilt":   {"size": "close", "sig": False, "says": "pushes in and tilts down onto the top"},
 }
-NATIVE_SIZE = {"split": "wide", "drops": "macro", "toppop": "close", "open": "close", "zerog": "wide", "hero_low": "medium",
+NATIVE_SIZE = {"crown": "medium", "split": "wide", "drops": "macro", "toppop": "close", "open": "close", "zerog": "wide", "hero_low": "medium",
                "hero": "medium", "macro": "macro", "burst": "wide", "reveal": "medium", "trio": "wide", "twist": "close",
                "tear": "medium", "snap": "close"}
 ALLOWED = {  # moves that keep each shot's action readable (the first is its own staging)
+    "crown": ["native", "low_hero", "dolly_in", "orbit"],
     "split": ["native", "dolly_in", "crane_down", "spiral", "low_hero"], "drops": ["native", "macro_slide", "rack_focus"],
     "toppop": ["native", "top_down"], "open": ["native", "push_tilt"], "zerog": ["native", "orbit", "dolly_zoom", "spiral", "dolly_in"],
     "hero_low": ["native", "low_hero", "orbit", "crane_down", "dolly_out"], "hero": ["native", "orbit", "truck", "dolly_zoom"],

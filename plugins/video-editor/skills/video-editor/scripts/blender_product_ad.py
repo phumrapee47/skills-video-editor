@@ -13,12 +13,13 @@ Use only the user's own product and label art.
 """
 import math, sys, os, argparse, random, json
 import bpy
-from mathutils import Vector
+from mathutils import Vector, Matrix
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ad_fruit as AF
 import ad_can as AC
 import ad_shapes as AS
 import ad_look as LK
+import ad_cut as CUT
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ap = argparse.ArgumentParser()
@@ -28,12 +29,13 @@ ap.add_argument("--size", default="1080x1920"); ap.add_argument("--fps", type=in
 ap.add_argument("--shots", nargs="*", default=None); ap.add_argument("--still", action="store_true")
 ap.add_argument("--samples", type=int, default=24); ap.add_argument("--shape", default="can")
 ap.add_argument("--fruit", help="real 3D ingredient instead of flat slice pictures: yuzu|orange|lemon|lime|grapefruit")
-ap.add_argument("--frame", type=int, help="with --still: which frame to check")
+ap.add_argument("--frame", type=int, nargs="*", help="with --still: which frame(s) to check; several frames -> <shot>_still_<frame>.png each")
 ap.add_argument("--label-front", type=float, default=0.5, help="where the logo is across the label image (0-1); a label with the logo twice: 0.25")
 ap.add_argument("--product", help="product.json (product_from_photo.py or by hand): bottle/lathe, box, pouch, bar; default: the can")
 ap.add_argument("--spec", help="shot list JSON (ad_pipeline.py): per shot id, type, frames, event frame, key frame, camera path, cold; "
                                 "renders <out>/<id>/####.png, resumes (frames already on disk are skipped)")
 ap.add_argument("--label-metal", help="where the can shows bare metal through the print: 'auto' (grey/silver pixels of the label) or a mask image (white = metal)")
+ap.add_argument("--liquid", help="hex colour of the drink for the crown pool (milk, coffee...); default: the fruit juice, else the set colour")
 ap.add_argument("--cold", action="store_true", help="condensation beads on the can (Geometry Nodes)")
 ap.add_argument("--engine", default="eevee", choices=["eevee", "cycles"], help="cycles: GPU path tracing + denoise for the final render")
 ap.add_argument("--cycles-exposure", type=float, default=-0.8, help="stops; Cycles measured 0.3-0.6 stops brighter than EEVEE on the same scene, the set more")
@@ -49,7 +51,7 @@ if a.product:                                                              # tex
     PRODUCT = json.load(open(a.product, encoding="utf-8")); _pd = os.path.dirname(os.path.abspath(a.product))
     for _k in ("texture", "front_tex", "back_tex"):
         if PRODUCT.get(_k): PRODUCT[_k] = os.path.join(_pd, PRODUCT[_k])
-LEN = {"twist": 84, "tear": 84, "snap": 96, "open": 75, "toppop": 75, "drops": 72, "zerog": 96, "hero_low": 90, "split": 120, "reveal": 75, "hero": 105, "macro": 75, "burst": 75, "trio": 96}
+LEN = {"crown": 84, "twist": 84, "tear": 84, "snap": 96, "open": 75, "toppop": 75, "drops": 72, "zerog": 96, "hero_low": 90, "split": 120, "reveal": 75, "hero": 105, "macro": 75, "burst": 75, "trio": 96}
 
 
 def hexrgb(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
@@ -67,7 +69,9 @@ def reset():
     sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = a.fps
     sc.render.image_settings.file_format = "PNG"; sc.render.film_transparent = False
     ee = sc.eevee
-    for attr, val in (("taa_render_samples", a.samples), ("use_raytracing", True), ("use_shadows", True), ("use_gtao", True)):
+    for attr, val in (("taa_render_samples", a.samples), ("use_raytracing", True), ("use_shadows", True), ("use_gtao", True),
+                      ("light_threshold", 0.0002)):                       # default 0.01 cuts each light off at a distance: a hard dark
+                                                                           # band across the far backdrop
         try: setattr(ee, attr, val)
         except Exception: pass
     try: sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.35
@@ -191,10 +195,9 @@ def studio(c1, c2):
         w.node_tree.links.new(env.outputs["Color"], bg.inputs["Color"]); bg.inputs["Strength"].default_value = 0.4
         add = w.node_tree.nodes.new("ShaderNodeAddShader"); w.node_tree.links.new(bg.outputs[0], add.inputs[0]); w.node_tree.links.new(b2.outputs[0], add.inputs[1])
         w.node_tree.links.new(add.outputs[0], w.node_tree.nodes["World Output"].inputs["Surface"])        # neutral reflections + the set's warm fill
-    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0)); floor = bpy.context.object
-    floor.data.materials.append(mat("floor", lin(c1), 0.0, 0.22))
-    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 9, 10), rotation=(math.radians(90), 0, 0)); wall = bpy.context.object
-    wall.data.materials.append(mat("wall", lin(c2), 0.0, 0.6))
+    try: w.use_sun_shadow = False                                          # EEVEE turns the HDRI's hot spot into a sun; its shadow drew
+    except Exception: pass                                                 # a hard band across the curved sweep (the key light shadows the product)
+    LK.cyclorama(mat("floor", lin(c1), 0.0, 0.22), lin(c1), lin(c2))      # one seamless sweep: no floor-wall corner line
     def area(name, loc, energy, size, color=(1, 1, 1)):
         bpy.ops.object.light_add(type="AREA", location=loc); L = bpy.context.object; L.name = name; L.data.energy = energy; L.data.size = size; L.data.color = color
         d = Vector((0, 0, 0.6)) - L.location; L.rotation_euler = d.to_track_quat("-Z", "Y").to_euler(); return L
@@ -455,27 +458,51 @@ def snap_shot(n, F=24):
 
 
 def split_shot(n, F=30):
-    """The hero concept: a real fruit turns in the light, a light blade slashes it, the halves fly apart in a speed ramp,
-    juice sprays out in strands and drops, and the can rises spinning out of the middle of the fruit."""
-    kind = a.fruit or "yuzu"; R = 0.95; zc = 1.0
+    """The hero concept: a real fruit turns in the light; a steel blade sweeps through it while a seam of light runs
+    down its skin and juice beads along the cut; the halves fly apart in a speed ramp, juice films stretch between the
+    faces and tear, mist and pulp fly, and the can rises spinning out of the middle (references/ad-craft.md)."""
+    kind = a.fruit or "yuzu"; R = 0.95; zc = 1.0; ang = math.radians(30)            # the cut plane turned toward the lens
     rig = bpy.data.objects.new("FruitRig", None); bpy.context.scene.collection.objects.link(rig); rig.location = (0, 0, zc)
     halves = []
     for keep in ("top", "bottom"):
         h = AF.fruit(kind, R, keep, name="half_" + keep); h.parent = rig; h.rotation_euler = (0, math.radians(90), 0); halves.append(h)
-    key(rig, 1, rotation_euler=(0.15, 0, math.radians(-35)), location=(0, 0, zc - 0.05)); key(rig, F, rotation_euler=(0, 0, 0), location=(0, 0, zc + 0.04))
-    w = AF.ramp(F, fast=5, slow=0.3)
+    bpy.context.view_layer.update(); pts = CUT.ring_points(halves[0], R)
+    key(rig, 1, rotation_euler=(0.15, 0, ang - math.radians(65)), location=(0, 0, zc - 0.05)); key(rig, F, rotation_euler=(0, 0, ang), location=(0, 0, zc + 0.04))
+    w = AF.ramp(F, fast=5, slow=0.3); gap = lambda fr: 0.0 if fr <= F else 2 * 1.05 * (1 - math.exp(-w(fr) * 5))
     body = hero_obj(a.label); body.location = (0, 0, zc)
     for fr in range(F - 1, n + 1, 1):
-        s = w(fr); o = 1 - math.exp(-s * 5)
+        s_ = w(fr); o = 1 - math.exp(-s_ * 5); wob = math.sin(s_ * 26) * math.exp(-s_ * 5) * math.radians(7)   # the halves tip and wobble
         for h, sg in zip(halves, (1, -1)):
-            key(h, fr, location=(sg * (0.0005 + 1.05 * o), 0.25 * o, -0.12 * o), rotation_euler=(0, math.radians(90), sg * math.radians(70) * (1 - math.exp(-s * 4))))
-        g = 0.001 if fr < F else 0.15 + 0.85 * (1 - math.exp(-s * 4.5))
-        key(body, fr, scale=(g, g, g), rotation_euler=(0, 0, math.radians(90) - math.radians(600) * math.exp(-s * 3.2)))
+            key(h, fr, location=(sg * (0.0005 + 1.05 * o), 0.25 * o, -0.12 * o), rotation_euler=(sg * wob, math.radians(90), sg * math.radians(70) * (1 - math.exp(-s_ * 4))))
+        g = 0.001 if fr < F else 0.15 + 0.85 * (1 - math.exp(-s_ * 4.5))
+        key(body, fr, scale=(g, g, g), rotation_euler=(0, 0, math.radians(90) - math.radians(600) * math.exp(-s_ * 3.2)))
     key(body, 1, scale=(0.001,) * 3)
-    light_blade(F)
-    AF.splash(kind, (0, 0, zc), F, n, w, n=56, seed=11, axis="x", speed=1.25, size=1.35, disc=R * 0.8)
+    jc = AF.lin(AF.FRUITS[kind]["juice"]); jm = AF.juice_material(kind)
+    CUT.blade(rig, R, F); CUT.seam(rig, pts, F); CUT.beads(rig, pts, F, jm)
+    CUT.sheets(rig, halves, R, F, n, gap, jc)
+    basis = Matrix.Rotation(ang, 3, "Z"); c0 = (0, 0, zc)
+    CUT.flyers(c0, F, n, lambda fr: w(fr) - 0.01, CUT.sphere_mesh("mist"), AC.principled("mist", tuple(x * 0.6 + 0.4 for x in jc), 0.0, 0.2,
+               **{"Emission Color": (*jc, 1), "Emission Strength": 0.4}), 110, (1.8, 3.4), (0.003, 0.008), 21, g=4.0, life=0.8, basis=basis)
+    CUT.flyers(c0, F, n, w, CUT.vesicle_mesh("pulp"), AC.principled("pulp", jc, 0.0, 0.15, **{"Subsurface Weight": 0.4, "Coat Weight": 0.5}),
+               16, (0.9, 1.8), (0.012, 0.022), 22, g=5.0, life=1.4, basis=basis)
+    AF.splash(kind, (0, 0, zc), F, n, w, n=34, seed=11, axis="x", speed=1.25, size=1.2, disc=R * 0.8)
     cam = camera((0, -4.6, 1.05), (0, 0, zc), 40, focus=4.4, fstop=4.0)
     key(cam, 1, location=(0.2, -4.4, 1.1)); key(cam, F, location=(0, -4.0, 1.05)); key(cam, F + 12, location=(0, -4.6, 1.0)); key(cam, n, location=(0, -3.7, 0.95))
+
+
+def crown_shot(n, F=24):
+    """The product drops into a pool of its own liquid: a crown splash rises round it in slow motion, drops fly off the
+    crown's fingers, ripple rings spread across the pool."""
+    kind = a.fruit
+    col = lin(hexrgb(a.liquid)) if a.liquid else AF.lin(AF.FRUITS[kind]["juice"]) if kind else lin(hexrgb((PRODUCT or {}).get("liquid", a.set[0])))
+    w = AF.ramp(F, fast=4, slow=0.3); zp = 0.05
+    CUT.pool((0, 0, zp), 30.0, F, n, col)                                   # the whole floor is the liquid
+    body = hero_obj(a.label); r0 = 0.36
+    for fr, z, rx in ((1, 2.4, 0.18), (F - 6, 1.1, 0.06), (F, 0.6 + zp - 0.07, 0.0), (F + 4, 0.6 + zp - 0.02, 0.0), (n, 0.6 + zp - 0.045, 0.0)):   # settles a little into the liquid
+        key(body, fr, location=(0, 0, z), rotation_euler=(rx, 0, math.radians(90 - 25 * rx)))
+    CUT.crown((0, 0, zp), r0, F, n, w, col)
+    cam = camera((0, -3.6, 0.55), (0, 0, 0.62), 50, fstop=3.5)
+    key(cam, 1, location=(0.1, -3.9, 0.6)); key(cam, n, location=(-0.05, -3.2, 0.5))
 
 
 def camera(loc, look, lens=50, focus=None, fstop=2.0):
@@ -531,7 +558,7 @@ def anchors(sc, sid, spec, n):
     json.dump(out, open(os.path.join(a.out, f"{sid}_anchors.json"), "w"), indent=1)
 
 
-EVENT = {"twist": 24, "tear": 22, "snap": 24, "split": 30, "open": 22, "toppop": 22, "drops": 18, "burst": 2}   # default frame of each shot's physical event
+EVENT = {"crown": 24, "twist": 24, "tear": 22, "snap": 24, "split": 30, "open": 22, "toppop": 22, "drops": 18, "burst": 2}   # default frame of each shot's physical event
 
 
 def camera_path(cs, n):
@@ -559,6 +586,8 @@ def build(spec):
         open_shot(n, F)
     elif shot == "twist":
         twist_shot(n, F)
+    elif shot == "crown":
+        crown_shot(n, F)
     elif shot == "tear":
         tear_shot(n, F)
     elif shot == "snap":
@@ -621,6 +650,8 @@ def build(spec):
     LK.light_rig(spec.get("family"))                                      # the mood family's light
     LK.background(spec.get("bg"), lin(c1), lin(c2), n)                     # the design pass (ad_design.py)
     LK.decor(spec.get("decor"), n, seed=sum(map(ord, sid)) + 1)
+    if shot in ("split", "snap", "tear", "twist", "crown", "open", "toppop") and F: LK.shake(F, n)     # the camera feels the hit
+    LK.contact_shadow(n)                                                   # a soft shadow under a hovering product
     if spec.get("motion"): LK.ease(spec["motion"], whip=spec.get("move") == "whip_in")
     else: ease_all()
     a.cold = cold0
@@ -628,8 +659,10 @@ def build(spec):
     anchors(sc, sid, spec, n)
     if a.still:
         import time as _t
-        sc.frame_set(int(a.frame or spec.get("key") or n * 0.6)); sc.render.filepath = os.path.join(a.out, sid + "_still.png")
-        t0 = _t.time(); bpy.ops.render.render(write_still=True); print(f"RENDER_S {sid} {_t.time() - t0:.2f}", flush=True)   # render only, not the scene build
+        frs = a.frame or [int(spec.get("key") or n * 0.6)]
+        for fr in frs:
+            sc.frame_set(int(fr)); sc.render.filepath = os.path.join(a.out, sid + ("_still.png" if len(frs) == 1 else f"_still_{fr:03d}.png"))
+            t0 = _t.time(); bpy.ops.render.render(write_still=True); print(f"RENDER_S {sid} {_t.time() - t0:.2f}", flush=True)   # render only, not the scene build
     else:
         sc.render.use_overwrite = False; sc.render.use_placeholder = True    # resume: frames already on disk are skipped
         sc.render.filepath = os.path.join(a.out, sid, ""); bpy.ops.render.render(animation=True)

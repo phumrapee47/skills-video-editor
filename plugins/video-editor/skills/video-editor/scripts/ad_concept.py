@@ -13,7 +13,7 @@ Claude still reads the brief and the product photos: this is the checklist of wh
 import argparse, json, pathlib, sys
 
 CAT = json.loads((pathlib.Path(__file__).resolve().parent.parent / "assets" / "ad_concepts.json").read_text(encoding="utf-8"))
-LEN_S = {"twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0, "hero": 2.5, "trio": 3.2, "reveal": 2.5}
+LEN_S = {"crown": 2.8, "twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0, "hero": 2.5, "trio": 3.2, "reveal": 2.5}
 
 
 def find(group, words):
@@ -51,7 +51,8 @@ def concept(product, ingredient=None, family="fresh", flavours=1):
     if flavours > 1: board.append(("range", "trio", f"{flavours} flavours line up", "pops on the names"))
     board.append(("end", "card", "line + handle on the brand colour", "chime"))
     todo = [x for x in acts + evs if not x.get("shot")]
-    return {"product": p, "shape": shape, "ingredient": ing, "fruit": ing_word if CAT["ingredients"].get(ing, {}).get("fruit") else None, "family": family, "family_rules": CAT["families"].get(family),
+    return {"product": p, "shape": shape, "ingredient": ing, "fruit": ing_word if CAT["ingredients"].get(ing, {}).get("fruit") else None,
+            "liquid": CAT["ingredients"].get(ing, {}).get("liquid"), "family": family, "family_rules": CAT["families"].get(family),
             "actions": acts, "events": evs, "board": board, "to_build": todo,
             "shots": [b[1] for b in board if b[1] != "card" and not b[1].startswith("TO BUILD")], "seconds": round(sum(LEN_S.get(b[1], 2.4) for b in board), 1)}
 

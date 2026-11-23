@@ -11,7 +11,7 @@ ease(style, whip=False)  bouncy (overshoot) | smooth (sine) | snappy (expo) | au
                          always eases in and out (a whip snaps)
 """
 import math, random
-import bpy
+import bpy, bmesh
 from mathutils import Vector, Matrix
 
 import ad_can as AC
@@ -116,6 +116,7 @@ def background(kind, c1, c2, n, seed=3):
                 pools.append(pw)
             mx = N.new("ShaderNodeMath"); mx.operation = "MAXIMUM"; Lk.new(pools[0].outputs[0], mx.inputs[0]); Lk.new(pools[1].outputs[0], mx.inputs[1])
             mix = N.new("ShaderNodeMix"); mix.data_type = "RGBA"; mix.inputs["A"].default_value = (*c2, 1); mix.inputs["B"].default_value = (*_light(c1, 0.45), 1)
+            if "wallgrad" in N: Lk.new(N["wallgrad"].outputs["Result"], mix.inputs["A"])     # the cyclorama's own gradient underneath
             Lk.new(mx.outputs[0], mix.inputs["Factor"]); Lk.new(mix.outputs["Result"], b.inputs["Base Color"])
             Lk.new(mix.outputs["Result"], b.inputs["Emission Color"]); b.inputs["Emission Strength"].default_value = 0.25
         for i in range(28):                                                # bokeh discs behind the product
@@ -127,6 +128,8 @@ def background(kind, c1, c2, n, seed=3):
         fl = bpy.data.materials.get("floor")
         if fl:
             b = fl.node_tree.nodes["Principled BSDF"]; b.inputs["Roughness"].default_value = 0.1; b.inputs["Base Color"].default_value = (*(x * 0.35 for x in c2), 1)
+            wl = bpy.data.materials.get("wall")
+            if wl and "wallgrad" in wl.node_tree.nodes: wl.node_tree.nodes["wallgrad"].inputs["A"].default_value = (*(x * 0.35 for x in c2), 1)   # the sweep stays seamless
         bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 3.5, 2)); hz = bpy.context.object; hz.scale = (12, 7, 4.5)
         m = bpy.data.materials.new("haze"); m.use_nodes = True; N = m.node_tree.nodes; Lk = m.node_tree.links
         N.remove(N["Principled BSDF"]); vol = N.new("ShaderNodeVolumePrincipled"); vol.inputs["Color"].default_value = (*_light(c1, 0.5), 1)
@@ -261,3 +264,71 @@ def light_rig(family):
         bpy.ops.object.light_add(type="AREA", location=(-2.2, 0.6, 1.4)); st = bpy.context.object; st.name = "streak"   # beside and behind: an edge streak
         st.data.shape = "RECTANGLE"; st.data.size, st.data.size_y = 0.12, 3.0; st.data.energy = R["streak"]; st.data.color = (1.0, 0.92, 0.8)
         d = Vector((0, 0, 0.7)) - st.location; st.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+
+
+# ---------------------------------------------------------------- impact, grounding, the set
+def shake(F, n, amp=None, frames=5, seed=9):
+    """A short decaying jolt of the camera on the impact frame (the cut, the snap, the drop)."""
+    sc = bpy.context.scene; cam, tgt = _cam(); rnd = random.Random(seed)
+    sc.frame_set(F); dist = (cam.location - tgt.location).length; amp = amp or 0.012 * dist
+    base = {}
+    for fr in range(F - 1, min(n, F + frames) + 1): sc.frame_set(fr); base[fr] = cam.location.copy()
+    for fr, p in base.items():
+        k = fr - F; o = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))) * amp * (math.exp(-k * 0.7) if 0 <= k < frames else 0)
+        cam.location = p + o; cam.keyframe_insert("location", frame=fr)
+
+
+def contact_shadow(n, every=2):
+    """A soft dark pool under the product, darker and tighter the closer it is to the floor: a hovering product without
+    one floats (references/ad-craft.md)."""
+    root = next((bpy.data.objects[k] for k in ("can", "bag", "bar_front", "bar", "can_front") if k in bpy.data.objects), None)
+    if not root: return
+    meshes = [o for o in [root] + list(root.children_recursive) if o.type == "MESH"]
+    if not meshes: return
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, 0.004)); sh = bpy.context.object; sh.name = "contact_shadow"
+    m = bpy.data.materials.new("contact_shadow"); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
+    N.remove(N["Principled BSDF"]); tr = N.new("ShaderNodeBsdfTransparent"); dk = N.new("ShaderNodeBsdfDiffuse"); dk.inputs["Color"].default_value = (0, 0, 0, 1)
+    tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (2, 2, 2)
+    gr = N.new("ShaderNodeTexGradient"); gr.gradient_type = "SPHERICAL"; pw = N.new("ShaderNodeMath"); pw.operation = "POWER"; pw.inputs[1].default_value = 1.8
+    op = N.new("ShaderNodeMath"); op.operation = "MULTIPLY"; mx = N.new("ShaderNodeMixShader")
+    for x, y in ((tc.outputs["Object"], mp.inputs["Vector"]), (mp.outputs["Vector"], gr.inputs["Vector"]), (gr.outputs["Fac"], pw.inputs[0]), (pw.outputs[0], op.inputs[0]),
+                 (op.outputs[0], mx.inputs[0]), (tr.outputs[0], mx.inputs[1]), (dk.outputs[0], mx.inputs[2]), (mx.outputs[0], N["Material Output"].inputs["Surface"])):
+        L.new(x, y)
+    try: m.surface_render_method = "DITHERED"
+    except Exception: pass
+    sh.data.materials.append(m); sh.visible_shadow = False; dens = op.inputs[1]; sc = bpy.context.scene
+    for fr in list(range(1, n + 1, every)) + [n]:
+        sc.frame_set(fr); dg = bpy.context.evaluated_depsgraph_get(); pts = []
+        for o in meshes:
+            oe = o.evaluated_get(dg); pts += [oe.matrix_world @ Vector(c) for c in oe.bound_box]
+        lo = min(p.z for p in pts); cx = sum(p.x for p in pts) / len(pts); cy = sum(p.y for p in pts) / len(pts)
+        wdt = max(max(p.x for p in pts) - min(p.x for p in pts), max(p.y for p in pts) - min(p.y for p in pts))
+        h = max(0.0, lo); s_ = wdt * (1.25 + 1.1 * h)
+        sh.location = (cx, cy, 0.004); sh.scale = (s_, s_, 1); sh.keyframe_insert("location", frame=fr); sh.keyframe_insert("scale", frame=fr)
+        dens.default_value = 0.55 * math.exp(-h * 1.6); dens.keyframe_insert("default_value", frame=fr)
+
+
+def cyclorama(floor_mat, c1, c2, y0=4.0, r=6.5, top=22.0, width=40.0):
+    """The studio sweep: the floor curves up into the wall, so there is no corner line behind the product. Floor faces
+    keep the 'floor' material; the curve and wall get 'wall', a gradient from the floor colour to the wall colour."""
+    prof = [(-14.0, 0.0), (y0, 0.0)] + [(y0 + r * math.sin(a), r - r * math.cos(a)) for a in [k * math.pi / 2 / 16 for k in range(1, 17)]] + [(y0 + r, top)]
+    bm = bmesh.new(); rows = []
+    for x in (-width / 2, width / 2): rows.append([bm.verts.new((x, y, z)) for y, z in prof])
+    for k in range(len(prof) - 1): bm.faces.new((rows[0][k], rows[1][k], rows[1][k + 1], rows[0][k + 1]))   # normals face the set
+    me = bpy.data.meshes.new("cyclorama"); bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new("cyclorama", me); bpy.context.scene.collection.objects.link(ob)
+    wall = bpy.data.materials.new("wall"); wall.use_nodes = True; N = wall.node_tree.nodes; L = wall.node_tree.links; b = N["Principled BSDF"]
+    b.inputs["Roughness"].default_value = 0.85
+    if "Specular IOR Level" in b.inputs: b.inputs["Specular IOR Level"].default_value = 0.25    # painted cyc: matte
+    tc = N.new("ShaderNodeTexCoord"); sx = N.new("ShaderNodeSeparateXYZ"); mr = N.new("ShaderNodeMapRange"); mr.inputs["From Min"].default_value = 0.0; mr.inputs["From Max"].default_value = r * 1.2
+    mx = N.new("ShaderNodeMix"); mx.name = "wallgrad"; mx.data_type = "RGBA"; mx.inputs["A"].default_value = (*c1, 1); mx.inputs["B"].default_value = (*c2, 1)
+    rr = N.new("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = floor_mat.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value
+    rr.inputs["To Max"].default_value = 0.85; rr.inputs["From Max"].default_value = 0.9   # gloss gone within the first metre: a glossy curve
+                                                                           # mirrors the HDRI horizon as a hard line
+    for x_, y_ in ((tc.outputs["Object"], sx.inputs[0]), (sx.outputs["Z"], mr.inputs["Value"]), (mr.outputs["Result"], mx.inputs["Factor"]), (mx.outputs["Result"], b.inputs["Base Color"]),
+                   (sx.outputs["Z"], rr.inputs["Value"]), (rr.outputs["Result"], b.inputs["Roughness"])):
+        L.new(x_, y_)
+    me.materials.append(floor_mat); me.materials.append(wall)
+    for p in me.polygons:
+        p.material_index = 0 if p.center.z < 0.01 else 1; p.use_smooth = True
+    return ob
