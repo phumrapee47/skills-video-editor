@@ -181,7 +181,7 @@ def decor(kind, n, seed=5):
     cnt = max(8, int(cnt * min(1.0, dist / 2.5)))                          # close shots: fewer, or they pile up as bokeh
     mat = AC.clear_liquid("water", (0.97, 0.99, 1.0), 0.02, 1.333, 0.55) if kind == "droplets" else AC.principled(f"decor_{kind}", em[0], 0.0, 0.4, **{"Emission Color": (*em[0], 1), "Emission Strength": em[1]})
     for i in range(cnt):
-        near = kind == "droplets" and i % 3 == 0                           # only clear drops near the lens: glowing specks there
+        near = kind == "droplets" and i % 3 == 0 and AC.CYCLES             # only clear drops near the lens, in Cycles (EEVEE: dark rings); glowing specks there
         z = dist * (rnd.uniform(0.3, 0.5) if near else rnd.uniform(0.75, 1.8)); hh = z * 18 / L   # turn into orbs over the product
         xo, yo = rnd.uniform(-1, 1), rnd.uniform(-1, 1)
         if (near or z < dist * 1.15) and abs(xo) < 0.55 and abs(yo) < 0.5: xo = math.copysign(rnd.uniform(0.55, 1.0), xo)   # the product stays clear

@@ -509,6 +509,28 @@ def ease_all():
             for kp in fc.keyframe_points: kp.interpolation = "BEZIER"; kp.easing = "AUTO"
 
 
+def anchors(sc, sid, spec, n):
+    """Where the product is on screen (0-1, top-left origin) at a few frames: its label front, top, left and right
+    edges. ad_pipeline points callouts at these, so a label line lands on the product, not on the set."""
+    from bpy_extras.object_utils import world_to_camera_view
+    root = next((bpy.data.objects[k] for k in ("can", "bag", "bar", "bar_front", "can_front") if k in bpy.data.objects), None)
+    if not root or not sc.camera: return
+    meshes = [o for o in [root] + list(root.children_recursive) if o.type == "MESH" and o.visible_get()]
+    out = {}
+    base = int(spec.get("base") or n)
+    for fr in sorted({1, int(spec.get("key") or base * 0.6), max(1, int(base * 0.75)), base}):
+        sc.frame_set(fr); dg = bpy.context.evaluated_depsgraph_get(); pts = []
+        for o in meshes:
+            oe = o.evaluated_get(dg); pts += [oe.matrix_world @ Vector(c) for c in oe.bound_box]
+        if not pts: continue
+        lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts))); hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+        c = (lo + hi) / 2
+        def scr(p): v = world_to_camera_view(sc, sc.camera, p); return [round(v.x, 4), round(1 - v.y, 4), round(v.z, 3)]
+        out[str(fr)] = {"label": scr(Vector((c.x, lo.y, c.z))), "top": scr(Vector((c.x, c.y, hi.z))), "left": scr(Vector((lo.x, lo.y, c.z))),
+                        "right": scr(Vector((hi.x, lo.y, c.z))), "low": scr(Vector((c.x, lo.y, lo.z + (hi.z - lo.z) * 0.3)))}
+    json.dump(out, open(os.path.join(a.out, f"{sid}_anchors.json"), "w"), indent=1)
+
+
 EVENT = {"twist": 24, "tear": 22, "snap": 24, "split": 30, "open": 22, "toppop": 22, "drops": 18, "burst": 2}   # default frame of each shot's physical event
 
 
@@ -603,6 +625,7 @@ def build(spec):
     else: ease_all()
     a.cold = cold0
     os.makedirs(os.path.join(a.out, sid), exist_ok=True)
+    anchors(sc, sid, spec, n)
     if a.still:
         import time as _t
         sc.frame_set(int(a.frame or spec.get("key") or n * 0.6)); sc.render.filepath = os.path.join(a.out, sid + "_still.png")

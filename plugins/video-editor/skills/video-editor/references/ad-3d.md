@@ -224,3 +224,29 @@ stored absolute (Blender may run from another folder).
   LRA (~1 LU) because the music is constant, not because of the glue.
 - Tested on all four families: LUMA (fresh), MOLTO (luxury), KAZE (clean), VOLT (tech, new: dark can, silver panels,
   neon grid). Still weak: the bar macro (a blurred dark side), droplets near the lens read as rings in EEVEE.
+
+## 1.14: ads that sell (structure, voice, brand, ABCD, hook variants)
+Research (platform guides and production practice, see the 1.14 notes in the session): beautiful CGI is not enough -
+YouTube's ABCD (Attract, Brand, Connect, Direct; Google/Kantar, 11,000 ads), TikTok's guide (the proposition in the
+first 3 s, the hook within 6 s, captions, short text) and direct-response practice (hook -> benefit -> demo -> proof
+-> offer -> call to action; test several openings of one ad).
+- **Structure** (`brief.structure`): `brand` (hook, details, payoff, name + price) or `performance` (hook, benefit,
+  proof, demo on the product's own action, then name + offer + a call to action already on the hero shot, which gets
+  two extra beats; the card repeats the call to action). Copy keys: hook, benefit, details, proof, demo, name, offer
+  / price, cta, cta_mid, callouts, hooks.
+- **Voiceover** (`brief.vo`: lines per role + voice, or true for lines from the copy): edge-tts (free, online; Thai
+  `th-TH-PremwadeeNeural`, English `en-US-AndrewNeural`), placed on its role's shot, the brand name said in the first
+  line, the music ducks 9 dB under it; broken TTS files are retried. Paths are absolute (a relative path silenced the
+  whole mix: no voice found -> reference level 0).
+- **Sonic logo** (`make_sfx.sonic_logo`): three notes + a held chord from the brand name, timbre by mood family, on
+  the end card instead of the chime. **Brand kit** (`brief.brand`): fonts, accent, corner logo, the logo large on the
+  card.
+- **Callouts on the product** (`copy.callouts`): Blender writes where the product is on screen per shot
+  (`<shot>_anchors.json`: label, top, left, right); the callouts go to the shot with the most room beside the settled
+  product, on the roomier side, stopping at the apps' button column - none rather than squeezed ones (a 9:16 hero
+  often fills the width).
+- **ABCD check** (printed at the storyboard and preview gates, kept in shots.json): product on screen by 3 s, hook by
+  3 s, brand seen by 5 s, brand said by 5 s, calls to action (card + before it for performance), benefit and proof on
+  screen, readable text (<= 8 words, <= 4 words/s), works muted, length, voiceover fits.
+- **Hook variants** (`ad_pipeline.py variants <dir> --n 3 [--source animatic]`): the opening shot re-shot with
+  another camera move and `copy.hooks` lines; the rest of the ad is shared (only the first shot renders again).

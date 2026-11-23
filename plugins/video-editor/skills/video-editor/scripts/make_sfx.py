@@ -160,6 +160,32 @@ def snap(rng, dur=0.5):
     return stereo(np.tanh(2 * (crack + knock + ticks)), -0.1, 0.1)
 
 
+def sonic_logo(name, family="fresh", dur=1.5):
+    """A brand's sound signature for the end card: three notes and a held chord taken from the brand name (the same
+    name always gives the same motif), timbre by mood family - fresh: bright plucks; luxury: low warm piano-like
+    tones with a pad; tech: synth saw with a glide; clean: soft bells."""
+    import hashlib
+    h = int(hashlib.sha1(name.upper().encode()).hexdigest(), 16)
+    scales = {"fresh": [72, 74, 76, 79, 81, 84], "luxury": [57, 60, 62, 64, 67, 69], "tech": [64, 67, 69, 71, 74, 76], "clean": [72, 76, 79, 81, 83, 88]}
+    sc = scales.get(family, scales["fresh"]); notes = [sc[(h >> (4 * i)) % len(sc)] for i in range(3)]
+    notes[-1] = max(notes[-1], sc[3])                                      # end high: a rise, not a sigh
+    n = int(dur * SR); t = np.arange(n) / SR; x = np.zeros(n); step = 0.13 if family in ("fresh", "tech") else 0.17
+    hz = lambda m: 440.0 * 2 ** ((m - 69) / 12)
+    def tone(f, t0, length, kind):
+        i0 = int(t0 * SR); m = min(n - i0, int(length * SR)); tt = np.arange(m) / SR
+        if kind == "saw": w = sum(np.sin(2 * np.pi * f * k * tt * (1 + 0.004 * np.exp(-tt * 20))) / k for k in range(1, 7))
+        elif kind == "bell": w = np.sin(2 * np.pi * f * tt) + 0.35 * np.sin(2 * np.pi * f * 2.76 * tt) * np.exp(-tt * 6)
+        else: w = np.sin(2 * np.pi * f * tt) + 0.3 * np.sin(2 * np.pi * 2 * f * tt) + 0.12 * np.sin(2 * np.pi * 3 * f * tt)
+        dec = {"saw": 3.5, "bell": 2.2, "pluck": 6.0, "piano": 2.8}[kind]
+        x[i0:i0 + m] += w * np.exp(-tt * dec) * np.minimum(1, tt / 0.004)
+    kind = {"fresh": "pluck", "luxury": "piano", "tech": "saw", "clean": "bell"}.get(family, "pluck")
+    for i, m_ in enumerate(notes): tone(hz(m_), 0.05 + i * step, 0.6, kind)
+    t_ch = 0.05 + 3 * step
+    for m_ in (notes[-1], notes[-1] - 5, notes[-1] - 12): tone(hz(m_), t_ch, dur - t_ch, kind)   # the held chord
+    if family == "luxury": x += 0.25 * np.sin(2 * np.pi * hz(notes[-1] - 24) * t) * np.minimum(1, t / 0.3) * np.exp(-np.maximum(t - 0.8, 0) * 3)
+    return stereo(x * np.minimum(1, (dur - t) / 0.08), -0.15, 0.15)
+
+
 KIT = {"whoosh": lambda r: whoosh(r), "swish": lambda r: whoosh(r, 0.28, 900, 6000, 0.4, (0.4, -0.4)), "pop": pop,
        "riser": riser, "impact": impact, "hit": hit, "chime": chime, "fizz": fizz, "slash": slash, "splash": splash, "clink": clink, "twist": twist, "rip": rip, "snap": snap}
 

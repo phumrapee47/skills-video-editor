@@ -532,6 +532,37 @@ def ad_finish_keeps_colour(tmp):
         assert 0.04 < h < 0.11 and sat > 0.5 and 0.3 < l < 0.7, (fam, (r, g, b), round(h, 3))
 
 
+@test
+def ad_sells_structure_abcd(tmp):
+    """1.14: the performance structure puts benefit, proof, demo, name + offer + a mid call to action on the right shots;
+    the first voiceover line says the brand; the ABCD check flags a missing voiceover and passes the rest; callouts
+    go where there is room beside the product (or nowhere); the sonic logo is the same for the same brand."""
+    import numpy as np, ad_pipeline as AP, make_sfx
+    shots = [{"id": f"s{i}", "type": t, "beats": b} for i, (t, b) in enumerate([("split", 6), ("drops", 4), ("zerog", 4), ("open", 4), ("hero_low", 6)])]
+    shots[0]["event_beat"] = 2
+    copy = {"hook": "Sunshine", "benefit": "real yuzu", "proof": "4.8/5 rating", "demo": "crack it", "name": "LUMA | YUZU", "offer": "2 for 79",
+            "cta": "Order now", "callouts": ["real yuzu", "zero sugar"]}
+    AP.copy_titles(shots, ["hook", "detail", "detail", "payoff", "hero"], copy, "fresh", "performance")
+    roles = [s["role"] for s in shots]; assert roles == ["hook", "benefit", "proof", "demo", "name"], roles
+    hero = AP.titles_of(shots[-1]); assert [t["text"] for t in hero] == ["LUMA | YUZU", "2 for 79", "Order now"] and shots[-1]["callouts"], hero
+    st = {"fps": 24, "music": {"period": 0.5, "src": str(tmp / "m.wav"), "in": 0}, "size": "1080x1920", "card": {"text": "Order now", "beats": 3},
+          "shots": shots, "brief": "fresh", "structure": "performance", "copy": copy, "brand_name": "LUMA", "vo": {"lines": {"hook": "Sunshine in a can."}}}
+    assert AP.vo_lines(st)[0][1].startswith("LUMA."), AP.vo_lines(st)
+    st["vo"] = None; rows = {r[1].strip(): r[0] for r in AP.abcd(st, tmp)}
+    assert rows["B  brand said by 5 s (voiceover)"] == "WARN" and rows["A  product on screen by 3 s"] == "PASS", rows
+    assert rows["D  call to action before the card too"] == "PASS" and rows["S  proof on screen"] == "PASS", rows
+    fd = tmp / "fr"; fd.mkdir()
+    wide = {"1": {"left": [0.2, 0.6, 5], "right": [0.8, 0.6, 5], "label": [0.5, 0.6, 5]}}                 # fills the frame: no room
+    roomy = {"1": {"left": [0.4, 0.5, 5], "right": [0.6, 0.5, 5], "label": [0.5, 0.5, 5]}}
+    for s, an in zip(shots, [roomy, wide, wide, wide, wide]): json.dump(an, open(fd / f"{s['id']}_anchors.json", "w"))
+    sp = AP.derived(st); starts = list(np.cumsum([0] + [x["base"] / 24 for x in sp])[:-1])
+    assert AP.place_callouts(st, sp, starts, fd) == []                      # the only roomy shot is the hook: skipped
+    json.dump(roomy, open(fd / "s3_anchors.json", "w")); co = AP.place_callouts(st, sp, starts, fd)
+    assert len(co) == 2 and co[0]["side"] == "left" and abs(co[0]["start"] - (starts[3] + sp[3]["base"] / 24 * 0.45)) < 0.01, co
+    a1, a2 = make_sfx.sonic_logo("LUMA", "fresh"), make_sfx.sonic_logo("LUMA", "fresh")
+    assert np.allclose(a1, a2) and not np.allclose(a1, make_sfx.sonic_logo("VOLT", "fresh"))
+
+
 def blender_exe():
     import glob, os, shutil
     return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)
