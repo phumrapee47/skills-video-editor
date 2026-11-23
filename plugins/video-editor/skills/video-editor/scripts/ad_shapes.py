@@ -222,6 +222,12 @@ def bar(spec, name):
     nt = coat.node_tree; nz = nt.nodes.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 60
     bmp = nt.nodes.new("ShaderNodeBump"); bmp.inputs["Strength"].default_value = 0.08
     nt.links.new(nz.outputs["Fac"], bmp.inputs["Height"]); nt.links.new(bmp.outputs["Normal"], nt.nodes["Principled BSDF"].inputs["Normal"])
+    if spec.get("emboss_tex"):                                             # the brand name raised on each block
+        et = nt.nodes.new("ShaderNodeTexImage"); et.image = bpy.data.images.load(spec["emboss_tex"]); et.image.colorspace_settings.name = "Non-Color"
+        et.extension = "CLIP"; uvn = nt.nodes.new("ShaderNodeUVMap"); nt.links.new(uvn.outputs["UV"], et.inputs["Vector"])
+        add = nt.nodes.new("ShaderNodeMath"); add.operation = "MULTIPLY_ADD"; add.inputs[1].default_value = 0.08
+        nt.links.new(nz.outputs["Fac"], add.inputs[2]); nt.links.new(et.outputs["Color"], add.inputs[0]); nt.links.new(add.outputs[0], bmp.inputs["Height"])
+        bmp.inputs["Strength"].default_value = 0.5
     sec = _mat(name + "_section", image=bar_section(spec.get("coating", "#4A2615"), spec.get("filling", "#C8741E")), rough=0.45)
     root = _link(name, None); halves = []
     for side in (-1, 1):
@@ -231,18 +237,20 @@ def bar(spec, name):
         bmesh.ops.create_cube(bm, size=1.0)
         for vv in bm.verts:
             vv.co.x = (vv.co.x + 0.5) * hl * side; vv.co.y *= W_ * k; vv.co.z = (vv.co.z + 0.5) * H_ * k
-        bmesh.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.x - e.verts[1].co.x) > 1e-6], cuts=24, use_grid_fill=True)
-        for vv in bm.verts:                                                    # ridges across the top (the bar's segments)
-            if vv.co.z > H_ * k * 0.99 and abs(vv.co.x) > 0.004:
-                vv.co.z += 0.004 * (0.5 + 0.5 * math.cos(abs(vv.co.x) / (hl / 4) * 2 * math.pi))
+        bmesh.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.x - e.verts[1].co.x) > 1e-6], cuts=48, use_grid_fill=True)
+        for vv in bm.verts:                                                    # V grooves between the bar's blocks
+            if vv.co.z > H_ * k * 0.99:
+                for gx in (hl * 0.5, hl):                                      # a groove mid-half and one at the far end bevel
+                    dgx = abs(abs(vv.co.x) - gx)
+                    if dgx < hl * 0.06: vv.co.z -= H_ * k * 0.22 * (1 - dgx / (hl * 0.06))
         me = bpy.data.meshes.new(f"{name}_half{side}"); bm.to_mesh(me); bm.free()
         uv = me.uv_layers.new(name="UV"); me.materials.append(coat); me.materials.append(sec)
         for p in me.polygons:
-            br = abs(p.center.x) < 1e-5 and abs(p.normal.x) > 0.9
+            br = abs(p.center.x) < 1e-5 and abs(p.normal.x) > 0.9; top = p.normal.z > 0.7 and not br
             p.material_index = 1 if br else 0
             for li in p.loop_indices:
                 co = me.vertices[me.loops[li].vertex_index].co
-                uv.data[li].uv = (co.y / (W_ * k) + 0.5, co.z / (H_ * k)) if br else (co.x, co.y)
+                uv.data[li].uv = (co.y / (W_ * k) + 0.5, co.z / (H_ * k)) if br else ((co.x + hl) / (2 * hl), co.y / (W_ * k) + 0.5) if top else (0.0, 0.0)
         h = _link(f"{name}_half{'L' if side < 0 else 'R'}_mesh", me, piv)
         bv = h.modifiers.new("bevel", "BEVEL"); bv.width = 0.006; bv.segments = 3; bv.limit_method = "ANGLE"
         halves.append(piv)

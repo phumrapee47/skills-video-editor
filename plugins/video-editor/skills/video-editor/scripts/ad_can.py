@@ -82,6 +82,13 @@ def aluminium(name):
     nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 180; mr = N.new("ShaderNodeMapRange")
     mr.inputs["To Min"].default_value = 0.14; mr.inputs["To Max"].default_value = 0.28
     L.new(nz.outputs["Fac"], mr.inputs["Value"]); L.new(mr.outputs["Result"], b.inputs["Roughness"])
+    tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (600, 600, 3)   # brushed: fine streaks
+    st = N.new("ShaderNodeTexNoise"); st.inputs["Scale"].default_value = 1.0; st.inputs["Detail"].default_value = 4
+    bp = N.new("ShaderNodeBump"); bp.inputs["Strength"].default_value = 0.04
+    L.new(tc.outputs["Object"], mp.inputs["Vector"]); L.new(mp.outputs["Vector"], st.inputs["Vector"]); L.new(st.outputs["Fac"], bp.inputs["Height"])
+    L.new(bp.outputs["Normal"], b.inputs["Normal"])
+    for k, v in (("Anisotropic", 0.5),):                                    # Cycles: a brushed highlight
+        if k in b.inputs: b.inputs[k].default_value = v
     return m
 
 

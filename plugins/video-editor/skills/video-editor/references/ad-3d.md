@@ -205,3 +205,22 @@ Pitfalls found: glowing specks near the lens become white orbs over the product;
 clouds (light pools painted into the wall material read as light); Blender exits 0 when the script raises - the
 pipeline now runs it with `--python-exit-code 1`, or failed renders silently reuse old frames; product paths are
 stored absolute (Blender may run from another folder).
+
+## 1.13: light per mood, finishing, materials, loudness
+- **Light rigs** (`ad_look.light_rig`): fresh high-key (big soft key + front fill), luxury dark with gold rims set
+  behind and a long thin streak light beside the product, tech neon rims (magenta / cyan) on a dark world, clean one
+  big soft light from above the front. Tuned against the approved v5 look: brighter rigs washed every colour to pink
+  under the neutral view transform.
+- **Finishing** (`ad_pipeline.finish_filter`, ffmpeg, the same for EEVEE and Cycles, also applied to the storyboard
+  stills): highlight glow, a little lens fringing, vignette, temporal grain, the family's grade. The glow's screen
+  blend must run in planar RGB (`format=gbrp`): in YUV it also blends the colour planes and turns orange pink/red
+  (a test guards it).
+- **Materials**: brushed aluminium (fine stretched-noise bump; anisotropy in Cycles); `--label-metal auto|mask.png`
+  makes grey/silver areas of the label bare metal (metallic, smoother); the bar gets V grooves between blocks and an
+  embossed brand name per block (made from the product name).
+- **Loudness**: music-led plans set `"master": {"glue": true, "limit": 0.56}` - the mix bus is compressed and
+  limited before the two-pass loudnorm, then the true-peak limiter catches the rest. A dense track went from
+  -16.8 to -15.3 LUFS (true peak -2.9 dBTP); VOLT and MOLTO land at -13.9 / -14.0. Short music-led ads have a low
+  LRA (~1 LU) because the music is constant, not because of the glue.
+- Tested on all four families: LUMA (fresh), MOLTO (luxury), KAZE (clean), VOLT (tech, new: dark can, silver panels,
+  neon grid). Still weak: the bar macro (a blurred dark side), droplets near the lens read as rings in EEVEE.

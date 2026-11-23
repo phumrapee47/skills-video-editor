@@ -5,6 +5,8 @@ move(name, n, seed)      re-shoots the shot with a camera move, starting from th
                          camera and target at frame 1), so a move fits any product and any shot
 background(kind, c1, c2, n)  gradient_bokeh | haze_glints | neon_grid | window_light | plain
 decor(kind, n, seed)     droplets | gold_dust | light_specks | soft_dust | none - near the lens (out of focus) and behind
+light_rig(family)        each mood family's light: fresh high-key, luxury gold rims + a long streak, tech neon rims,
+                         clean a big soft top light
 ease(style, whip=False)  bouncy (overshoot) | smooth (sine) | snappy (expo) | auto on objects with few keys; the camera
                          always eases in and out (a whip snaps)
 """
@@ -220,3 +222,42 @@ def ease(style="auto", whip=False):
                     if obj_i == "BACK":
                         try: kp.back = 1.2
                         except Exception: pass
+
+
+# ---------------------------------------------------------------- light per mood family
+RIGS = {   # key: energy, size, colour; rims: energy, size, colour (left, right); world: strength factor; extras
+    # tuned against the approved v5 look: brighter rigs washed the colours out to pink under the neutral view
+    "fresh":  {"key": (430, 3.5, (1.0, 0.98, 0.94)), "rims": (450, 0.8, (1.0, 0.94, 0.84), (1.0, 0.9, 0.8)), "world": 1.0, "fill": 110},
+    "luxury": {"key": (230, 1.2, (1.0, 0.9, 0.8)), "rims": (1000, 0.35, (1.0, 0.72, 0.38), (1.0, 0.78, 0.45)), "world": 0.3, "streak": 160},
+    "tech":   {"key": (180, 1.5, (0.75, 0.85, 1.0)), "rims": (1600, 0.3, (1.0, 0.2, 0.8), (0.1, 0.9, 1.0)), "world": 0.3},
+    "clean":  {"key": (260, 6.0, (1.0, 1.0, 1.0)), "rims": (200, 1.5, (1.0, 1.0, 1.0), (1.0, 1.0, 1.0)), "world": 1.0, "fill": 90, "top": True},
+}
+
+
+def light_rig(family):
+    """Re-light the studio for the mood family (the studio's key/rimL/rimR lights and the world)."""
+    R = RIGS.get(family); objs = bpy.data.objects
+    if not R: return
+    e, sz, col = R["key"]; k = objs.get("key")
+    if k:
+        k.data.energy, k.data.size, k.data.color = e, sz, col
+        if R.get("top"):                                                   # clean: one big soft light from above the front
+            k.location = (0.0, -1.6, 4.6); d = Vector((0, 0, 0.6)) - k.location; k.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+    e, sz, cl, cr = R["rims"]
+    for nm, cc, push in (("rimL", cl, 1), ("rimR", cr, 1)):
+        o = objs.get(nm)
+        if o:
+            o.data.energy, o.data.size, o.data.color = e, sz, cc
+            if family in ("luxury", "tech"):                               # rims further behind: a thin bright edge
+                o.location.y += 1.2; d = Vector((0, 0, 0.6)) - o.location; o.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+    w = bpy.context.scene.world
+    if w and w.node_tree:
+        for nd in w.node_tree.nodes:
+            if nd.type == "BACKGROUND": nd.inputs["Strength"].default_value *= R["world"]
+    if R.get("fill"):
+        bpy.ops.object.light_add(type="AREA", location=(0, -4.5, 1.2)); f = bpy.context.object; f.name = "fill"
+        f.data.energy, f.data.size = R["fill"], 4.0; d = Vector((0, 0, 0.7)) - f.location; f.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+    if R.get("streak"):                                                    # luxury: a long thin light = a clean streak on the product
+        bpy.ops.object.light_add(type="AREA", location=(-2.2, 0.6, 1.4)); st = bpy.context.object; st.name = "streak"   # beside and behind: an edge streak
+        st.data.shape = "RECTANGLE"; st.data.size, st.data.size_y = 0.12, 3.0; st.data.energy = R["streak"]; st.data.color = (1.0, 0.92, 0.8)
+        d = Vector((0, 0, 0.7)) - st.location; st.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()

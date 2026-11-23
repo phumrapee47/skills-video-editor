@@ -564,6 +564,12 @@ def render_audio(plan, tl, total, tmp):
     path = tmp / "mix.wav"
     with wave.open(str(path), "wb") as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(mix, -1, 1) * 32767).astype(np.int16).tobytes())
+    if (plan.get("master") or {}).get("glue"):              # music-led edits: a dense track's peaks made the final limiter pull the
+        glued = tmp / "mix_glue.wav"                        # whole song down (-16.8 LUFS); glue the bus first, then normalise
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(path), "-af",
+                        "acompressor=threshold=-26dB:ratio=4:attack=6:release=140:makeup=9,alimiter=limit=0.7:attack=1:release=40:level=false",
+                        str(glued)], check=True)
+        path = glued
     return path, talk
 
 
@@ -614,7 +620,7 @@ if __name__ == "__main__":
         mix, talk = render_audio(plan, tl, total, tmp)
         cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video)]
         cmd += (["-ss", str(a0), "-t", str(a1 - a0)] if a.preview else []) + ["-i", str(mix)]
-        subprocess.run(cmd + ["-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", loudnorm_filter(mix, lufs, a0, (a1 - a0) if a.preview else None) + ",aresample=192000,alimiter=limit=0.63:attack=1:release=50:level=false,aresample=48000", "-ar", "48000",
+        subprocess.run(cmd + ["-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", loudnorm_filter(mix, lufs, a0, (a1 - a0) if a.preview else None) + f",aresample=192000,alimiter=limit={(plan.get('master') or {}).get('limit', 0.63)}:attack=1:release=50:level=false,aresample=48000", "-ar", "48000",
                               "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out], check=True)
     json.dump({"duration": round(total, 3), "clips": [{k: c[k] for k in ("i", "src", "in", "out", "start", "end", "speed")} for c in tl],
                "speech": [[round(x, 2), round(y, 2)] for x, y in sorted(talk)]},

@@ -33,6 +33,7 @@ ap.add_argument("--label-front", type=float, default=0.5, help="where the logo i
 ap.add_argument("--product", help="product.json (product_from_photo.py or by hand): bottle/lathe, box, pouch, bar; default: the can")
 ap.add_argument("--spec", help="shot list JSON (ad_pipeline.py): per shot id, type, frames, event frame, key frame, camera path, cold; "
                                 "renders <out>/<id>/####.png, resumes (frames already on disk are skipped)")
+ap.add_argument("--label-metal", help="where the can shows bare metal through the print: 'auto' (grey/silver pixels of the label) or a mask image (white = metal)")
 ap.add_argument("--cold", action="store_true", help="condensation beads on the can (Geometry Nodes)")
 ap.add_argument("--engine", default="eevee", choices=["eevee", "cycles"], help="cycles: GPU path tracing + denoise for the final render")
 ap.add_argument("--cycles-exposure", type=float, default=-0.8, help="stops; Cycles measured 0.3-0.6 stops brighter than EEVEE on the same scene, the set more")
@@ -123,11 +124,34 @@ def can(label, x=0.0, name="can"):
     m_label = mat(name + "_label", image=label, metal=0.35, rough=0.26)
     try: m_label.node_tree.nodes["Principled BSDF"].inputs["Coat Weight"].default_value = 0.35        # varnish over the print
     except Exception: pass
+    if a.label_metal: metal_ink(m_label, label, a.label_metal)
     m_metal = AC.aluminium(name + "_metal"); me.materials.append(m_label); me.materials.append(m_metal)
     AC.lid_parts(body, m_metal, name)
     if a.cold: AC.condensation(body, m_label, seed=len(bpy.data.objects))
     bpy.context.view_layer.objects.active = body
     return body
+
+
+def metal_ink(m, label, how):
+    """Printed cans leave the aluminium bare in places (silver panels, unprinted lines): there the label is metal."""
+    import numpy as np
+    img = bpy.data.images.load(label) if isinstance(label, str) else label
+    if how == "auto":                                                      # grey/silver pixels: low saturation, mid-high value
+        W, H = img.size; px = np.empty(W * H * 4, np.float32); img.pixels.foreach_get(px); px = px.reshape(-1, 4)
+        mx, mn = px[:, :3].max(1), px[:, :3].min(1); sat = (mx - mn) / (mx + 1e-6)
+        mask = ((sat < 0.1) & (mx > 0.45) & (mx < 0.93)).astype(np.float32)
+        rgba = np.ones((W * H, 4), np.float32); rgba[:, 0] = rgba[:, 1] = rgba[:, 2] = mask
+        mi = bpy.data.images.new("metal_mask", W, H, float_buffer=True); mi.colorspace_settings.name = "Non-Color"; mi.pixels.foreach_set(rgba.ravel()); mi.pack()
+    else:
+        mi = bpy.data.images.load(how); mi.colorspace_settings.name = "Non-Color"
+    nt = m.node_tree; N = nt.nodes; L = nt.links; b = N["Principled BSDF"]
+    tx = N.new("ShaderNodeTexImage"); tx.image = mi
+    uvsrc = next((n for n in N if n.type == "TEX_IMAGE" and n.image and n.image != mi), None)
+    if uvsrc and uvsrc.inputs["Vector"].is_linked: L.new(uvsrc.inputs["Vector"].links[0].from_socket, tx.inputs["Vector"])
+    mr = N.new("ShaderNodeMapRange"); mr.inputs["To Min"].default_value = b.inputs["Metallic"].default_value; mr.inputs["To Max"].default_value = 1.0
+    L.new(tx.outputs["Color"], mr.inputs["Value"]); L.new(mr.outputs["Result"], b.inputs["Metallic"])
+    rr = N.new("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = b.inputs["Roughness"].default_value; rr.inputs["To Max"].default_value = 0.16
+    L.new(tx.outputs["Color"], rr.inputs["Value"]); L.new(rr.outputs["Result"], b.inputs["Roughness"])
 
 
 def co2_puff(loc, f0, n_end, rise=0.35):
@@ -572,6 +596,7 @@ def build(spec):
             key(cam, 1, location=(0, -3.0, 0.9)); key(cam, n, location=(0, -3.7, 1.0))
     if spec.get("camera"): camera_path(spec["camera"], n)                 # an explicit path wins over the designed move
     elif spec.get("move"): LK.move(spec["move"], n, seed=sum(map(ord, sid)))
+    LK.light_rig(spec.get("family"))                                      # the mood family's light
     LK.background(spec.get("bg"), lin(c1), lin(c2), n)                     # the design pass (ad_design.py)
     LK.decor(spec.get("decor"), n, seed=sum(map(ord, sid)) + 1)
     if spec.get("motion"): LK.ease(spec["motion"], whip=spec.get("move") == "whip_in")

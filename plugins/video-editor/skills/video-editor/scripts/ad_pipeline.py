@@ -74,10 +74,23 @@ PRESETS = {"bottle": {"shape": "bottle", "liquid": "#9CB84A", "cap": "#2E6B30", 
            "box": {"shape": "box", "size_mm": [190, 270, 60]}, "bar": {"shape": "bar", "size_mm": [120, 32, 18], "coating": "#4A2615", "filling": "#C8741E"}}
 
 
+def emboss_image(d, word, blocks=4):
+    """White letters on black, once per block of the bar (the bar's top UV runs along its length)."""
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 2048, 512; im = Image.new("L", (W, H), 0); dr = ImageDraw.Draw(im)
+    fonts = sorted((ROOT / "assets" / "fonts").glob("Anton*.ttf")); f = ImageFont.truetype(str(fonts[0]), 200) if fonts else ImageFont.load_default()
+    for b in range(blocks):
+        cx = (b + 0.5) * W / blocks; dr.text((cx, H / 2), word.upper()[:8], fill=255, font=f, anchor="mm")
+    from PIL import ImageFilter
+    im = im.filter(ImageFilter.GaussianBlur(4))                            # soft edges: a moulded letter, not a cut-out
+    out = d / "emboss.png"; im.save(out); return out
+
+
 def from_brief(a):
     """Fill the init arguments from a brief file (the brief wins over defaults, flags win over the brief)."""
     b = json.load(open(a.brief_file, encoding="utf-8")); base = pathlib.Path(a.brief_file).resolve().parent
     rel = lambda x: str((base / x).resolve()) if x and not os.path.isabs(x) else x
+    if b.get("label_metal") and not getattr(a, "label_metal", None): a.label_metal = b["label_metal"]
     for k, attr in (("product", "product"), ("photo", "photo"), ("back", "back"), ("label", "label"), ("fruit", "fruit"), ("track", "track"),
                     ("handle", "handle"), ("set", "set"), ("family", "brief"), ("fps", "fps"), ("length_s", "length"), ("product_json", "product_json")):
         if b.get(k) is not None and getattr(a, attr) in (None, "", ap_defaults.get(attr)):
@@ -113,7 +126,10 @@ def init(a):
         print(run(cmd).strip()); prod_json = d / "product" / "product.json"
     elif a.product_json: prod_json = pathlib.Path(a.product_json).resolve()
     elif a.shape and a.shape != "can":
-        prod_json = d / "product.json"; json.dump(PRESETS[a.shape], open(prod_json, "w"), indent=1)
+        spec = dict(PRESETS[a.shape])
+        if a.shape == "bar":                                               # the brand name raised on the blocks
+            spec["emboss_tex"] = str(emboss_image(d, (a.product or "BRAND").split()[0]).resolve())
+        prod_json = d / "product.json"; json.dump(spec, open(prod_json, "w"), indent=1)
     if prod_json:
         prod_json = pathlib.Path(prod_json).resolve()                     # Blender may run from another folder
         pj = json.load(open(prod_json, encoding="utf-8")); shape = {"lathe": "bottle", "jar": "bottle"}.get(pj["shape"], pj["shape"])
@@ -152,6 +168,7 @@ def init(a):
     if brief.get("copy"): copy_titles(shots, roles, brief["copy"], a.brief)
     st = {"stage": "board", "approved": [], "fps": a.fps, "size": "1080x1920", "brief": a.brief, "brief_file": brief or None,
           "product": {"desc": a.product, "label": str(pathlib.Path(a.label).resolve()) if a.label else None, "label_front": a.label_front,
+                      "label_metal": getattr(a, "label_metal", None),
                       "json": str(prod_json) if prod_json else None, "shape": shape,
                       "alt": [str(pathlib.Path(x).resolve()) for x in a.alt], "fruit": fruit, "set": a.set},
           "music": {"src": str(src), "in": beats["first"], "bpm": beats["bpm"], "period": beats["period"], "strength": beats["strength"]},
@@ -186,7 +203,7 @@ def derived(st):
         sp["key"] = min(base, sp["event"] + round(0.45 * fps)) if "event" in sp else round(base * 0.6)
         if s.get("camera"): sp["camera"] = s["camera"]
         if s.get("move"): sp["move"] = s["move"]
-        for k_, v_ in (("bg", D.get("background")), ("decor", D.get("decor")), ("motion", D.get("motion"))):
+        for k_, v_ in (("bg", D.get("background")), ("decor", D.get("decor")), ("motion", D.get("motion")), ("family", D.get("family") or st.get("brief"))):
             if v_: sp[k_] = v_
         out.append(sp)
     return out
@@ -210,15 +227,41 @@ def blender(st, d, out, size, samples, still=False, engine="eevee", only=None):
            "--label-front", p.get("label_front", 0.5),
            "--set", *p["set"], "--out", out, "--size", size, "--fps", st["fps"], "--samples", samples, "--spec", spec, "--engine", engine]
     if p.get("alt"): cmd += ["--alt", *p["alt"]]
+    if p.get("label_metal"): cmd += ["--label-metal", p["label_metal"]]
     if p.get("fruit"): cmd += ["--fruit", p["fruit"]]
     if still: cmd += ["--still"]
     if only: cmd += ["--shots", *only]
     t0 = time.time(); out = run(cmd); blender.log = out; return time.time() - t0
 
 
+FINISH = {   # glow (opacity), chromatic aberration (px at 1080), vignette angle, grain, grade in RGB, grade in YUV - per mood family
+    "fresh":  (0.22, 1.0, 0.4, 3, None, "eq=saturation=1.1:contrast=1.03"),
+    "luxury": (0.38, 1.5, 0.75, 6, "colorbalance=rs=0.04:bs=-0.04:rh=0.03", "eq=contrast=1.08:saturation=0.95"),
+    "tech":   (0.45, 2.5, 0.7, 4, "colorbalance=bs=0.06:rh=0.04:bh=0.03", "eq=contrast=1.1"),
+    "clean":  (0.14, 0.0, 0.35, 2, None, "eq=brightness=0.012:saturation=0.95:contrast=0.98"),
+}
+
+
+def finish_filter(family, width):
+    """The last look of a render: highlights glow, a hint of lens fringing, vignette, film grain, the family's grade -
+    what separates a photographed product from a clean render. Same for EEVEE and Cycles (done here, in ffmpeg).
+    The glow is blended in planar RGB: a screen blend in YUV also blends the colour planes and turns orange pink."""
+    f = FINISH.get(family)
+    if not f: return None
+    glow, ca, vig, grain, rgb_g, yuv_g = f; k = width / 1080; cpx = int(round(ca * k)); sig = max(2, 14 * k)
+    return (f"format=gbrp,split[a][b];[b]curves=all='0/0 0.72/0 1/1',gblur=sigma={sig:.1f}[g];[a][g]blend=all_mode=screen:all_opacity={glow}"
+            + (f",rgbashift=rh=-{cpx}:bh={cpx}" if cpx else "") + (f",{rgb_g}" if rgb_g else "")
+            + f",format=yuv444p,vignette=angle={vig},noise=alls={grain}:allf=t" + (f",{yuv_g}" if yuv_g else ""))
+
+
 def encode(st, frames_dir, sid):
-    mp4 = frames_dir / f"{sid}.mp4"
-    run(["ffmpeg", "-v", "error", "-y", "-framerate", st["fps"], "-i", frames_dir / sid / "%04d.png", "-c:v", "libx264", "-crf", 16, "-pix_fmt", "yuv420p", mp4])
+    mp4 = frames_dir / f"{sid}.mp4"; fam = (st.get("design") or {}).get("family") or st.get("brief")
+    first = next(iter(sorted((frames_dir / sid).glob("*.png"))), None)
+    from PIL import Image
+    w = Image.open(first).size[0] if first else 1080
+    fc = finish_filter(fam, w)
+    run(["ffmpeg", "-v", "error", "-y", "-framerate", st["fps"], "-i", frames_dir / sid / "%04d.png"] + (["-filter_complex", fc] if fc else [])
+        + ["-c:v", "libx264", "-crf", 16, "-pix_fmt", "yuv420p", mp4])
     return mp4
 
 
@@ -254,7 +297,7 @@ def make_plan(st, d, frames_dir, out_name):
                   "transition": {"type": "fade", "dur": 0.3}})
     total = t + cdur - 0.3 + 0.3; m = st["music"]
     plan = {"output": {"path": out_name, "size": list(map(int, st["size"].split("x"))), "fps": fps, "target": "shorts", "lufs": -14},
-            "clips": clips, "titles": titles, "music_mix": {"gap_db": 0, "under_db": 0},
+            "clips": clips, "titles": titles, "music_mix": {"gap_db": 0, "under_db": 0}, "master": {"glue": True, "limit": 0.56},   # music-led: glue the bus
             "audio": [{"src": os.path.relpath(m["src"], d).replace("\\", "/") if os.path.splitdrive(m["src"])[0] == os.path.splitdrive(str(d.resolve()))[0] else m["src"],
                        "role": "music", "in": round(m["in"], 3), "start": 0, "end": round(total, 2), "fade_in": 0.05, "fade_out": 1.5, "mood_pick": True}]}
     pp = d / (pathlib.Path(out_name).stem + ".json"); json.dump(plan, open(pp, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
@@ -277,7 +320,8 @@ def render_edit(pp, check_safe=True):
 # ---------------------------------------------------------------- board sheet
 def glyph(dr, move, x, y, s=70):
     """A small drawing of the camera move on the storyboard frame (white on a dark disc)."""
-    dr.ellipse([x, y, x + s, y + s], fill=(0, 0, 0)); c = (x + s / 2, y + s / 2); w = (255, 255, 255); r = s * 0.32
+    dr.ellipse([x, y, x + s, y + s], fill=(0, 0, 0), outline=(255, 255, 255), width=3)   # ringed: visible on dark sets too
+    c = (x + s / 2, y + s / 2); w = (255, 255, 255); r = s * 0.32
     def arrow(p0, p1):
         dr.line([p0, p1], fill=w, width=4); ang = math.atan2(p1[1] - p0[1], p1[0] - p0[0])
         for da in (2.6, -2.6): dr.line([p1, (p1[0] + 12 * math.cos(ang + da), p1[1] + 12 * math.sin(ang + da))], fill=w, width=4)
@@ -329,6 +373,11 @@ def stage(d, st):
         if not st.get("design"):                                           # design before anything is rendered
             import ad_design; why = ad_design.design(st); ad_design.show(st, why)
         sec = blender(st, d, d / "board", "432x768", 8, still=True)
+        fc = finish_filter((st.get("design") or {}).get("family") or st.get("brief"), 432)
+        if fc:                                                             # the board shows the finished look too
+            for x in derived(st):
+                im = d / "board" / f"{x['id']}_still.png"; tmp = im.with_name(im.stem + "_f.png")
+                if im.exists(): run(["ffmpeg", "-v", "error", "-y", "-i", im, "-filter_complex", fc, "-frames:v", 1, tmp]); tmp.replace(im)
         out = board_sheet(st, d, d / "board"); st["timings"]["board_s"] = round(sec)
         return (f"[gate: design + storyboard] look at {out}: one frame per shot with its camera move, transition, background, decor "
                 f"and motion ({nfr / fr:.1f} s + card). Approve the concept, the design and the copy; another design: "
@@ -370,6 +419,7 @@ if __name__ == "__main__":
     ap.add_argument("--brief", default="fresh"); ap.add_argument("--track"); ap.add_argument("--fps", type=int, default=24)
     ap.add_argument("--card", default="Available now"); ap.add_argument("--handle", default="")
     ap.add_argument("--photo"); ap.add_argument("--back"); ap.add_argument("--product-json"); ap.add_argument("--shape", choices=["can", "bottle", "lathe", "pouch", "box", "bar"])
+    ap.add_argument("--label-metal", help="auto or a mask image: where the can's print leaves bare metal")
     ap.add_argument("--brief-file"); ap.add_argument("--length", type=float, help="target seconds (shots scaled in whole beats)")
     ap.add_argument("--approve", action="store_true", help="the user approved the last gate")
     ap_defaults = {x.dest: x.default for x in ap._actions}

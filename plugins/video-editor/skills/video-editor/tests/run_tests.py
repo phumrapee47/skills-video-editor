@@ -517,6 +517,21 @@ def ad_design_rules(tmp):
     assert abs(slash["start"] - (4 * 0.5 + 2 * 0.5)) <= 1 / 24, slash          # shot b starts on beat 4, its event on beat 2 after
 
 
+@test
+def ad_finish_keeps_colour(tmp):
+    """The finishing pass (glow, fringe, vignette, grain, grade) keeps the product's colour: an orange stays orange in
+    every mood family (a screen blend done in YUV turned it pink), and the centre keeps its brightness."""
+    import colorsys
+    import ad_pipeline as AP
+    from PIL import Image
+    Image.new("RGB", (432, 768), (230, 120, 30)).save(tmp / "o.png")
+    for fam in AP.FINISH:
+        ff("-i", tmp / "o.png", "-filter_complex", AP.finish_filter(fam, 432), "-frames:v", 1, tmp / f"{fam}.png")
+        r, g, b = Image.open(tmp / f"{fam}.png").convert("RGB").resize((1, 1), box=(166, 334, 266, 434)).getpixel((0, 0))
+        h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+        assert 0.04 < h < 0.11 and sat > 0.5 and 0.3 < l < 0.7, (fam, (r, g, b), round(h, 3))
+
+
 def blender_exe():
     import glob, os, shutil
     return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)
