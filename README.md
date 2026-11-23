@@ -1,6 +1,6 @@
 # 🎬 video-editor — Claude Code skill
 
-[English](#english) · [ภาษาไทย](#ภาษาไทย)
+[English](#english) · [ภาษาไทย](#ภาษาไทย) · [Test results gallery](#test-results-gallery)
 
 ## English
 
@@ -91,19 +91,59 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
-### Test results
+### Test history, version by version
 
-| What was tested | Result |
-|---|---|
-| Animation v1 (geometric shapes in Blender) | Rejected: "not pretty at all", use real photos |
-| Animation v2 (real photo cut-outs, layered) | 6/10: whole clip shook, too much empty space |
-| Animation v3 (mood-based shake, layered temples, mood sound) | 8/10, passed: the sky was still generated, not a photo |
-| Animation with the v4 rules (Pompeii clip) | **9.5/10**: "understands the mood and context"; minus 0.5 for cropping the hero subject |
-| Ducking music under speech | Subtitle-timestamp ducking beat a sidechain compressor in a listening test |
-| Audible music level under speech | 20 dB below speech: inaudible; 10-15 dB: audible |
-| Highlight finder | "Good enough" |
-| 3D ad v1 (flat fruit pictures, simple can) | OK as a first round; asked for real objects and more animation |
-| 3D ad v2-v4 (real fruit split, can opening, blueprint can, condensation) | v4 is the demo below |
+Every version was tested on real material before it was pushed, and the user scored or judged the result. Links marked ▶
+open the result video (GitHub release [`test-results`](https://github.com/phumrapee47/skills-video-editor/releases/tag/test-results));
+the [gallery](#test-results-gallery) at the end shows frames from each. Tests on other creators' footage (livestream
+highlights, travel vlogs, 2D ads cut from YouTube clips) stay on the test machine: their results are described here,
+not shown.
+
+**2.5D animation from narration**
+
+| Version | What was tested | Result |
+|---|---|---|
+| v1 | geometric shapes in Blender (Roro Jonggrang) | Rejected: "not pretty at all", use real photos |
+| v2 | real photo cut-outs, layered | 6/10: the whole clip shook, too much empty space |
+| v3 | mood-based shake, layered temples, mood sound | 8/10, passed; the sky was still generated, not a photo · ▶ Roro Jonggrang demo below |
+| v4 rules | Pompeii clip | **9.5/10**: "understands the mood and context"; minus 0.5 for cropping the hero subject · ▶ Pompeii demo |
+| 1.1-1.2 | own Thai script, AI voice, music bed, Thai subtitles; Thai tone marks shaped by libass | ▶ Ayutthaya demo; dropped tone marks (นั่ง drawn as นัง) found and fixed in the demo titles |
+
+**Editing, music and highlights**
+
+| Version | What was tested | Result |
+|---|---|---|
+| 1.0 | ducking music under speech | Subtitle-timestamp ducking beat a sidechain compressor by ear; music 20 dB under speech is inaudible, 10-15 dB audible |
+| 1.0 | highlight finder on livestreams | "Good enough"; reading the mood from speech first fixed the genre labels |
+| 1.2 | edit plans + QA (loudness, true peak, black or frozen picture, Thai subtitle width) | Frames render about 6.5x faster on all cores; QA runs after every render |
+| 1.8 | travel montages (Cape Town, Osaka, a cafe) | v1-v2 rejected ("the music doesn't fit the scenes, too loud"); v3 with calm jazz, the place's own sound first and -16 LUFS was liked ("easy on the ear, smooth") |
+
+**Shorts from interviews and podcasts** (source: The Royal Society's interview with Hannah Cloke, CC BY 3.0)
+
+| Version | What was tested | Result |
+|---|---|---|
+| genre round 1 | product ad, screen tutorial, interview Short | 7/10 (flat titles), **9.5/10**, 9/10 ("cut very well, zooms follow the person") -> rule: titles must move · [▶ tutorial](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/tutorial-screen-focus.mp4) |
+| 1.3 | study of 21 reference Shorts, then 9 rounds on one clip: headline, punch-ins, word-stack captions, B-roll with a speaker bubble that follows the face, huge words behind the person, moments and B-roll picked automatically | Picture changes per 10 s: 1.7 -> 4.7; each round's fix is in `references/podcast-shorts.md` |
+| 1.4 | bundled fonts, `doctor.py`, regression tests, CI | 10 tests; they caught an import bug on the first run |
+| 1.5 | several Shorts from one video, platform safe zones | Safe-zone hits on the test Short 38 -> 0; a broken sign-off filter found and fixed · [▶ batch Short](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-batch-heat.mp4) |
+| 1.6 | follow the speaker in two-shots, Thai word-stack captions | [▶ two-shot](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-two-shot-follow.mp4) · [▶ Thai captions](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-thai-word-stack.mp4) |
+| 1.7 | sound design, brand kit, music by mood | [▶ interview Short with sound design](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-interview-flood.mp4) · [▶ brand kit](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-brand-kit.mp4) (made-up brand "Flood Lab") |
+
+**3D product ads** (made-up brands LUMA, MOLTO, VOLT; every object built by the skill's Blender scripts)
+
+| Version | What was tested | Result |
+|---|---|---|
+| 1.9 v1 | flat fruit pictures, simple can | OK as a first round; the user set the bar: "the skill must think up the design itself" · [▶ v1](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v1.mp4) |
+| 1.9 v2-v3 | real 3D yuzu sliced open with juice strands; the can opens; what the product can do | [▶ v2](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v2.mp4) · [▶ v3](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v3.mp4) |
+| 1.9 v4 | can built to a 330 ml blueprint, condensation, Cycles | ▶ LUMA v4 demo below |
+| 1.10 | one shot list, approval gates, shots locked to the music's beats | [▶ EEVEE preview](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-pipeline.mp4) |
+| 1.11 | the product rebuilt from a photo; bar, pouch, box shapes; twist, tear, snap | [▶ MOLTO bar snaps](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-molto-bar-snap.mp4) |
+| 1.12 | design pass: camera moves, transitions, living backgrounds | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-design-pass.mp4) |
+| 1.13 | light per mood, finishing, materials, loudness for music-led ads | [▶ VOLT, tech mood](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-volt-tech.mp4); on a dense music-led test ad (not shown) the loudness glue lifted -16.8 to -15.3 LUFS (pass) |
+| 1.14 | performance structure, AI voiceover, sonic logo, ABCD check, hook variants | ABCD check all PASS · [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4) |
+| 1.15 | the user: the cut and the callouts looked "too easy" -> study of studio work -> blade, seam of light, juice films, crown splash, seamless set | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
+
+Regression tests grew from 10 (1.4) to 32 (1.15); GitHub Actions runs them on every push (Blender tests skip there).
 
 ### Demos
 
@@ -114,7 +154,7 @@ The videos in `demos/` are real results from the tests. In the Pompeii and Roro 
 - [`demos/ayutthaya_demo.mp4`](demos/ayutthaya_demo.mp4): the Buddha head in the tree roots, Wat Mahathat, Ayutthaya (137 s, AI narration in Thai)
 - [`demos/luma_v4_demo.mp4`](demos/luma_v4_demo.mp4): 3D ad for LUMA Yuzu, a made-up drink (17 s, 9:16): the yuzu is slashed and the can rises out of it, condensation macro, top-down can opening, zero-G with ice, hero
 
-Credits for every photo, footage clip, sound, and music track are in [`demos/CREDITS.md`](demos/CREDITS.md). The animation demos are released under CC BY-SA 4.0, as required by the source photos; the LUMA demo under CC BY 4.0.
+Credits for every photo, footage clip, sound, and music track are in [`demos/CREDITS.md`](demos/CREDITS.md). The animation demos are released under CC BY-SA 4.0, as required by the source photos; the LUMA demo under CC BY 4.0. More result videos, one or more per version, are on the [`test-results` release](https://github.com/phumrapee47/skills-video-editor/releases/tag/test-results) (see the table above and the gallery).
 
 ### Limits
 
@@ -213,19 +253,58 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
-### ผลการทดสอบ
+### ผลการทดสอบแต่ละเวอร์ชัน
 
-| สิ่งที่ทดสอบ | ผล |
-|---|---|
-| แอนิเมชัน v1 (รูปทรงเรขาคณิตใน Blender) | ไม่ผ่าน: "ไม่สวยเลย" ให้ใช้ภาพจริง |
-| แอนิเมชัน v2 (ภาพจริงตัดขอบซ้อนชั้น) | 6/10: ภาพสั่นทั้งคลิป พื้นที่ว่างเยอะ |
-| แอนิเมชัน v3 (สั่นตามอารมณ์ วิหารซ้อนหลายชั้น เสียงตามอารมณ์) | 8/10 ผ่าน: ท้องฟ้ายังเป็นภาพที่สร้างเอง |
-| แอนิเมชันตามกฎ v4 (คลิปปอมเปอี) | **9.5/10**: "เข้าถึงอารมณ์ เข้าใจบริบททุกอย่าง" หัก 0.5 เพราะครอปวัตถุหลักขาด |
-| วิธีลดเสียงเพลงตอนพูด | ลดตามเวลาซับ ชนะ sidechain compressor ในการฟังเทียบ |
-| ระดับเพลงที่ได้ยินใต้เสียงพูด | ต่ำกว่า 20 dB ไม่ได้ยิน, 10-15 dB ได้ยิน |
-| ตัวหาช่วงเด็ด | "พอใช้ได้" |
-| โฆษณา 3D v1 (ผลไม้เป็นภาพแบน กระป๋องเรียบ) | ผ่านรอบแรก ขอของสมจริงและแอนิเมชันเพิ่ม |
-| โฆษณา 3D v2-v4 (ผ่ายูซุ เปิดฝา กระป๋องตาม blueprint หยดน้ำเกาะ) | v4 คือเดโมด้านล่าง |
+ทุกเวอร์ชันทดสอบกับงานจริงก่อน push และผู้ใช้ให้คะแนนหรือคอมเมนต์ผลงาน ลิงก์ที่มี ▶ เปิดวิดีโอผลลัพธ์ได้ (GitHub release
+[`test-results`](https://github.com/phumrapee47/skills-video-editor/releases/tag/test-results)) และ[แกลเลอรี](#test-results-gallery)
+ท้ายไฟล์มีภาพตัวอย่างของแต่ละคลิป งานที่ทดสอบกับคลิปของคนอื่น (ช่วงเด็ดจากไลฟ์ vlog เที่ยว โฆษณา 2D จากคลิป YouTube)
+เก็บไว้ในเครื่องทดสอบเท่านั้น จึงเล่าผลไว้แต่ไม่ได้ลงวิดีโอ
+
+**แอนิเมชัน 2.5D จากเสียงบรรยาย**
+
+| เวอร์ชัน | สิ่งที่ทดสอบ | ผล |
+|---|---|---|
+| v1 | รูปทรงเรขาคณิตใน Blender (Roro Jonggrang) | ไม่ผ่าน: "ไม่สวยเลย" ให้ใช้ภาพจริง |
+| v2 | ภาพจริงตัดขอบซ้อนชั้น | 6/10: ภาพสั่นทั้งคลิป พื้นที่ว่างเยอะ |
+| v3 | สั่นตามอารมณ์ วิหารซ้อนหลายชั้น เสียงตามอารมณ์ | 8/10 ผ่าน: ท้องฟ้ายังเป็นภาพที่สร้างเอง · ▶ เดโม Roro Jonggrang ด้านล่าง |
+| กฎ v4 | คลิปปอมเปอี | **9.5/10**: "เข้าถึงอารมณ์ เข้าใจบริบททุกอย่าง" หัก 0.5 เพราะครอปวัตถุหลักขาด · ▶ เดโมปอมเปอี |
+| 1.1-1.2 | บทภาษาไทยที่เขียนเอง เสียง AI เพลงคลอ ซับไทย วรรณยุกต์วาดด้วย libass | ▶ เดโมอยุธยา เจอวรรณยุกต์หาย (นั่ง กลายเป็น นัง) ในหัวข้อเดโมและแก้แล้ว |
+
+**ตัดต่อ เพลง และหาช่วงเด็ด**
+
+| เวอร์ชัน | สิ่งที่ทดสอบ | ผล |
+|---|---|---|
+| 1.0 | ลดเสียงเพลงตอนพูด | ลดตามเวลาซับชนะ sidechain compressor ในการฟังเทียบ เพลงต่ำกว่าเสียงพูด 20 dB ไม่ได้ยิน 10-15 dB ได้ยิน |
+| 1.0 | ตัวหาช่วงเด็ดในไลฟ์ | "พอใช้ได้" อ่านอารมณ์จากคำพูดก่อนทำให้จัดแนวคลิปถูก |
+| 1.2 | edit plan + QA (ความดัง true peak ภาพดำหรือค้าง ความกว้างซับไทย) | เรนเดอร์เฟรมเร็วขึ้นราว 6.5 เท่าด้วยทุกคอร์ ตรวจ QA ทุกครั้งที่เรนเดอร์ |
+| 1.8 | ตัดต่อเที่ยว (เคปทาวน์ โอซาก้า ร้านกาแฟ) | v1-v2 ไม่ผ่าน ("เพลงไม่เข้ากับฉากเลย ดังไป") v3 แจ๊สนุ่ม เสียงสถานที่มาก่อน -16 LUFS ผ่าน ("สบายหู ดูได้เรื่อยๆ นุ่มนวล") |
+
+**คลิปสั้นจากสัมภาษณ์และพอดแคสต์** (ต้นฉบับ: สัมภาษณ์ Hannah Cloke ของ The Royal Society, CC BY 3.0)
+
+| เวอร์ชัน | สิ่งที่ทดสอบ | ผล |
+|---|---|---|
+| รอบแนวงาน 1 | โฆษณาสินค้า สอนหน้าจอ คลิปสั้นสัมภาษณ์ | 7/10 (ตัวหนังสือนิ่ง) **9.5/10** 9/10 ("ตัดดีมาก ซูมตามคน") -> กฎ: ตัวหนังสือต้องขยับ · [▶ สอนหน้าจอ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/tutorial-screen-focus.mp4) |
+| 1.3 | ศึกษาคลิปสั้นต้นแบบ 21 คลิป แล้วปรับคลิปเดียว 9 รอบ: หัวข้อค้าง ซูมเข้า ซับเรียงคำ B-roll มีวงหน้าคนพูดตามหน้า คำใหญ่หลังคน เลือกช่วงและ B-roll อัตโนมัติ | ภาพเปลี่ยนต่อ 10 วินาที 1.7 -> 4.7 สิ่งที่แก้แต่ละรอบอยู่ใน `references/podcast-shorts.md` |
+| 1.4 | ฟอนต์ในตัว `doctor.py` เทส CI | 10 เทส เจอบั๊ก import ตั้งแต่รอบแรก |
+| 1.5 | ทำหลายคลิปสั้นจากวิดีโอเดียว เขตปลอดภัยของแพลตฟอร์ม | ตัวหนังสือชนเขตปุ่ม 38 -> 0 จุด เจอและแก้ตัวกรองคำลาที่พัง · [▶ คลิปจากชุด](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-batch-heat.mp4) |
+| 1.6 | ตามคนพูดในภาพสองคน ซับไทยเรียงคำ | [▶ ภาพสองคน](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-two-shot-follow.mp4) · [▶ ซับไทย](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-thai-word-stack.mp4) |
+| 1.7 | ออกแบบเสียง brand kit เพลงตามอารมณ์ | [▶ คลิปสัมภาษณ์พร้อมเสียงประกอบ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-interview-flood.mp4) · [▶ brand kit](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-brand-kit.mp4) (แบรนด์สมมติ "Flood Lab") |
+
+**โฆษณาสินค้า 3D** (แบรนด์สมมติ LUMA, MOLTO, VOLT ทุกชิ้นสร้างด้วยสคริปต์ Blender ของ skill)
+
+| เวอร์ชัน | สิ่งที่ทดสอบ | ผล |
+|---|---|---|
+| 1.9 v1 | ผลไม้เป็นภาพแบน กระป๋องเรียบ | ผ่านรอบแรก ผู้ใช้ตั้งมาตรฐาน: "skill ต้องคิดดีไซน์เองได้" · [▶ v1](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v1.mp4) |
+| 1.9 v2-v3 | ยูซุ 3D จริงผ่าครึ่งมีสายน้ำ เปิดฝากระป๋อง สิ่งที่สินค้าทำได้ | [▶ v2](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v2.mp4) · [▶ v3](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v3.mp4) |
+| 1.9 v4 | กระป๋องตาม blueprint 330 ml หยดน้ำเกาะ Cycles | ▶ เดโม LUMA v4 ด้านล่าง |
+| 1.10 | shot list เดียว ขั้นอนุมัติ ช็อตตรงจังหวะเพลง | [▶ EEVEE preview](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-pipeline.mp4) |
+| 1.11 | สร้างสินค้าจากรูปถ่าย ทรงขนมแท่ง ซอง กล่อง บิด ฉีก หัก | [▶ MOLTO หักแท่ง](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-molto-bar-snap.mp4) |
+| 1.12 | ออกแบบก่อนสร้าง: การเคลื่อนกล้อง ทรานซิชัน ฉากหลังมีชีวิต | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-design-pass.mp4) |
+| 1.13 | แสงตามอารมณ์ การ finish วัสดุ ความดังของโฆษณาที่เน้นเพลง | [▶ VOLT อารมณ์ tech](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-volt-tech.mp4) โฆษณาทดสอบที่เพลงแน่น (ไม่ได้ลงคลิป) ตัวช่วยอัดเสียงยกจาก -16.8 เป็น -15.3 LUFS (ผ่าน) |
+| 1.14 | โครงแบบ performance เสียงพากย์ AI sonic logo ตรวจ ABCD hook หลายแบบ | ABCD ผ่านทุกข้อ · [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4) |
+| 1.15 | ผู้ใช้: รอยผ่าและป้ายชี้ "ทำง่ายเกินไป" -> ศึกษางานสตูดิโอ -> ใบมีด เส้นแสง แผ่นน้ำ มงกุฎน้ำ ฉากโค้งต่อเนื่อง | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
+
+เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 32 (1.15) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
 
 ### เดโม
 
@@ -236,7 +315,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - [`demos/ayutthaya_demo.mp4`](demos/ayutthaya_demo.mp4): เศียรพระในรากไม้ วัดมหาธาตุ อยุธยา (137 วินาที พากย์ไทยด้วยเสียง AI)
 - [`demos/luma_v4_demo.mp4`](demos/luma_v4_demo.mp4): โฆษณา 3D เครื่องดื่มสมมติ LUMA Yuzu (17 วินาที 9:16) ผ่ายูซุแล้วกระป๋องโผล่ มาโครหยดน้ำ เปิดฝามุมบน ลอยกับน้ำแข็ง และ hero
 
-เครดิตภาพ ฟุตเทจ เสียง และเพลงทั้งหมดอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md) เดโมแอนิเมชันเผยแพร่ภายใต้ CC BY-SA 4.0 ตามเงื่อนไขของภาพต้นฉบับ ส่วนเดโม LUMA ใช้ CC BY 4.0
+เครดิตภาพ ฟุตเทจ เสียง และเพลงทั้งหมดอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md) เดโมแอนิเมชันเผยแพร่ภายใต้ CC BY-SA 4.0 ตามเงื่อนไขของภาพต้นฉบับ ส่วนเดโม LUMA ใช้ CC BY 4.0 วิดีโอผลทดสอบอื่นๆ อย่างน้อยหนึ่งคลิปต่อเวอร์ชันอยู่ใน [release `test-results`](https://github.com/phumrapee47/skills-video-editor/releases/tag/test-results) (ดูตารางด้านบนและแกลเลอรี)
 
 ### ข้อจำกัด
 
@@ -244,3 +323,70 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - Whisper รุ่น small ถอดเสียงภาษาไทยไม่ได้ แต่ ElevenLabs Scribe (Creative Claw `transcribe`) ทำได้: เสียงไทย 130 วินาที เจอครบ 17 บรรทัด คลาดจากเวลาที่จูนเองไม่เกิน 0.08 วินาที และ `scripts/align_script.py` แปลงเป็นเวลาบรรทัดกับซับให้ ใช้เครดิต ส่วนซับอัตโนมัติของ YouTube ยังเป็นทางเลือกฟรี (ช่วงละ 2-3 วินาที)
 - คลิปจาก YouTube อาจมีแทร็กเสียงพากย์อัตโนมัติ ต้องเลือกแทร็กเสียงต้นฉบับให้ถูก (วิธีอยู่ใน `references/ffmpeg-recipes.md`)
 - เสียงหรือคลิปของคนอื่นใช้ทดลองในเครื่องเท่านั้น ถ้าจะเผยแพร่ต้องได้รับอนุญาต การใส่เครดิตอย่างเดียวไม่พอ
+
+---
+
+## Test results gallery
+
+Frames from each result video; click a title to play it. Credits: [`demos/CREDITS.md`](demos/CREDITS.md).
+ภาพตัวอย่างจากวิดีโอผลทดสอบแต่ละคลิป กดชื่อเพื่อเปิดวิดีโอ เครดิตอยู่ใน [`demos/CREDITS.md`](demos/CREDITS.md)
+
+**[Interview Short with sound design · คลิปสัมภาษณ์พร้อมเสียงประกอบ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-interview-flood.mp4)** · 1.3-1.7 · 45 s
+
+![short-interview-flood](docs/history/short-interview-flood.jpg)
+
+**[Second Short from the same interview · คลิปที่สองจากสัมภาษณ์เดียวกัน](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-batch-heat.mp4)** · 1.5 · 41 s
+
+![short-batch-heat](docs/history/short-batch-heat.jpg)
+
+**[Two-shot that follows the speaker · ภาพสองคนที่ตามคนพูด](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-two-shot-follow.mp4)** · 1.6 · 21 s
+
+![short-two-shot-follow](docs/history/short-two-shot-follow.jpg)
+
+**[Thai word-stack captions · ซับไทยเรียงคำ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-thai-word-stack.mp4)** · 1.6 · 30 s
+
+![short-thai-word-stack](docs/history/short-thai-word-stack.jpg)
+
+**[Brand kit (made-up Flood Lab) · brand kit แบรนด์สมมติ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/short-brand-kit.mp4)** · 1.7 · 45 s
+
+![short-brand-kit](docs/history/short-brand-kit.jpg)
+
+**[Screen tutorial with focus zooms · สอนหน้าจอพร้อมซูมจุดสำคัญ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/tutorial-screen-focus.mp4)** · genre round 1 · 75 s
+
+![tutorial-screen-focus](docs/history/tutorial-screen-focus.jpg)
+
+**[3D ad v1 · โฆษณา 3D v1](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v1.mp4)** · 1.9 · 16 s
+
+![ad3d-luma-v1](docs/history/ad3d-luma-v1.jpg)
+
+**[3D ad v2: real yuzu split · ผ่ายูซุ 3D จริง](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v2.mp4)** · 1.9 · 17 s
+
+![ad3d-luma-v2](docs/history/ad3d-luma-v2.jpg)
+
+**[3D ad v3: the can opens · เปิดฝากระป๋อง](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-v3.mp4)** · 1.9 · 19 s
+
+![ad3d-luma-v3](docs/history/ad3d-luma-v3.jpg)
+
+**[Through the approval gates · ผ่านขั้นอนุมัติ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-pipeline.mp4)** · 1.10 · 18 s
+
+![ad3d-luma-pipeline](docs/history/ad3d-luma-pipeline.jpg)
+
+**[Design pass · ออกแบบก่อนสร้าง](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-design-pass.mp4)** · 1.12 · 18 s
+
+![ad3d-luma-design-pass](docs/history/ad3d-luma-design-pass.jpg)
+
+**[MOLTO bar snaps · ขนมแท่งหัก](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-molto-bar-snap.mp4)** · 1.11 · 11 s
+
+![ad3d-molto-bar-snap](docs/history/ad3d-molto-bar-snap.jpg)
+
+**[VOLT, tech mood · อารมณ์ tech](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-volt-tech.mp4)** · 1.13 · 12 s
+
+![ad3d-volt-tech](docs/history/ad3d-volt-tech.jpg)
+
+**[Performance ad with AI voiceover · โฆษณาขายของพร้อมเสียงพากย์](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4)** · 1.14 · 16 s
+
+![ad3d-luma-performance](docs/history/ad3d-luma-performance.jpg)
+
+**[Blade, juice films, crown splash · ใบมีด แผ่นน้ำ มงกุฎน้ำ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4)** · 1.15 · 16 s
+
+![ad3d-luma-crown](docs/history/ad3d-luma-crown.jpg)

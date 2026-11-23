@@ -64,3 +64,27 @@ drawn for this project. Every 3D object (can, yuzu, juice, ice, condensation) is
 Blender scripts (`blender_product_ad.py`, `ad_can.py`, `ad_fruit.py`); reflections use Blender's bundled `studio.exr`
 (CC0). Sound effects are synthesised with numpy (`make_sfx.py`).
 - Music: "Happy Alley" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License, https://creativecommons.org/licenses/by/4.0/
+
+## Test-result videos (GitHub release `test-results`)
+Re-encoded at 720p from the test renders. Changes to every source: cut, reframed, captions, titles, sound effects
+(synthesised with numpy), music, grading.
+
+**Interview Shorts** (`short-interview-flood`, `short-batch-heat`, `short-two-shot-follow`, `short-brand-kit`)
+- Source: "Interview on extreme weather with physical geographer Hannah Cloke – The Royal Society.webm" by The Royal Society, CC BY 3.0, https://commons.wikimedia.org/wiki/File:Interview_on_extreme_weather_with_physical_geographer_Hannah_Cloke_%E2%80%93_The_Royal_Society.webm
+- B-roll in `short-interview-flood` and `short-brand-kit`: "Flooded building and tree trunk in the muddy water of the Mekong in Si Phan Don, Laos, September 2019.jpg" by Basile Morin, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Flooded_building_and_tree_trunk_in_the_muddy_water_of_the_Mekong_in_Si_Phan_Don,_Laos,_September_2019.jpg ; "Young Boy Helping a woman to Move in a Safe Shelter During Flash Flood in the city Sylhet, Bangladesh.jpg" by Nayeemibnmatiur, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Young_Boy_Helping_a_woman_to_Move_in_a_Safe_Shelter_During_Flash_Flood_in_the_city_Sylhet,_Bangladesh.jpg ; "Intense Storms in the Northeast Cause Catastrophic Flooding (NESDIS 2023-07-14 US lam Water Vapor-sector July 2023).webm" by NOAA, public domain
+- Music in `short-interview-flood`, `short-batch-heat`, `short-brand-kit`: "Lost Time" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License, https://creativecommons.org/licenses/by/4.0/
+- "Flood Lab" and its logo are a made-up test brand drawn for this project; the speakers did not endorse it.
+- Licence: `short-interview-flood` and `short-brand-kit` CC BY-SA 4.0 (they contain CC BY-SA photos); `short-batch-heat` and `short-two-shot-follow` CC BY 4.0.
+
+**Thai word-stack captions** (`short-thai-word-stack`): made from the Ayutthaya demo above (same credits), CC BY-SA 4.0.
+
+**Screen tutorial** (`tutorial-screen-focus`)
+- Source: "Interlanguage linking - Tutorial.webm" by -chanakyakdas, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Interlanguage_linking_-_Tutorial.webm
+- Music: "Local Forecast - Elevator" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License, https://creativecommons.org/licenses/by/4.0/
+- Licence: CC BY-SA 4.0.
+
+**3D product ads** (`ad3d-*`): LUMA, MOLTO and VOLT are made-up brands; labels, products and scenes are built by the
+skill (as for the LUMA v4 demo); `ad3d-molto-bar-snap` uses the skill's built-in bar shape (no photo). The
+voiceover in `ad3d-luma-performance` and `ad3d-luma-crown` is a Microsoft Edge neural text-to-speech voice
+(en-US-AndrewNeural, via edge-tts). Licence: CC BY 4.0.
+- Music: "Happy Alley" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License (LUMA videos); "Cruising for Goblins" Kevin MacLeod (incompetech.com), same licence (`ad3d-volt-tech`); "Sanctum" by Scott Buckley (www.scottbuckley.com.au), released under Creative Commons Attribution 4.0 (`ad3d-molto-bar-snap`); https://creativecommons.org/licenses/by/4.0/
