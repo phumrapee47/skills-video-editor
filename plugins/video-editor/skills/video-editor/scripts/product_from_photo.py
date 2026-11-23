@@ -155,7 +155,10 @@ def main():
         Image.fromarray(tex[::-1].astype(np.uint8)).resize((1024, min(1024, H))).save(out / "texture.png")   # top row = top
         spec["texture"] = "texture.png"; spec["front"] = 0.5
     else:
-        crop = Image.fromarray(rgb.astype(np.uint8)); crop.save(out / "front.png"); spec["front_tex"] = "front.png"
+        flat = rgb.copy()                                                  # outside the outline: the row's own edge colour,
+        for y in range(H):                                                 # never a neighbour from the photo
+            if L[y] >= 0: flat[y, :L[y]] = rgb[y, L[y]]; flat[y, R[y] + 1:] = rgb[y, R[y]]
+        crop = Image.fromarray(flat.astype(np.uint8)); crop.save(out / "front.png"); spec["front_tex"] = "front.png"
         d = a.depth_mm or (0.32 if shape == "box" else 0.3) * W * mmpx
         spec["size_mm"] = [round(W * mmpx, 1), round(hmm, 1), round(d, 1)]
         edge = np.median(np.concatenate([rgb[:, :4].reshape(-1, 3), rgb[:, -4:].reshape(-1, 3)]), 0); spec["side"] = hexc(edge)

@@ -115,6 +115,7 @@ def init(a):
     elif a.shape and a.shape != "can":
         prod_json = d / "product.json"; json.dump(PRESETS[a.shape], open(prod_json, "w"), indent=1)
     if prod_json:
+        prod_json = pathlib.Path(prod_json).resolve()                     # Blender may run from another folder
         pj = json.load(open(prod_json, encoding="utf-8")); shape = {"lathe": "bottle", "jar": "bottle"}.get(pj["shape"], pj["shape"])
         if not a.set: a.set = pj.get("set")
     elif not a.label: sys.exit("the can needs --label (a 2:1 label image), or give --photo / --product-json / --shape")
@@ -166,14 +167,27 @@ def init(a):
 
 
 # ---------------------------------------------------------------- derived spec
+def tdur(s):
+    """Seconds of the transition into shot s (ad_design.py), 0 for a cut."""
+    import ad_design
+    return ad_design.TRANSITIONS.get(s.get("transition_in") or "cut", (None, 0.0, None))[1]
+
+
 def derived(st):
-    fps, per = st["fps"], st["music"]["period"]; out = []
-    for s in st["shots"]:
-        n = max(8, round(s["beats"] * per * fps))
-        sp = {"id": s["id"], "type": s["type"], "frames": n, "cold": s.get("cold", False)}
-        if "event_beat" in s: sp["event"] = min(n - 4, max(2, round(s["event_beat"] * per * fps) + 1))
-        sp["key"] = min(n, sp["event"] + round(0.45 * fps)) if "event" in sp else round(n * 0.6)
+    """Per shot render spec. A shot followed by a transition gets that many extra frames, so the next shot still
+    starts on its beat (the two overlap for the transition); 'base' is the frame count on the beat grid."""
+    fps, per = st["fps"], st["music"]["period"]; out = []; D = st.get("design") or {}; shots = st["shots"]
+    for i, s in enumerate(shots):
+        base = max(8, round(s["beats"] * per * fps))
+        nxt = tdur(shots[i + 1]) if i + 1 < len(shots) else 0.3            # the end card fades in over 0.3 s
+        n = base + round(nxt * fps)
+        sp = {"id": s["id"], "type": s["type"], "frames": n, "base": base, "cold": s.get("cold", False)}
+        if "event_beat" in s: sp["event"] = min(base - 4, max(2, round(s["event_beat"] * per * fps) + 1))
+        sp["key"] = min(base, sp["event"] + round(0.45 * fps)) if "event" in sp else round(base * 0.6)
         if s.get("camera"): sp["camera"] = s["camera"]
+        if s.get("move"): sp["move"] = s["move"]
+        for k_, v_ in (("bg", D.get("background")), ("decor", D.get("decor")), ("motion", D.get("motion"))):
+            if v_: sp[k_] = v_
         out.append(sp)
     return out
 
@@ -189,7 +203,10 @@ def blender(st, d, out, size, samples, still=False, engine="eevee", only=None):
             sd = pathlib.Path(out) / x["id"]; mark = sd / ".spec"
             if sd.exists() and (not mark.exists() or mark.read_text() != fp): shutil.rmtree(sd)
             sd.mkdir(parents=True, exist_ok=True); mark.write_text(fp)
-    cmd = [blender_exe(), "-b", "-P", SC / "blender_product_ad.py", "--"] + (["--label", p["label"]] if p.get("label") else []) + (["--product", p["json"]] if p.get("json") else []) + [
+    pj = p.get("json")
+    if pj and not pathlib.Path(pj).is_absolute():                          # states written by older versions: relative paths
+        pj = next((str(c.resolve()) for c in (pathlib.Path(pj), d / pathlib.Path(pj).name, d.parent / pj) if c.exists()), pj)
+    cmd = [blender_exe(), "-b", "--python-exit-code", "1", "-P", SC / "blender_product_ad.py", "--"] + (["--label", p["label"]] if p.get("label") else []) + (["--product", pj] if pj else []) + [
            "--label-front", p.get("label_front", 0.5),
            "--set", *p["set"], "--out", out, "--size", size, "--fps", st["fps"], "--samples", samples, "--spec", spec, "--engine", engine]
     if p.get("alt"): cmd += ["--alt", *p["alt"]]
@@ -213,25 +230,29 @@ def titles_of(s):
 def make_plan(st, d, frames_dir, out_name):
     """Edit plan: shots back to back, the end card, titles at their shot times, the music from its first beat, sound
     design (pops, whoosh, chime) plus each shot's physical sounds."""
+    import ad_design
     fps, per = st["fps"], st["music"]["period"]; sp = derived(st)
     clips, titles, sfx, t = [], [], [], 0.0
     for s, x in zip(st["shots"], sp):
-        dur = x["frames"] / fps
-        clips.append({"src": os.path.relpath(frames_dir / f"{x['id']}.mp4", d).replace("\\", "/"), "in": 0, "out": round(dur, 3), "speech": False, "volume_db": -90})
+        dur = x["frames"] / fps; base = x["base"] / fps                    # base: the shot's beats; dur: + the overlap
+        c = {"src": os.path.relpath(frames_dir / f"{x['id']}.mp4", d).replace("\\", "/"), "in": 0, "out": round(dur, 3), "speech": False, "volume_db": -90}
+        ty, td, snd = ad_design.TRANSITIONS.get(s.get("transition_in") or "cut", (None, 0.0, None))
+        if ty and clips:
+            c["transition"] = {"type": ty, "dur": td}
+            if snd: sfx.append({"src": f"sfx/{snd}.wav", "role": "sfx", "start": round(max(0, t - 0.05), 3), "rel_db": -16, "why": f"{s['id']} transition {s['transition_in']}"})
+        clips.append(c)
         for tt in titles_of(s):                                             # one title or a list (name + price)
             ti = {k: v for k, v in tt.items() if k not in ("at", "dur")}
-            ti["start"] = round(t + tt.get("at", 0.3), 2); ti["end"] = round(min(t + dur - 0.15, ti["start"] + tt.get("dur", 99)), 2)
+            ti["start"] = round(t + tt.get("at", 0.3), 2); ti["end"] = round(min(t + base - 0.15, ti["start"] + tt.get("dur", 99)), 2)
             titles.append(ti)
         for e in s.get("sfx", []):
             at = t + ((x.get("event", 1) - 1) / fps if e.get("at") == "event" else 0) + e.get("offset", 0)
             sfx.append({"src": f"sfx/{e['sound']}.wav", "role": "sfx", "start": round(max(0, at), 3), "rel_db": e.get("rel_db", -12), "why": f"{s['id']} {e['sound']}"})
-        t += dur
+        t += base                                                          # the next shot starts on its beat
     card = st["card"]; cdur = card.get("beats", 3) * per + 0.3
-    for ti in titles:
-        if ti["end"] > t - 0.35: ti["end"] = round(t - 0.35, 2)          # off before the card fades in
     clips.append({"card": {"text": card["text"], "bg": card.get("bg", "0xFF9A1E"), "size": card.get("size", 128)}, "in": 0, "out": round(cdur, 3),
                   "transition": {"type": "fade", "dur": 0.3}})
-    total = t + cdur - 0.3; m = st["music"]
+    total = t + cdur - 0.3 + 0.3; m = st["music"]
     plan = {"output": {"path": out_name, "size": list(map(int, st["size"].split("x"))), "fps": fps, "target": "shorts", "lufs": -14},
             "clips": clips, "titles": titles, "music_mix": {"gap_db": 0, "under_db": 0},
             "audio": [{"src": os.path.relpath(m["src"], d).replace("\\", "/") if os.path.splitdrive(m["src"])[0] == os.path.splitdrive(str(d.resolve()))[0] else m["src"],
@@ -254,23 +275,50 @@ def render_edit(pp, check_safe=True):
 
 
 # ---------------------------------------------------------------- board sheet
+def glyph(dr, move, x, y, s=70):
+    """A small drawing of the camera move on the storyboard frame (white on a dark disc)."""
+    dr.ellipse([x, y, x + s, y + s], fill=(0, 0, 0)); c = (x + s / 2, y + s / 2); w = (255, 255, 255); r = s * 0.32
+    def arrow(p0, p1):
+        dr.line([p0, p1], fill=w, width=4); ang = math.atan2(p1[1] - p0[1], p1[0] - p0[0])
+        for da in (2.6, -2.6): dr.line([p1, (p1[0] + 12 * math.cos(ang + da), p1[1] + 12 * math.sin(ang + da))], fill=w, width=4)
+    cx, cy = c
+    if move in ("orbit", "spiral"):
+        dr.arc([cx - r, cy - r * 0.6, cx + r, cy + r * 0.6], 200, 340, fill=w, width=4); arrow((cx + r * 0.75, cy - r * 0.4), (cx + r, cy))
+        if move == "spiral": arrow((cx, cy + r * 0.6), (cx, cy - r * 0.2))
+    elif move in ("dolly_in", "push_tilt", "low_hero"): dr.rectangle([cx - 8, cy - 8, cx + 8, cy + 8], outline=w, width=3); arrow((cx - r, cy + r), (cx - 10, cy + 10))
+    elif move == "dolly_out": dr.rectangle([cx - 8, cy - 8, cx + 8, cy + 8], outline=w, width=3); arrow((cx - 10, cy + 10), (cx - r, cy + r))
+    elif move in ("crane_down", "crane_up"): arrow((cx, cy - r), (cx, cy + r)) if move == "crane_down" else arrow((cx, cy + r), (cx, cy - r))
+    elif move in ("truck", "macro_slide"): arrow((cx - r, cy), (cx + r, cy))
+    elif move == "whip_in": arrow((cx - r, cy - 6), (cx + r, cy - 6)); dr.line([(cx - r, cy + 8), (cx + r * 0.6, cy + 8)], fill=w, width=2)
+    elif move == "dolly_zoom": arrow((cx - r, cy), (cx - 4, cy)); arrow((cx + 4, cy), (cx + r, cy))
+    elif move == "top_down": dr.ellipse([cx - r * 0.5, cy - r * 0.5, cx + r * 0.5, cy + r * 0.5], outline=w, width=3); dr.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=w)
+    elif move == "rack_focus": dr.ellipse([cx - r, cy - 6, cx - r + 12, cy + 6], outline=w, width=2); arrow((cx - r + 16, cy), (cx + r * 0.6, cy)); dr.ellipse([cx + r * 0.6, cy - 8, cx + r * 0.6 + 16, cy + 8], fill=w)
+    else: dr.rectangle([cx - r * 0.6, cy - r * 0.4, cx + r * 0.6, cy + r * 0.4], outline=w, width=3)
+
+
+
 def board_sheet(st, d, stills_dir, name="board.jpg"):
     from PIL import Image, ImageDraw, ImageFont
     sp = derived(st); per = st["music"]["period"]; fps = st["fps"]
     fonts = sorted((ROOT / "assets" / "fonts").glob("Kanit*.ttf"))
     f1 = ImageFont.truetype(str(fonts[0]), 24) if fonts else ImageFont.load_default()
-    W, H, CAP, cols = 432, 768, 150, min(4, len(sp)); rows = math.ceil(len(sp) / cols)
-    sheet = Image.new("RGB", (cols * (W + 16) + 16, rows * (H + CAP + 16) + 16), (24, 24, 26)); dr = ImageDraw.Draw(sheet)
+    D = st.get("design") or {}; TOP = 60 if D else 0
+    W, H, CAP, cols = 432, 768, 184, min(4, len(sp)); rows = math.ceil(len(sp) / cols)
+    sheet = Image.new("RGB", (cols * (W + 16) + 16, rows * (H + CAP + 16) + 16 + TOP), (24, 24, 26)); dr = ImageDraw.Draw(sheet)
+    if D: dr.text((16, 16), f"design: {D.get('family')} | background {D.get('background')} | decor {D.get('decor')} | motion {D.get('motion')} | "
+                            f"signature {D.get('signature')} | variant {D.get('variant')}", fill=(255, 210, 120), font=f1)
     for i, (s, x) in enumerate(zip(st["shots"], sp)):
-        X, Y = 16 + (i % cols) * (W + 16), 16 + (i // cols) * (H + CAP + 16)
+        X, Y = 16 + (i % cols) * (W + 16), 16 + TOP + (i // cols) * (H + CAP + 16)
         im = stills_dir / f"{x['id']}_still.png"
         if im.exists(): sheet.paste(Image.open(im).convert("RGB").resize((W, H)), (X, Y))
+        if s.get("move"): glyph(dr, s["move"], X + W - 86, Y + 14)
         lens = (s.get("camera") or {}).get("lens")
-        lines = [f"{i + 1}. {s['type']}  {x['frames'] / fps:.2f}s = {s['beats']} beats" + (f"  {lens}mm" if lens else ""),
+        lines = [f"{i + 1}. {s['type']}  {x['base'] / fps:.2f}s = {s['beats']} beats" + (f"  {lens}mm" if lens else ""),
+                 (f"camera: {s['move']} ({s.get('size', '')})  in: {s.get('transition_in', 'cut')}" if s.get("move") else ""),
                  (f"event on beat {s['event_beat']} (frame {x['event']})" if "event" in x else s.get("does", "")[:40]),
                  "title: " + (" / ".join(x.get("text", "").replace("\n", " ") for x in titles_of(s))[:34] or "-"),
                  "sound: " + (", ".join(e["sound"] for e in s.get("sfx", [])) or "music")]
-        for k, ln in enumerate(lines): dr.text((X + 6, Y + H + 8 + k * 34), ln, fill=(235, 235, 235), font=f1)
+        for k, ln in enumerate([l for l in lines if l]): dr.text((X + 6, Y + H + 8 + k * 34), ln, fill=(235, 235, 235), font=f1)
     out = d / name; sheet.save(out, quality=88); return out
 
 
@@ -278,9 +326,13 @@ def board_sheet(st, d, stills_dir, name="board.jpg"):
 def stage(d, st):
     s = st["stage"]; fr = st["fps"]; nfr = sum(x["frames"] for x in derived(st))
     if s == "board":
+        if not st.get("design"):                                           # design before anything is rendered
+            import ad_design; why = ad_design.design(st); ad_design.show(st, why)
         sec = blender(st, d, d / "board", "432x768", 8, still=True)
         out = board_sheet(st, d, d / "board"); st["timings"]["board_s"] = round(sec)
-        return f"[gate: storyboard] look at {out}: one frame per shot ({nfr} frames, {nfr / fr:.1f} s + card). Approve the concept, shots and copy"
+        return (f"[gate: design + storyboard] look at {out}: one frame per shot with its camera move, transition, background, decor "
+                f"and motion ({nfr / fr:.1f} s + card). Approve the concept, the design and the copy; another design: "
+                f"python -I ad_design.py {d} --variant 2 (or --lock <shot>=<move>), then rerun")
     if s == "animatic":
         fd = d / "animatic"; sec = blender(st, d, fd, "360x640", 4)
         for x in derived(st): encode(st, fd, x["id"])

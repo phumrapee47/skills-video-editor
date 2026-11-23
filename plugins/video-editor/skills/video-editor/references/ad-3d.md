@@ -178,3 +178,30 @@ that order, each on the cheapest thing that shows it.
   is long - side on, tight on the break, or its ends leave a 9:16 frame and the strands hide behind a half; strands
   need halves that part slowly (11 cm-equivalent) or the filling breaks into beads at once; glossy chocolate mirrors
   a bright floor - keep it satin.
+
+## 1.12: design before building (`scripts/ad_design.py`, `scripts/ad_look.py`)
+The user asked whether the skill designs the camera work, transitions, a living background, decoration and motion
+before it builds - so that ads are not all filmed the same way. Now a design pass runs before the storyboard and the
+storyboard IS the design board (one frame per shot with its move drawn as an icon, transition, background, decor,
+motion and the signature move in the header):
+- **Camera language** (14 moves: dolly in/out, orbit, spiral, crane down/up, truck, low hero, top-down, macro slide,
+  rack focus, dolly zoom, whip-in, push-tilt, or the shot's own staging). Each shot type lists the moves that keep its
+  action readable (a snap stays side-on, a top pop stays above). Moves are computed from the shot's own framing (its
+  camera and target at frame 1), so they fit every product.
+- **Variety rules**: neighbours never share a move or a shot size, a move used before costs more, at least one
+  signature move (orbit, spiral, crane down, dolly zoom, whip-in) per ad, the mood family weights the choice;
+  `ad_design.py <dir> --variant N` reshuffles inside the rules, `--lock s3_zerog=orbit` keeps a choice.
+- **Transitions** by family (fresh: whip blur, white flash, zoom, slide; luxury: dissolve, dip to black, light sweep;
+  tech: glitch, whip, slice; clean: dissolve, slide), never over a shot whose event comes in its first 0.4 s; the
+  outgoing shot is rendered longer by the overlap, so every shot still starts on its beat; whips and slides get a swish.
+- **Living backgrounds**: fresh `gradient_bokeh` (soft light pools drifting across the wall + bokeh discs), luxury
+  `haze_glints` (dark glossy floor, a hint of haze, twinkling gold glints), tech `neon_grid` (scrolling grid floor,
+  neon strips crossing the wall), clean `window_light` (window-frame shadows sliding across the wall).
+- **Decoration in depth**: droplets / gold dust / light specks / soft dust, behind and around the product; only clear
+  droplets may come near the lens; nothing glowing in front of the product; fewer when the camera is close.
+- **Motion style**: bouncy (overshoot), smooth (sine), snappy (expo) on objects with few keys; the camera eases in and
+  out (a whip snaps).
+Pitfalls found: glowing specks near the lens become white orbs over the product; huge emissive spheres read as pasted
+clouds (light pools painted into the wall material read as light); Blender exits 0 when the script raises - the
+pipeline now runs it with `--python-exit-code 1`, or failed renders silently reuse old frames; product paths are
+stored absolute (Blender may run from another folder).

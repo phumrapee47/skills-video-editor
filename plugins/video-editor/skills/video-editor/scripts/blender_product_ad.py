@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ad_fruit as AF
 import ad_can as AC
 import ad_shapes as AS
+import ad_look as LK
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ap = argparse.ArgumentParser()
@@ -279,7 +280,8 @@ def hero_low_shot(n):
     """Guide shot 4 (Hero): 85 mm from slightly below, the can settles still in the centre with the logo to the lens and
     empty space above for the line."""
     body = hero_obj(a.label)
-    key(body, 1, location=(0, 0, 0.95), rotation_euler=(0, 0, math.radians(20)))
+    flat = bool(PRODUCT) and PRODUCT.get("shape") in ("pouch", "box", "bar")   # a flat product never shows its thin edge
+    key(body, 1, location=(0, 0, 0.95), rotation_euler=(0, 0, math.radians(62 if flat else 20)))
     key(body, int(n * 0.55), location=(0, 0, 0.6), rotation_euler=(0, 0, math.radians(86)))
     key(body, n, location=(0, 0, 0.6), rotation_euler=(0, 0, math.radians(90)))
     cam = camera((0, -6.2, 0.32), (0, 0, 0.95), 85, focus=6.2, fstop=4.0)
@@ -309,9 +311,9 @@ def chip(name, r, seed):
     bpy.ops.object.shade_smooth()
     m = bpy.data.materials.get("chip")
     if not m:
-        m = AC.principled("chip", lin(hexrgb("#E8B04A")), 0.0, 0.45, **{"Subsurface Weight": 0.2}); nt = m.node_tree
+        m = AC.principled("chip", lin(hexrgb("#F2CF6B")), 0.0, 0.45, **{"Subsurface Weight": 0.2}); nt = m.node_tree
         nz = nt.nodes.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 14; rp = nt.nodes.new("ShaderNodeValToRGB")
-        rp.color_ramp.elements[0].color = (*lin(hexrgb("#B97321")), 1); rp.color_ramp.elements[1].color = (*lin(hexrgb("#F1C45E")), 1)
+        rp.color_ramp.elements[0].color = (*lin(hexrgb("#D9A441")), 1); rp.color_ramp.elements[1].color = (*lin(hexrgb("#F7DC86")), 1)   # golden, a few browner blisters
         rp.color_ramp.elements[0].position = 0.35; rp.color_ramp.elements[1].position = 0.6
         nt.links.new(nz.outputs["Fac"], rp.inputs["Fac"]); nt.links.new(rp.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
         vo = nt.nodes.new("ShaderNodeTexVoronoi"); vo.inputs["Scale"].default_value = 60; bp = nt.nodes.new("ShaderNodeBump"); bp.inputs["Strength"].default_value = 0.3
@@ -568,8 +570,13 @@ def build(spec):
                 AF.splash(a.fruit, (0, 0.35, 0.75), F, n, AF.ramp(F, fast=6, slow=0.35), n=44, seed=4, axis="z", speed=1.1, size=0.8, disc=0.35)
             cam = camera((0, -3.4, 0.95), (0, 0, 0.7), 36, focus=3.4, fstop=3.0)
             key(cam, 1, location=(0, -3.0, 0.9)); key(cam, n, location=(0, -3.7, 1.0))
-    if spec.get("camera"): camera_path(spec["camera"], n)
-    ease_all(); a.cold = cold0
+    if spec.get("camera"): camera_path(spec["camera"], n)                 # an explicit path wins over the designed move
+    elif spec.get("move"): LK.move(spec["move"], n, seed=sum(map(ord, sid)))
+    LK.background(spec.get("bg"), lin(c1), lin(c2), n)                     # the design pass (ad_design.py)
+    LK.decor(spec.get("decor"), n, seed=sum(map(ord, sid)) + 1)
+    if spec.get("motion"): LK.ease(spec["motion"], whip=spec.get("move") == "whip_in")
+    else: ease_all()
+    a.cold = cold0
     os.makedirs(os.path.join(a.out, sid), exist_ok=True)
     if a.still:
         import time as _t

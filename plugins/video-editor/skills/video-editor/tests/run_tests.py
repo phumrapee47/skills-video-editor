@@ -438,7 +438,7 @@ def ad_pipeline_beats_and_gates(tmp):
                      "sfx": [{"sound": "slash", "at": "event", "offset": 0.0, "rel_db": -11}]},
                     {"id": "s2_hero_low", "type": "hero_low", "beats": 4, "title": [{"text": "Two", "at": 0.2}, {"text": "45 THB", "at": 1.0}], "sfx": []}]}
     sp = AP.derived(st)
-    for s, x in zip(st["shots"], sp): assert abs(x["frames"] / fps - s["beats"] * per) <= 1 / fps, x
+    for s, x in zip(st["shots"], sp): assert abs(x["base"] / fps - s["beats"] * per) <= 1 / fps, x
     assert abs((sp[0]["event"] - 1) / fps - 2 * per) <= 1 / fps, sp[0]
     fd = tmp / "f"; fd.mkdir()
     for x in sp: ff("-f", "lavfi", "-i", f"color=c=orange:s=108x192:r={fps}:d={x['frames'] / fps}", "-pix_fmt", "yuv420p", fd / f"{x['id']}.mp4")
@@ -483,6 +483,40 @@ def product_from_photo_round_trip(tmp):
     q = json.load(open(tmp / "x" / "product.json")); assert q["shape"] == "box" and abs(q["size_mm"][0] / q["size_mm"][1] - 400 / 700) < 0.03, q
 
 
+@test
+def ad_design_rules(tmp):
+    """ad_design.py: no two neighbouring shots share a camera move or a shot size, every ad gets a signature move, only
+    moves that suit each shot's action, no transition into a shot whose event comes in its first 0.4 s, variants
+    differ; with transitions the next shot still starts on its beat (the outgoing shot is extended)."""
+    import ad_design as AD, ad_pipeline as AP
+    types = ["split", "drops", "toppop", "zerog", "hero_low"]
+    for fam in ("fresh", "luxury", "tech", "clean"):
+        seen = set()
+        for v in range(1, 6):
+            st = {"brief": fam, "fps": 24, "music": {"period": 0.5}, "shots": [{"id": f"s{i}_{t}", "type": t, "beats": 5} for i, t in enumerate(types)]}
+            st["shots"][1]["event_beat"] = 0                                 # an event right at the start
+            AD.design(st, v); sh = st["shots"]
+            for a, b in zip(sh, sh[1:]):
+                assert a["move"] != b["move"] or a["move"] == "native", (fam, v, a["move"])
+            assert any(AD.MOVES[x["move"]]["sig"] for x in sh), (fam, v)
+            assert all(x["move"] in AD.ALLOWED[x["type"]] for x in sh)
+            assert sh[1]["transition_in"] == "cut", sh[1]
+            seen.add(tuple(x["move"] for x in sh))
+        assert len(seen) >= 2, (fam, seen)                                   # variants really vary
+    st = {"brief": "fresh", "fps": 24, "music": {"period": 0.5, "src": "m.wav", "in": 0}, "size": "1080x1920", "card": {"text": "x"},
+          "shots": [{"id": "a", "type": "hero", "beats": 4, "transition_in": "cut"}, {"id": "b", "type": "split", "beats": 6, "event_beat": 2,
+                     "transition_in": "zoom", "sfx": [{"sound": "slash", "at": "event", "offset": 0, "rel_db": -11}]}]}
+    sp = AP.derived(st)
+    assert sp[0]["frames"] - sp[0]["base"] == round(0.3 * 24), sp[0]         # extended by the zoom transition
+    fd = tmp / "f"; fd.mkdir()
+    for x in sp: ff("-f", "lavfi", "-i", f"color=c=orange:s=108x192:r=24:d={x['frames'] / 24}", "-pix_fmt", "yuv420p", fd / f"{x['id']}.mp4")
+    ff("-f", "lavfi", "-i", "sine=f=440:d=12", tmp / "m.wav")
+    plan = json.load(open(AP.make_plan(st, tmp, fd, "o.mp4"), encoding="utf-8"))
+    assert plan["clips"][1]["transition"]["type"] == "zoomin"
+    slash = next(e for e in plan["audio"] if e["src"].endswith("slash.wav"))
+    assert abs(slash["start"] - (4 * 0.5 + 2 * 0.5)) <= 1 / 24, slash          # shot b starts on beat 4, its event on beat 2 after
+
+
 def blender_exe():
     import glob, os, shutil
     return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)
@@ -495,7 +529,7 @@ def blender_fruit_cut_faces(tmp):
     exe = blender_exe()
     if not exe: print("  (skipped: no Blender)"); return
     ff("-f", "lavfi", "-i", "color=c=orange:s=256x256", "-frames:v", "1", tmp / "label.png")
-    subprocess.run([exe, "-b", "-P", SC / "blender_product_ad.py", "--", "--label", tmp / "label.png", "--fruit", "yuzu", "--out", tmp / "o",
+    subprocess.run([exe, "-b", "--python-exit-code", "1", "-P", SC / "blender_product_ad.py", "--", "--label", tmp / "label.png", "--fruit", "yuzu", "--out", tmp / "o",
                     "--shots", "split", "--still", "--frame", "75", "--size", "270x480", "--samples", "4"], check=True, capture_output=True, timeout=600)
     ff("-i", tmp / "o" / "split_still.png", "-vf", "crop=50:120:0:150,scale=1:1", "-pix_fmt", "rgb24", "-f", "rawvideo", tmp / "px.raw")
     r, g, b = (tmp / "px.raw").read_bytes()[:3]
