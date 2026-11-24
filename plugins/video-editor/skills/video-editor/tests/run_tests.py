@@ -694,6 +694,54 @@ def deliverables_cutdown_stems_prores(tmp):
     assert "Dialogue" not in ass, "an empty card must not add a title"
 
 
+@test
+def blender_pour_clink_hdri(tmp):
+    """1.19: pour - the stream starts at the can's opening and lands in the glass, the drink level rises; clink - the
+    two products' rims meet at the event and are apart before; an HDRI scene (a tiny generated HDR in a test cache:
+    nothing downloaded) swaps the studio sweep for a tabletop and the HDRI world. Also hdri.py's cache lookup and the
+    pour sound. Blender parts skipped without Blender."""
+    import os, numpy as np, hdri, make_sfx
+    os.environ["VIDEO_EDITOR_HDRI"] = str(tmp / "hd")
+    assert hdri.path("beach") is None and hdri.path("nope") is None
+    (tmp / "hd").mkdir(); ff("-f", "lavfi", "-i", "color=c=skyblue:s=64x32", "-frames:v", "1", "-c:v", "hdr", "-pix_fmt", "gbrpf32le", tmp / "hd" / "spiaggia_di_mondello_2k.hdr")
+    assert hdri.path("beach") and open(hdri.path("beach"), "rb").read(2) == b"#?", hdri.path("beach")
+    x = make_sfx.pour(np.random.default_rng(1)); assert x.shape[1] == 2 and 0.2 < np.abs(x).max() <= 1.0 and len(x) > 2 * make_sfx.SR
+    exe = blender_exe()
+    if not exe: print("  (skipped Blender part: no Blender)"); return
+    ff("-f", "lavfi", "-i", "color=c=orange:s=256x128", "-frames:v", "1", tmp / "label.png")
+    json.dump({"shots": [{"id": "p", "type": "pour"}]}, open(tmp / "sp.json", "w"))
+    json.dump({"shots": [{"id": "c", "type": "clink"}]}, open(tmp / "sc.json", "w"))
+    json.dump({"shots": [{"id": "h", "type": "hero_low", "bg": "hdri:beach", "family": "fresh"}]}, open(tmp / "sh.json", "w"))
+    base = ["--label", str(tmp / "label.png"), "--fruit", "yuzu", "--out", str(tmp / "o"), "--still", "--frame", "1", "--size", "54x96", "--samples", "1"]
+    code = (f"import sys, os, bpy; sys.path.insert(0, r'{SC}'); os.environ['VIDEO_EDITOR_HDRI'] = r'{tmp / 'hd'}'\n"
+            f"src = open(r'{SC / 'blender_product_ad.py'}', encoding='utf-8').read(); G = {{'__name__': '__main__', '__file__': r'{SC / 'blender_product_ad.py'}'}}\n"
+            f"sys.argv = ['b', '--'] + {base!r} + ['--spec', r'{tmp / 'sp.json'}']; exec(src, dict(G))\n"
+            "from mathutils import Vector\n"
+            "sc = bpy.context.scene; O = bpy.data.objects; st = O['stream']; piv = O['fillpivot']\n"
+            "def at(f): sc.frame_set(f); P = [st.matrix_world @ Vector(p.co[:3]) for p in st.data.splines[0].points]; return P, piv.scale.z\n"
+            "P60, s60 = at(60); P110, s110 = at(110); g = O['pglass'].matrix_world.translation\n"
+            "mouth = sys.modules.get('__main__') and None\n"
+            "print('POUR', round((Vector((P60[-1].x, P60[-1].y, 0)) - Vector((g.x, g.y, 0))).length, 3), round(s60, 2), round(s110, 2), round(P60[0].z - P60[-1].z, 2))\n"
+            f"sys.argv = ['b', '--'] + {base!r} + ['--spec', r'{tmp / 'sc.json'}']; exec(src, dict(G))\n"
+            "sc = bpy.context.scene; O = bpy.data.objects\n"
+            "def gap(f):\n"
+            "    sc.frame_set(f); dg = bpy.context.evaluated_depsgraph_get()\n"
+            "    ext = lambda o: [o.evaluated_get(dg).matrix_world @ Vector(c) for c in o.evaluated_get(dg).bound_box]\n"
+            "    return min(v.x for v in ext(O['can2'])) - max(v.x for v in ext(O['can']))\n"
+            "print('CLINK', round(gap(1), 3), round(gap(24), 3))\n"
+            f"sys.argv = ['b', '--'] + {base!r} + ['--spec', r'{tmp / 'sh.json'}']; exec(src, dict(G))\n"
+            "O = bpy.data.objects; w = bpy.context.scene.world\n"
+            "print('HDRI', 'tabletop' in O, O['cyclorama'].hide_render, any(n.type == 'TEX_ENVIRONMENT' and n.image and 'spiaggia' in n.image.filepath for n in w.node_tree.nodes))\n")
+    r = subprocess.run([exe, "-b", "--python-exit-code", "1", "--python-expr", code], capture_output=True, text=True, timeout=900)
+    out = r.stdout + r.stderr
+    rows = {l.split()[0]: l.split()[1:] for l in out.splitlines() if l.split() and l.split()[0] in ("POUR", "CLINK", "HDRI")}
+    assert set(rows) == {"POUR", "CLINK", "HDRI"}, out[-3000:]
+    land, s60, s110, drop = map(float, rows["POUR"])
+    assert land < 0.08 and s110 > s60 > 0.1 and drop > 0.3, rows["POUR"]                 # lands in the glass, the level rises
+    g1, g24 = map(float, rows["CLINK"]); assert g1 > 0.3 and g24 < 0.12, rows["CLINK"]      # apart, then the rims meet
+    assert rows["HDRI"] == ["True", "True", "True"], rows["HDRI"]
+
+
 def blender_exe():
     import glob, os, shutil
     return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)

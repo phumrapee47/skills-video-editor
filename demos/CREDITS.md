@@ -99,3 +99,7 @@ voiceover in `ad3d-luma-performance` and `ad3d-luma-crown` is a Microsoft Edge n
   16:9 version and 6 s cutdown, rendered from the animatic (fast, low samples). Music: "Happy Alley" Kevin MacLeod
   (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License; voiceover: Microsoft Edge neural
   text-to-speech (en-US-AndrewNeural, via edge-tts). Licence: CC BY 4.0.
+- 1.19 beach video (`ad3d-beach-pour-clink`): the LUMA ad (made-up brand) on a tabletop at a beach; the backdrop and its
+  light are the HDRI "Spiaggia di Mondello" from Poly Haven (CC0, https://polyhaven.com/a/spiaggia_di_mondello). Music:
+  "Happy Alley" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License; voiceover:
+  Microsoft Edge neural text-to-speech (en-US-AndrewNeural, via edge-tts). Rendered from the animatic. Licence: CC BY 4.0.

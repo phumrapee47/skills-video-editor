@@ -52,7 +52,7 @@ if a.product:                                                              # tex
     PRODUCT = json.load(open(a.product, encoding="utf-8")); _pd = os.path.dirname(os.path.abspath(a.product))
     for _k in ("texture", "front_tex", "back_tex"):
         if PRODUCT.get(_k): PRODUCT[_k] = os.path.join(_pd, PRODUCT[_k])
-LEN = {"crown": 84, "twist": 84, "tear": 84, "snap": 96, "open": 75, "toppop": 75, "drops": 72, "zerog": 96, "hero_low": 90, "split": 120, "reveal": 75, "hero": 105, "macro": 75, "burst": 75, "trio": 96}
+LEN = {"pour": 120, "clink": 84, "crown": 84, "twist": 84, "tear": 84, "snap": 96, "open": 75, "toppop": 75, "drops": 72, "zerog": 96, "hero_low": 90, "split": 120, "reveal": 75, "hero": 105, "macro": 75, "burst": 75, "trio": 96}
 
 
 def hexrgb(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
@@ -506,6 +506,108 @@ def crown_shot(n, F=24):
     key(cam, 1, location=(0.1, -3.9, 0.6)); key(cam, n, location=(-0.05, -3.2, 0.5))
 
 
+def _drink_colour():
+    if a.liquid: return lin(hexrgb(a.liquid))
+    if a.fruit: return AF.lin(AF.FRUITS[a.fruit]["juice"])
+    return lin(hexrgb((PRODUCT or {}).get("liquid", a.set[0])))
+
+
+def _mouth(body):
+    """World position and outward direction of where the drink leaves the product: the can's opening (local -x on the
+    lid), else the top centre of a bottle."""
+    M = body.matrix_world
+    if (PRODUCT or {}).get("shape", "can") == "can":
+        return M @ Vector((AC.OPEN_X - 0.03, 0, AC.LIDZ + 0.005)), (M.to_3x3() @ Vector((-0.6, 0, 0.8))).normalized()
+    bb = [M @ Vector(c) for c in body.bound_box]; top = max(v.z for v in bb)
+    return M @ Vector((0, 0, max(c[2] for c in body.bound_box))), (M.to_3x3() @ Vector((0, 0, 1))).normalized()
+
+
+def pour_shot(n, F=20):
+    """The product pours into a glass: it tips, a stream arcs from its opening into the glass, the drink rises with
+    bubbles and a foam head, drops jump where the stream lands, ice cubes ride up with the level."""
+    import ad_drink as AD
+    col = _drink_colour(); hexcol = "#%02X%02X%02X" % tuple(int(255 * min(1, max(0, c ** (1 / 2.2)))) for c in col)
+    gl = AD.build({"shape": "drink", "glass": "tall", "layers": [{"color": hexcol, "to": 1.0}], "fill": 0.86, "cold": False}, "pglass")
+    GX = 0.27; gl.location = (GX, 0.08, 0.6)
+    G = AD.GLASS["tall"]; zb = AD.ZB + 0.07; zf = AD.ZB + 0.07 + (G["h"] - 0.07) * 0.86        # drink bottom/top, glass-local
+    drink = bpy.data.objects["pglass_drink"]
+    piv = bpy.data.objects.new("fillpivot", None); bpy.context.scene.collection.objects.link(piv); piv.parent = gl; piv.location = (0, 0, zb)
+    bpy.context.view_layer.update(); mw = drink.matrix_world.copy(); drink.parent = piv; drink.matrix_world = mw
+    fill = lambda fr: 0.03 if fr <= F + 3 else min(1.0, 0.03 + 0.97 * ((fr - F - 3) / max(1, n - F - 14)) ** 0.9)
+    level = lambda fr: 0.6 + zb + (zf - zb) * fill(fr)                     # world z of the drink's surface
+    for fr in [1] + list(range(F, n + 1, 2)): key(piv, fr, scale=(1, 1, fill(fr)))
+    body = hero_obj(a.label)                                               # tips over the glass, opening toward it
+    for fr, (x, z, tilt) in ((1, (-0.52, 1.3, 15)), (F - 6, (-0.44, 1.5, 70)), (F, (-0.4, 1.58, 112)), (n, (-0.38, 1.55, 126))):
+        key(body, fr, location=(x, -0.02, z), rotation_euler=(0, math.radians(-tilt), math.pi - 0.6))   # label turned partly to the lens
+    jm = AF.juice_material(a.fruit) if a.fruit else AC.principled("pour_liquid", col, 0.0, 0.06, **{"Transmission Weight": 0.7 if AC.CYCLES else 0.0, "Coat Weight": 0.6,
+                                                                                                     "Emission Color": (*col, 1), "Emission Strength": 0.08})
+    # the stream: a curve recomputed every 2 frames, a ballistic arc from the mouth to the middle of the glass
+    cu = bpy.data.curves.new("stream", "CURVE"); cu.dimensions = "3D"; cu.bevel_depth = 0.032; cu.bevel_resolution = 4; cu.use_fill_caps = True
+    K = 18; sp = cu.splines.new("POLY"); sp.points.add(K - 1); st = bpy.data.objects.new("stream", cu); bpy.context.scene.collection.objects.link(st)
+    cu.materials.append(jm); g = 6.0; tgt = Vector((GX, 0.08, 0))
+    sc = bpy.context.scene; land = []
+    for fr in list(range(F - 1, n + 1, 2)) + [n]:
+        sc.frame_set(fr); P0, d0 = _mouth(body); zl = level(fr)
+        dz = max(0.05, P0.z - zl); T = math.sqrt(2 * dz / g); v = Vector(((tgt.x - P0.x) / T, (tgt.y - P0.y) / T, 0))
+        for k in range(K):
+            t = T * k / (K - 1); p_ = P0 + v * t + Vector((0, 0, -0.5 * g * t * t))
+            wob = 0.006 * math.sin(fr * 0.9 + k * 0.7) * (k / K)
+            sp.points[k].co = (p_.x + wob, p_.y + wob * 0.5, p_.z, 1); sp.points[k].radius = 1.0 - 0.45 * k / (K - 1)
+            sp.points[k].keyframe_insert("co", frame=fr); sp.points[k].keyframe_insert("radius", frame=fr)
+        land.append((fr, Vector((tgt.x, tgt.y, zl))))
+    for fr, e in ((F - 1, 0.0), (F + 4, 1.0)): cu.bevel_factor_end = e; cu.keyframe_insert("bevel_factor_end", frame=fr)
+    for fr, h_ in ((F - 2, True), (F - 1, False)): st.hide_render = h_; st.keyframe_insert("hide_render", frame=fr)
+    # drops jumping at the landing point, bubbles rising, a foam head, ice riding the level
+    import ad_cut as CUT
+    drop = CUT.sphere_mesh("pour_drop")
+    for j, f0 in enumerate(range(F + 4, n - 10, 9)):
+        c0 = next(p for fr, p in land if fr >= f0)
+        CUT.flyers(c0 + Vector((0, 0, 0.01)), f0, min(n, f0 + 14), lambda fr, f0=f0: max(0.0, (fr - f0) / 30), drop, jm, 7, (0.5, 1.0), (0.008, 0.016), 40 + j,
+                   g=6.0, life=0.4, spread=0.6, axis_x=False)
+    rnd = random.Random(3); bub = AC.clear_liquid("bubble", (1, 1, 1), 0.02, 1.0, 0.7)
+    for i in range(36):
+        r0 = rnd.uniform(0.004, 0.012); x0, y0 = rnd.uniform(-0.16, 0.16), rnd.uniform(-0.16, 0.16); f0 = rnd.randint(F + 6, n - 8)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=12, ring_count=8, location=(GX + x0, 0.08 + y0, 0.6 + zb + 0.02)); b_ = bpy.context.object
+        b_.data.materials.append(bub); key(b_, 1, scale=(0, 0, 0)); key(b_, f0, scale=(0, 0, 0))
+        for fr in range(f0 + 1, n + 1, 3):
+            z = 0.6 + zb + 0.02 + (fr - f0) * 0.018
+            key(b_, fr, location=(GX + x0 + 0.01 * math.sin(fr * 0.5 + i), 0.08 + y0, min(z, level(fr) - 0.01)), scale=(r0, r0, r0) if z < level(fr) - 0.01 else (0, 0, 0))
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=48, ring_count=12, location=(GX, 0.08, 0)); fo = bpy.context.object; fo.name = "foam"
+    fm = AC.principled("foam", tuple(0.55 + 0.45 * c for c in col), 0.0, 0.55, **{"Subsurface Weight": 0.4}); fo.data.materials.append(fm)
+    dsp = fo.modifiers.new("bubbly", "DISPLACE"); tx = bpy.data.textures.new("foamtex", "VORONOI"); tx.noise_scale = 0.08; dsp.texture = tx; dsp.strength = 0.12
+    bpy.ops.object.shade_smooth()
+    for fr in [1, F + 6] + list(range(F + 8, n + 1, 2)):
+        r_in = AD.GLASS["tall"]["rb"] + (AD.GLASS["tall"]["rt"] - AD.GLASS["tall"]["rb"]) * (level(fr) - 0.6 - AD.ZB) / AD.GLASS["tall"]["h"] - 0.03
+        th = 0.0 if fr <= F + 6 else min(0.05, 0.004 * (fr - F - 6))
+        key(fo, fr, location=(GX, 0.08, level(fr)), scale=(r_in, r_in, max(0.001, th)))
+    for i in range(3):
+        ic = AC.ice_cube(f"pour_ice{i}", 0.09, seed=i); ph = i * 2.1
+        for fr in range(1, n + 1, 3):
+            key(ic, fr, location=(GX + 0.07 * math.cos(ph + fr * 0.02), 0.08 + 0.07 * math.sin(ph + fr * 0.02), level(fr) - 0.02 + 0.01 * math.sin(fr * 0.3 + ph)),
+                rotation_euler=(0.3 + i, 0.2 * i + fr * 0.01, ph))
+    cam = camera((0.0, -3.7, 1.1), (-0.05, 0, 0.98), 36, focus=3.7, fstop=4.0)
+    key(cam, 1, location=(0.12, -3.9, 1.15)); key(cam, n, location=(-0.05, -3.45, 1.05))
+
+
+def clink_shot(n, F=24):
+    """Two products toast: they rise and lean in, their upper rims tap on the beat, a small recoil and wobble,
+    droplets jump from the touch."""
+    import ad_cut as CUT
+    alpha = math.radians(16); r, h2 = 0.33, 0.58
+    cx = r * math.cos(alpha) + h2 * math.sin(alpha)                       # rims meet at x = 0
+    L_ = hero_obj(a.label, name="can"); R_ = hero_obj(a.alt[0] if a.alt else a.label, name="can2")
+    for o, sg in ((L_, -1), (R_, 1)):
+        o.rotation_mode = "ZYX"                                            # face the lens first, then lean about the world Y
+        for fr, (dx, z, ang) in ((1, (0.55, 0.42, 3)), (F - 8, (0.18, 0.78, 12)), (F, (0.0, 0.9, 16)), (F + 3, (0.045, 0.92, 14)), (F + 8, (0.015, 0.9, 16.5)), (n, (0.02, 0.88, 15))):
+            key(o, fr, location=(sg * (cx + dx), 0, z), rotation_euler=(0, -sg * math.radians(ang), math.radians(90)))
+    zc = 0.9 + (-r * math.sin(alpha) + h2 * math.cos(alpha))
+    wm = AC.clear_liquid("water", (0.97, 0.99, 1.0), 0.02, 1.333, 0.55)
+    CUT.flyers(Vector((0, 0, zc)), F, n, lambda fr: max(0.0, (fr - F) / 30), CUT.sphere_mesh("clink_drop"), wm, 24, (0.6, 1.5), (0.008, 0.02), 31,
+               g=5.0, life=1.0, spread=0.8, axis_x=False)
+    cam = camera((0, -3.5, 1.15), (0, 0, 1.0), 48, focus=3.5, fstop=3.2)
+    key(cam, 1, location=(0.1, -3.8, 1.1)); key(cam, n, location=(-0.05, -3.2, 1.15))
+
+
 def camera(loc, look, lens=50, focus=None, fstop=2.0):
     cam = bpy.data.objects.get("Cam")
     if not cam:
@@ -601,7 +703,7 @@ def feature_tracks(sc, root, meshes, n, every=2):
     return tracks
 
 
-EVENT = {"crown": 24, "twist": 24, "tear": 22, "snap": 24, "split": 30, "open": 22, "toppop": 22, "drops": 18, "burst": 2}   # default frame of each shot's physical event
+EVENT = {"pour": 20, "clink": 24, "crown": 24, "twist": 24, "tear": 22, "snap": 24, "split": 30, "open": 22, "toppop": 22, "drops": 18, "burst": 2}   # default frame of each shot's physical event
 
 
 def camera_path(cs, n):
@@ -631,6 +733,10 @@ def build(spec):
         twist_shot(n, F)
     elif shot == "crown":
         crown_shot(n, F)
+    elif shot == "pour":
+        pour_shot(n, F)
+    elif shot == "clink":
+        clink_shot(n, F)
     elif shot == "tear":
         tear_shot(n, F)
     elif shot == "snap":

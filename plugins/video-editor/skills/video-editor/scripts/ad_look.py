@@ -107,6 +107,7 @@ def background(kind, c1, c2, n, seed=3):
     rnd = random.Random(seed); sc = bpy.context.scene
     if kind in (None, "plain"): return
     if kind == "water": return water_set(c1, c2, n, seed)
+    if kind.startswith("hdri:"): return hdri_scene(kind.split(":", 1)[1], c1, c2, n)
     if kind == "gradient_bokeh":
         wall = bpy.data.materials.get("wall")
         if wall:                                                           # two soft pools of light drift across the wall
@@ -498,3 +499,55 @@ def imperfect(root, seed=4):
                            (vo.outputs["Distance"], sm.inputs["Value"]), (sm.outputs["Result"], ad.inputs[0]), (mr.outputs["Result"], ad.inputs[2]),
                            (ad.outputs[0], b.inputs["Roughness"])):
                 L.new(x_, y_)
+
+
+# ---------------------------------------------------------------- 1.19: lifestyle scenes (HDRI + tabletop)
+def _tabletop_material(kind):
+    """Wood (light/dark: long grain bands with fine streaks), stone (soft mottled grey) or dark marble (veins)."""
+    m = bpy.data.materials.new("tabletop"); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links; b = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord"); cr = N.new("ShaderNodeValToRGB"); e = cr.color_ramp.elements
+    if kind.startswith("wood"):
+        light = kind == "wood_light"; mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (0.35, 6.0, 1.0)   # grain along x
+        wv = N.new("ShaderNodeTexWave"); wv.inputs["Scale"].default_value = 1.6; wv.inputs["Distortion"].default_value = 7.0; wv.inputs["Detail"].default_value = 6
+        L.new(tc.outputs["Object"], mp.inputs["Vector"]); L.new(mp.outputs["Vector"], wv.inputs["Vector"]); L.new(wv.outputs["Fac"], cr.inputs["Fac"])
+        e[0].color, e[1].color = ((0.48, 0.32, 0.18, 1), (0.72, 0.53, 0.33, 1)) if light else ((0.06, 0.03, 0.015, 1), (0.17, 0.09, 0.045, 1))
+        b.inputs["Roughness"].default_value = 0.42 if light else 0.3
+    else:
+        nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 3.0 if kind == "stone" else 1.4; nz.inputs["Detail"].default_value = 8
+        nz.inputs["Distortion"].default_value = 0.2 if kind == "stone" else 2.5
+        L.new(tc.outputs["Object"], nz.inputs["Vector"]); L.new(nz.outputs["Fac"], cr.inputs["Fac"])
+        if kind == "stone": e[0].color, e[1].color = (0.13, 0.125, 0.115, 1), (0.26, 0.25, 0.235, 1); b.inputs["Roughness"].default_value = 0.6
+        else:
+            e[0].color, e[1].color = (0.012, 0.012, 0.014, 1), (0.05, 0.05, 0.055, 1); e[0].position = 0.48; e[1].position = 0.52
+            b.inputs["Roughness"].default_value = 0.12; b.inputs["Coat Weight"].default_value = 0.6
+    L.new(cr.outputs["Color"], b.inputs["Base Color"])
+    return m
+
+
+def hdri_scene(name, c1, c2, n):
+    """A lifestyle shot: the product on a tabletop, a real place (CC0 HDRI, hdri.py) as the light and the blurred
+    backdrop. The studio sweep and haze go; the studio lights stay at half to model the product."""
+    import hdri as HD
+    p = HD.path(name)
+    if not p:
+        print(f"HDRI '{name}' not downloaded: python -I hdri.py fetch {name}  (ask the user first) - keeping the studio"); return None
+    slug, _, _, top, rot, strength = HD.HDRIS[name]
+    sc = bpy.context.scene; w = bpy.data.worlds.new("hdri"); sc.world = w; w.use_nodes = True; N = w.node_tree.nodes; L = w.node_tree.links
+    try: w.use_sun_shadow = False                                          # the same band artefact as the studio (1.15)
+    except Exception: pass
+    env = N.new("ShaderNodeTexEnvironment"); env.image = bpy.data.images.load(str(p))
+    tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Rotation"].default_value = (0, 0, math.radians(rot))
+    L.new(tc.outputs["Generated"], mp.inputs["Vector"]); L.new(mp.outputs["Vector"], env.inputs["Vector"])
+    bg = N["Background"]; bg.inputs["Strength"].default_value = strength; L.new(env.outputs["Color"], bg.inputs["Color"])
+    for nm in ("cyclorama", "haze", "contact_shadow"):
+        o = bpy.data.objects.get(nm)
+        if o and nm != "contact_shadow": o.hide_render = True; o.hide_viewport = True
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0.7, -0.03)); t = bpy.context.object; t.name = "tabletop"
+    t.scale = (7.0, 3.4, 0.06); t.data.materials.append(_tabletop_material(top))
+    bev = t.modifiers.new("edge", "BEVEL"); bev.width = 0.01; bev.segments = 2
+    cam = sc.camera
+    if cam: cam.data.dof.use_dof = True; cam.data.dof.aperture_fstop = min(cam.data.dof.aperture_fstop, 1.6)   # the place melts behind
+    for nm in ("key", "rimL", "rimR", "fill", "strip0", "strip1", "streak"):
+        o = bpy.data.objects.get(nm)
+        if o and o.type == "LIGHT": o.data.energy *= 0.5
+    return t

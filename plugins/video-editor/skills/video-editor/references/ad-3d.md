@@ -385,3 +385,22 @@ peak, MB per file):
   mix; voice + sfx + music = mix_premaster. The social masters stay at -14 LUFS.
 - **ProRes** (`--prores`): a 422 HQ 10-bit master per aspect with 24-bit PCM - edit_plan writes ProRes whenever the
   output path ends in .mov.
+
+## 1.19: product actions (pour, clink) and lifestyle scenes (HDRI)
+- **Pour** (shot `pour`, 120 frames, event 20; can and bottle): the product tips over a tall glass (its label turned
+  partly to the lens); the stream is a curve rebuilt every 2 frames as a ballistic arc from the real opening (the can's
+  scored opening, a bottle's mouth) into the middle of the glass, so it always lands inside; the drink rises (a pivot
+  at the glass bottom scales the drink), bubbles rise and stop at the surface, a foam head rides the level, ice cubes
+  float, drops jump where the stream lands. The drink colour: `--liquid`, else the fruit juice, else the set colour.
+  Sound: `pour` (synthesised: a gurgling rush that rises in pitch as the glass fills) + fizz.
+- **Clink** (shot `clink`, 84 frames, event 24): two products (the second with `alt[0]`, another flavour) rise and
+  lean in; the lean is about the world Y after facing the lens (rotation mode ZYX), so the rims meet exactly at x = 0
+  on the beat, recoil a little and wobble; drops jump from the touch. Sound: `clink`.
+- Both are BUILT in the catalogue (can, bottle); `shot_avoid` keeps them off bars, pouches, boxes and glass drinks.
+  The brief's `alt` (other flavours' labels) is read from brief files now.
+- **Lifestyle scenes** (`background: "hdri:beach" | "hdri:garden" | "hdri:interior" | "hdri:bar"`): the product
+  on a tabletop (light wood, stone, dark wood, dark marble), a real place as the light and the backdrop, blurred
+  (f/1.6), the studio sweep and haze hidden, the studio lights at half to model the product. HDRIs are CC0 from Poly
+  Haven, fetched on request into `~/.video-editor/hdri` (`scripts/hdri.py list | fetch <name>`; ask the user first,
+  about 6-7 MB each at 2k) - never bundled. The panorama is turned so the lens sees its best part
+  (u = 0.75 - rotation / 360: the sea, the pergola path, the window). Without the file the studio stays.

@@ -89,3 +89,13 @@ literature says, and what the skill must do. Statuses: DONE / PARTIAL / TODO.
 | Crown splash | DONE 1.15: `crown` shot (procedural crown, pool with ripples, drops) | Mantaflow/FLIP for finals |
 | Water set | DONE 1.17: `water` background - still dark mirror, ripple rings, haze horizon | - |
 | Reference match | DONE 1.17: `ref_style.py` - palette, set, accent, light side, mood family | props from the picture |
+
+## 5. Next: realism down to small details (user review of 1.19, 2026-11-25) - TODO 1.20
+- **Light must belong to the scene**: on an HDRI the product looked pasted/floating. Match the HDRI's sun (direction,
+  hardness, colour) with a real sun light and its shadow on the table, the place's colour in reflections and bounce,
+  the studio lights off or matched, the same white balance and contrast as the backdrop.
+- **A real pour stream**: twists, ripples and changes thickness, flattens into a sheet at the lip, carries air,
+  breaks into drops near the bottom (reference: water from a bottle neck) - not a smooth tube.
+- **The glass fill churns**: a dip and splash where the stream lands, waves and sloshing, bubbles, a level that is
+  not a flat disc (procedural displacement + ripples for previews; FLIP/Mantaflow for finals).
+- Look for the real-life detail in everything the skill builds.

@@ -103,6 +103,20 @@ def slash(rng, dur=0.32):
     return stereo(air + ring, -0.7, 0.5)
 
 
+def pour(rng, dur=2.6):
+    """Liquid poured into a glass: a steady filtered rush that gurgles (amplitude wobble ~7 Hz), its pitch rising as
+    the glass fills, a few small splashes and bubbles."""
+    n = int(dur * SR); t = np.arange(n) / SR
+    rush = bandsweep(rng.standard_normal(n), 700, 2600, 0.6, 0.05)
+    gurgle = 0.65 + 0.35 * np.sin(2 * np.pi * (6.5 + 1.5 * t / dur) * t + 3 * np.sin(2 * np.pi * 0.9 * t))
+    env = np.minimum(1, t / 0.08) * np.minimum(1, (dur - t) / 0.35)
+    pops = np.zeros(n)
+    for _ in range(60):
+        i = int(rng.uniform(0.05, dur * 0.95) * SR); f = rng.uniform(600, 1800) * (1 + 0.6 * i / n); m = int(0.02 * SR)
+        if i + m < n: pops[i:i + m] += np.sin(2 * np.pi * f * np.arange(m) / SR) * np.exp(-np.arange(m) / (0.004 * SR)) * rng.uniform(0.05, 0.2)
+    return stereo((rush * gurgle * 0.7 + pops) * env, -0.15, 0.15)
+
+
 def splash(rng, dur=1.3):
     """Juice bursting out of cut fruit: a soft wet thump, a spray of noise, then droplets falling (bright blips that
     drop in pitch and thin out)."""
@@ -187,7 +201,7 @@ def sonic_logo(name, family="fresh", dur=1.5):
 
 
 KIT = {"whoosh": lambda r: whoosh(r), "swish": lambda r: whoosh(r, 0.28, 900, 6000, 0.4, (0.4, -0.4)), "pop": pop,
-       "riser": riser, "impact": impact, "hit": hit, "chime": chime, "fizz": fizz, "slash": slash, "splash": splash, "clink": clink, "twist": twist, "rip": rip, "snap": snap}
+       "riser": riser, "impact": impact, "hit": hit, "chime": chime, "fizz": fizz, "slash": slash, "splash": splash, "clink": clink, "twist": twist, "rip": rip, "snap": snap, "pour": pour}
 
 
 def write(path, x):

@@ -13,7 +13,7 @@ Claude still reads the brief and the product photos: this is the checklist of wh
 import argparse, json, pathlib, sys
 
 CAT = json.loads((pathlib.Path(__file__).resolve().parent.parent / "assets" / "ad_concepts.json").read_text(encoding="utf-8"))
-LEN_S = {"crown": 2.8, "twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0, "hero": 2.5, "trio": 3.2, "reveal": 2.5}
+LEN_S = {"pour": 4.0, "clink": 2.8, "crown": 2.8, "twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0, "hero": 2.5, "trio": 3.2, "reveal": 2.5}
 
 
 def find(group, words):

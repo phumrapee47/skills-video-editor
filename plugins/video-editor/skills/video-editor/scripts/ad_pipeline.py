@@ -36,11 +36,11 @@ SC = pathlib.Path(__file__).resolve().parent; ROOT = SC.parent
 sys.path.insert(0, str(SC))
 PY = [sys.executable, "-I"]
 STAGES = ["board", "animatic", "preview", "final_test", "final", "done"]
-SECONDS = {"crown": 2.8, "twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0,
+SECONDS = {"pour": 4.0, "clink": 2.8, "crown": 2.8, "twist": 2.8, "tear": 2.8, "snap": 3.2, "split": 4.0, "open": 2.5, "toppop": 2.5, "drops": 2.4, "zerog": 3.2, "hero_low": 3.0, "burst": 2.5, "macro": 2.0,
            "hero": 2.5, "trio": 3.2, "reveal": 2.5}
-EVENT_S = {"crown": 0.8, "twist": 1.0, "tear": 0.92, "snap": 1.0, "split": 1.0, "open": 0.73, "toppop": 0.73, "drops": 0.6, "burst": 0.07}         # when the physical event happens
+EVENT_S = {"pour": 0.67, "clink": 0.8, "crown": 0.8, "twist": 1.0, "tear": 0.92, "snap": 1.0, "split": 1.0, "open": 0.73, "toppop": 0.73, "drops": 0.6, "burst": 0.07}         # when the physical event happens
 COLD = {"drops", "zerog", "hero_low"}
-SFX = {"crown": [("whoosh", "event", -0.5, -16), ("splash", "event", 0.0, -8)], "twist": [("twist", "event", -0.45, -11), ("fizz", "event", 0.0, -13)], "tear": [("rip", "event", -0.25, -9)], "snap": [("snap", "event", 0.0, -8)],
+SFX = {"pour": [("pour", "event", 0.05, -9), ("fizz", "event", 1.2, -18)], "clink": [("clink", "event", 0.0, -7)], "crown": [("whoosh", "event", -0.5, -16), ("splash", "event", 0.0, -8)], "twist": [("twist", "event", -0.45, -11), ("fizz", "event", 0.0, -13)], "tear": [("rip", "event", -0.25, -9)], "snap": [("snap", "event", 0.0, -8)],
        "split": [("slash", "event", -0.33, -11), ("splash", "event", -0.02, -8)], "open": [("fizz", "event", -0.03, -7)],
        "toppop": [("fizz", "event", -0.03, -7)], "burst": [("splash", "event", 0.0, -10)],
        "zerog": [("clink", "start", 0.45, -15), ("clink", "start", 1.6, -18)], "hero_low": [("hit", "start", 1.6, -17)]}
@@ -100,6 +100,7 @@ def from_brief(a):
         if b.get(k) is not None and getattr(a, attr) in (None, "", ap_defaults.get(attr)):
             setattr(a, attr, rel(b[k]) if k in ("photo", "back", "label", "product_json") else b[k])
     if b.get("shape") and b["shape"] != "auto" and not a.shape: a.shape = b["shape"]
+    if b.get("alt") and not a.alt: a.alt = [rel(x) for x in b["alt"]]       # other flavours' labels (trio, clink)
     if (b.get("copy") or {}).get("cta") and a.card == ap_defaults["card"]: a.card = b["copy"]["cta"]
     if b.get("structure") and b["structure"] not in STRUCTURES: sys.exit(f"structure must be one of {list(STRUCTURES)}")
     return b
@@ -147,6 +148,10 @@ def copy_titles(shots, roles, copy, family, structure="brand"):
     if perf and copy.get("proof") and not any(x.get("role") == "proof" for x in shots):   # no second detail shot: proof on the demo
         tgt = next((x for x in shots if x.get("role") == "demo"), None) or (shots[1] if len(shots) > 1 else None)
         if tgt: tgt["title"] = titles_of(tgt) + [dict(EXTRA["proof"], text=copy["proof"])]
+    seen = set()                                                           # two shots with one role (pour + clink): say it once
+    for s in shots:
+        kept = [t for t in titles_of(s) if t.get("text") not in seen]; seen |= {t.get("text") for t in titles_of(s)}
+        if len(kept) != len(titles_of(s)): s["title"] = (kept if len(kept) > 1 else kept[0]) if kept else None
 
 
 def init(a):

@@ -21,12 +21,11 @@
     },
     {
      "id": "pour",
-     "do": "poured into a glass with ice: a twisting stream, bubbles rising, foam head",
+     "do": "poured into a glass: a stream arcs from the opening, the drink rises with bubbles and a foam head, drops jump where it lands",
      "sound": "pour + fizz + ice clink",
      "camera": "side, glass in focus",
      "beat": "payoff",
-     "shot": null,
-     "build": "metaball stream along a bezier + rising bubble instances in a glass with transmission"
+     "shot": "pour"
     },
     {
      "id": "condensation",
@@ -67,6 +66,14 @@
      "camera": "low, near the liquid surface, 50 mm",
      "beat": "payoff",
      "shot": "crown"
+    },
+    {
+     "id": "clink",
+     "do": "two (flavours) lean in and tap rims on the beat, droplets jump",
+     "sound": "clink",
+     "camera": "front, medium",
+     "beat": "payoff",
+     "shot": "clink"
     }
    ],
    "shape": "can"
@@ -90,12 +97,11 @@
     },
     {
      "id": "pour",
-     "do": "liquid stream into a glass, splash crown at the bottom",
+     "do": "poured into a glass: a stream arcs from the opening, the drink rises with bubbles and a foam head, drops jump where it lands",
      "sound": "pour",
      "camera": "side",
      "beat": "payoff",
-     "shot": null,
-     "build": "metaball stream + crown splash"
+     "shot": "pour"
     },
     {
      "id": "bubbles_inside",
@@ -112,7 +118,7 @@
      "sound": "glass clink",
      "camera": "close two-shot",
      "beat": "payoff",
-     "shot": null
+     "shot": "clink"
     },
     {
      "id": "crown_land",
@@ -869,6 +875,18 @@
    "bar",
    "pouch",
    "box"
+  ],
+  "pour": [
+   "bar",
+   "pouch",
+   "box",
+   "drink"
+  ],
+  "clink": [
+   "bar",
+   "pouch",
+   "box",
+   "drink"
   ]
  }
 }

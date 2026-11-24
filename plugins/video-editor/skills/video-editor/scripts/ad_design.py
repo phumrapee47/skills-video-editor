@@ -33,11 +33,12 @@ MOVES = {   # size: what the frame shows; sig: a signature move
     "whip_in":     {"size": "medium", "sig": True, "says": "whips in from the side and lands on the product"},
     "push_tilt":   {"size": "close", "sig": False, "says": "pushes in and tilts down onto the top"},
 }
-NATIVE_SIZE = {"crown": "medium", "split": "wide", "drops": "macro", "toppop": "close", "open": "close", "zerog": "wide", "hero_low": "medium",
+NATIVE_SIZE = {"pour": "medium", "clink": "medium", "crown": "medium", "split": "wide", "drops": "macro", "toppop": "close", "open": "close", "zerog": "wide", "hero_low": "medium",
                "hero": "medium", "macro": "macro", "burst": "wide", "reveal": "medium", "trio": "wide", "twist": "close",
                "tear": "medium", "snap": "close"}
 ALLOWED = {  # moves that keep each shot's action readable (the first is its own staging)
     "crown": ["native", "low_hero", "dolly_in", "orbit"],
+    "pour": ["native", "dolly_in", "truck"], "clink": ["native", "dolly_in", "orbit"],
     "split": ["native", "dolly_in", "crane_down", "spiral", "low_hero"], "drops": ["native", "macro_slide", "rack_focus"],
     "toppop": ["native", "top_down"], "open": ["native", "push_tilt"], "zerog": ["native", "orbit", "dolly_zoom", "spiral", "dolly_in"],
     "hero_low": ["native", "low_hero", "orbit", "crane_down", "dolly_out"], "hero": ["native", "orbit", "truck", "dolly_zoom"],
@@ -63,6 +64,9 @@ BACKGROUNDS = {"gradient_bokeh": "soft light blobs drift across the wall, bokeh 
                "neon_grid": "a glowing grid floor, neon strips slide across the wall",
                "window_light": "window-frame shadows slide slowly across a soft white wall",
                "water": "still water: a dark mirror floor, slow ripple rings from the product, haze at the horizon (perfume look)",
+               "hdri:beach": "a tabletop at a sunny beach, the sea blurred behind (CC0 HDRI, hdri.py)",
+               "hdri:garden": "a stone tabletop in a green garden, softly blurred", "hdri:interior": "a dark wood table by a window, warm room",
+               "hdri:bar": "a dark marble bar top, a warm lounge behind",
                "plain": "the colour set, no movement"}
 DECOR = {"droplets": "clear droplets float in front of and behind the product (out of focus near the lens)",
          "gold_dust": "gold motes drift in the light", "light_specks": "small glowing specks drift", "soft_dust": "soft white dust drifts",
