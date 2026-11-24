@@ -88,3 +88,7 @@ skill (as for the LUMA v4 demo); `ad3d-molto-bar-snap` uses the skill's built-in
 voiceover in `ad3d-luma-performance` and `ad3d-luma-crown` is a Microsoft Edge neural text-to-speech voice
 (en-US-AndrewNeural, via edge-tts). Licence: CC BY 4.0.
 - Music: "Happy Alley" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License (LUMA videos); "Cruising for Goblins" Kevin MacLeod (incompetech.com), same licence (`ad3d-volt-tech`); "Sanctum" by Scott Buckley (www.scottbuckley.com.au), released under Creative Commons Attribution 4.0 (`ad3d-molto-bar-snap`); https://creativecommons.org/licenses/by/4.0/
+- 1.16 callout videos (`ad3d-callouts-*`): "Happy Alley" Kevin MacLeod (LUMA, with the edge-tts voiceover as above);
+  "sb passage" by Scott Buckley (www.scottbuckley.com.au), released under Creative Commons Attribution 4.0 (MOLTO);
+  "Blipotron" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License (VOLT).
+  Callout text in Mali SemiBold, Kanit and Playfair Display (SIL Open Font License, bundled in `assets/fonts`).

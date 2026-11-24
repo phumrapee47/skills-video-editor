@@ -88,6 +88,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - **Light and finish per mood**: a light rig per family (fresh high-key, luxury gold rims and a streak, tech neon rims, clean big soft top light) and a finishing pass on every render and storyboard still (highlight glow, lens fringe, vignette, grain, grade); brushed aluminium, bare-metal areas on can labels (`--label-metal auto`), embossed bars; music-led mixes are glued before loudness normalisation so dense tracks still reach -14 LUFS
 - **Ads that sell**: a `performance` structure (hook, benefit, proof, demo, offer, call to action - also on the hero shot) or a `brand` film; an AI voiceover that says the brand early (edge-tts, Thai or English), a sonic logo made from the brand name, the brand kit's fonts and logo, callouts that point at the 3D product where there is room; an ABCD check at the gates (product and hook by 3 s, brand seen and said by 5 s, calls to action, readable text, works muted); hook variants for testing (`ad_pipeline.py variants`)
 - **The cut and liquids**: the fruit cut shows a steel blade and a seam of light running down the skin, juice beads well up along it, juice films stretch between the halves and tear, mist and pulp fly, the camera jolts on the hit; a `crown` shot drops the product into its own drink (crown splash that frames the label, ripple rings, milk / coffee / juice colours); a seamless studio sweep instead of a floor and a wall, and a contact shadow under hovering products; the brief can pick the shots (`board`)
+- **Callouts designed per mood**: they point at real features of the product (logo, small print, top, base) and follow them frame by frame; a hand-drawn arrow with handwriting (fresh, Thai + Latin), a hairline ring with serif italics (luxury), corner brackets with a glowing leader (tech) or a dot (clean); marker, line, then text, one after another; above the product when its sides are full
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -142,8 +143,9 @@ not shown.
 | 1.13 | light per mood, finishing, materials, loudness for music-led ads | [▶ VOLT, tech mood](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-volt-tech.mp4); on a dense music-led test ad (not shown) the loudness glue lifted -16.8 to -15.3 LUFS (pass) |
 | 1.14 | performance structure, AI voiceover, sonic logo, ABCD check, hook variants | ABCD check all PASS · [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4) |
 | 1.15 | the user: the cut and the callouts looked "too easy" -> study of studio work -> blade, seam of light, juice films, crown splash, seamless set | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
+| 1.16 | callouts that point at real features and follow them; four looks by mood; above the product when its sides are full; Mali handwriting font | [▶ hand (LUMA)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4) · [▶ hairline (MOLTO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4) · [▶ tech (VOLT)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4) |
 
-Regression tests grew from 10 (1.4) to 32 (1.15); GitHub Actions runs them on every push (Blender tests skip there).
+Regression tests grew from 10 (1.4) to 33 (1.16); GitHub Actions runs them on every push (Blender tests skip there).
 
 ### Demos
 
@@ -250,6 +252,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - **แสงและการตกแต่งภาพตามอารมณ์**: ชุดไฟของแต่ละตระกูล (fresh สว่าง, luxury ไฟขอบทองกับเส้นสะท้อน, tech ไฟขอบนีออน, clean ไฟนุ่มจากด้านบน) และขั้นตกแต่งภาพสุดท้ายทุกช็อตและภาพบอร์ด (glow, ขอบสีเลนส์, vignette, grain, ปรับสี) อะลูมิเนียมลายขัด ส่วนโลหะบนฉลากกระป๋อง (`--label-metal auto`) ขนมแท่งโลโก้นูน และบีบเสียงเพลงก่อนปรับระดับให้ถึง -14 LUFS
 - **โฆษณาที่ขายของ**: โครงแบบ `performance` (hook, ประโยชน์, หลักฐาน, สาธิต, ข้อเสนอ, CTA ทั้งกลางคลิปและท้าย) หรือแบบ `brand` เสียงพากย์ AI ที่พูดชื่อแบรนด์ตั้งแต่ต้น (edge-tts ไทย/อังกฤษ) sonic logo จากชื่อแบรนด์ ใช้ฟอนต์และโลโก้จาก brand kit ป้ายชี้สินค้า 3D เมื่อมีที่ว่าง ตรวจ ABCD ที่ขั้นอนุมัติ (สินค้าและ hook ใน 3 วิ, เห็นและได้ยินแบรนด์ใน 5 วิ, CTA, ข้อความอ่านทัน, ปิดเสียงก็เข้าใจ) และทำ hook หลายแบบไว้ทดสอบ (`ad_pipeline.py variants`)
 - **รอยผ่าและของเหลว**: ผ่าผลไม้เห็นใบมีดเหล็กและเส้นแสงวิ่งตามรอยบนผิว น้ำผลไม้ผุดตามรอยตัด แผ่นน้ำยืดระหว่างสองซีกแล้วขาด ละอองและเนื้อกระเด็น กล้องกระตุกตอนกระทบ; ช็อต `crown` สินค้าตกลงในเครื่องดื่มของตัวเอง มงกุฎน้ำล้อมโดยไม่บังฉลาก วงคลื่นกระจาย สีตามเครื่องดื่ม (นม กาแฟ น้ำผลไม้); ฉากโค้งต่อเนื่องไม่มีเส้นมุมห้อง และเงาใต้สินค้าที่ลอยอยู่; เลือกช็อตเองได้ใน brief (`board`)
+- **ป้ายชี้ออกแบบตามอารมณ์**: ชี้ที่จุดจริงบนสินค้า (โลโก้ ตัวหนังสือเล็ก ฝา ฐาน) และตามจุดนั้นทุกเฟรม ลูกศรวาดมือกับตัวหนังสือลายมือ (fresh ไทยและอังกฤษ) วงแหวนเส้นบางกับตัวเซริฟเอียง (luxury) กรอบมุมกับเส้นเรือง (tech) หรือจุด (clean) ขึ้นทีละส่วน: จุด เส้น ตัวหนังสือ ถ้าข้างสินค้าไม่มีที่ว่าง ป้ายย้ายไปอยู่เหนือสินค้า
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
@@ -303,8 +306,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 | 1.13 | แสงตามอารมณ์ การ finish วัสดุ ความดังของโฆษณาที่เน้นเพลง | [▶ VOLT อารมณ์ tech](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-volt-tech.mp4) โฆษณาทดสอบที่เพลงแน่น (ไม่ได้ลงคลิป) ตัวช่วยอัดเสียงยกจาก -16.8 เป็น -15.3 LUFS (ผ่าน) |
 | 1.14 | โครงแบบ performance เสียงพากย์ AI sonic logo ตรวจ ABCD hook หลายแบบ | ABCD ผ่านทุกข้อ · [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4) |
 | 1.15 | ผู้ใช้: รอยผ่าและป้ายชี้ "ทำง่ายเกินไป" -> ศึกษางานสตูดิโอ -> ใบมีด เส้นแสง แผ่นน้ำ มงกุฎน้ำ ฉากโค้งต่อเนื่อง | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
+| 1.16 | ป้ายชี้ชี้ที่จุดจริงบนสินค้าและตามทุกเฟรม 4 ลุคตามอารมณ์ วางเหนือสินค้าเมื่อข้างเต็ม ฟอนต์ลายมือ Mali | [▶ ลายมือ (LUMA)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4) · [▶ เส้นบาง (MOLTO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4) · [▶ tech (VOLT)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4) |
 
-เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 32 (1.15) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
+เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 33 (1.16) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
 
 ### เดโม
 
@@ -390,3 +394,15 @@ Frames from each result video; click a title to play it. Credits: [`demos/CREDIT
 **[Blade, juice films, crown splash · ใบมีด แผ่นน้ำ มงกุฎน้ำ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4)** · 1.15 · 16 s
 
 ![ad3d-luma-crown](docs/history/ad3d-luma-crown.jpg)
+
+**[Callouts, hand look: arrows and handwriting, English + Thai · ป้ายชี้ลายมือ อังกฤษและไทย](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4)** · 1.16 · 16 s
+
+![ad3d-callouts-hand-luma](docs/history/ad3d-callouts-hand-luma.jpg)
+
+**[Callouts, hairline look above a bar · ป้ายชี้เส้นบางเหนือขนมแท่ง](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4)** · 1.16 · 10 s
+
+![ad3d-callouts-hairline-molto](docs/history/ad3d-callouts-hairline-molto.jpg)
+
+**[Callouts, tech look · ป้ายชี้แบบ tech](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4)** · 1.16 · 11 s
+
+![ad3d-callouts-tech-volt](docs/history/ad3d-callouts-tech-volt.jpg)

@@ -289,3 +289,44 @@ the cutter or its trace is seen, the fruit reacts and the camera feels the hit.
 - Films that tear by the gap tear in the first real-speed frames (the gap is 0.6 two frames after the cut): tear them
   by frame, inside the slow motion.
 - The brief's `label_front` was never read (only the flag): the hero showed the label's seam. Fixed in `from_brief`.
+
+## 1.16: callouts designed per mood, pointing at real features (`scripts/callouts.py`)
+The user judged the old callouts (tiny spaced caps, a dot and a straight line, stuck at the bounding-box edge) too easy.
+Studio callouts point at a real feature, are designed for the mood and animate in order.
+- **Feature tracks** (`blender_product_ad.feature_tracks`): rays cast at the settled product's own surface (in its
+  local space; its front is -x at rotation 90) find the `logo` (55 % of the height, `product.json` `logo_v`
+  overrides), `detail` (27 %, the small print), `top` (95 %, rim or cap) and `base`; every second frame each is
+  projected to the screen with a facing value (surface normal vs the camera) -> `<shot>_anchors.json` `tracks`.
+- **Placement** (`ad_pipeline.place_callouts`): the shot with the most room beside the settled product (not the
+  hook), the roomier side; each text points at the next feature that faces the lens (> 0.35) all through its window
+  (copy items may be `{"text", "at": "detail", "look": "tech"}`); they enter one after another (0.35-0.5 s apart,
+  tighter on short shots) and leave together 0.15 s before the cut; the shelves sit just outside the product, above
+  their points, at least 0.085 of the height apart. A callout whose feature is still turning toward the lens waits
+  for it (facing > 0.15 to the end) instead of being dropped.
+- **Above the product** when both sides are full (a 9:16 bar or a wide pack fills the width): a vertical leader up
+  from the feature to a shelf, stacked upward in copy order, kept below the title band (y >= 0.44); the next shelf
+  turns the other way so leaders never cross a shelf. No room anywhere: no callouts rather than squeezed ones.
+- Tested on LUMA (fresh -> hand, English + Thai), VOLT (tech) and MOLTO (luxury, bar -> above).
+- **Looks** (mood family -> look; brief `callout_style` overrides):
+  `dot` (clean: accent dot pops, thin straight leader, medium sans), `hairline` (luxury: a ring grows round the
+  feature, hairline elbow leader, serif italic wiped in slowly), `tech` (corner brackets close in with a glow, glowing
+  elbow leader with an end tick, spaced caps scanned in behind a bright bar), `hand` (fresh/playful: a hand-drawn
+  curved arrow drawn from the words to the feature with an arrowhead, handwritten text - Mali SemiBold, Thai + Latin,
+  SIL OFL, bundled in `assets/fonts` - written left to right). The text sits on a shelf at the end of the leader and
+  is revealed from the knee; it wraps to two lines before it shrinks (never below 1.9 % of the height).
+- The tip follows the feature every frame; the label stays still to be read. Everything is libass (Thai is shaped
+  there).
+
+### Pitfalls found building 1.16
+- libass drops zero-area drawings: a line drawn as a path there and back (with `\bord`) renders nothing. Lines are
+  real outline polygons (`callouts.stroke`, mitred joins, round caps); libass fills non-zero, so a ring is an outer
+  circle plus a reversed inner one, and overlapping parts must share a winding.
+- Drawings at `\an7\pos(0,0)` land at their absolute coordinates; `\p3` gives quarter-pixel precision.
+- A vertex band cannot find the logo height on a lathe can (no vertex rings on the straight wall): ray-cast the
+  surface (BVH) instead; the hit normal also gives the facing.
+- Letter spacing (`\fsp`) on Thai pulls tone marks off their letters: spaced caps only for Latin text.
+- libass's own line gap is loose (very loose in Mali): each line is placed by hand.
+- Mali and Playfair Italic have small x-heights: at the sans size they read smaller; hand 4.2 %, hairline 3.4 % of
+  the height.
+- The feature tracker must use a wrapper object when there is one (`bar_front`): the inner bar's own -x is its end,
+  so every point came out on the bar's end, turned away.

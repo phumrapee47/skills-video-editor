@@ -540,7 +540,7 @@ def anchors(sc, sid, spec, n):
     """Where the product is on screen (0-1, top-left origin) at a few frames: its label front, top, left and right
     edges. ad_pipeline points callouts at these, so a label line lands on the product, not on the set."""
     from bpy_extras.object_utils import world_to_camera_view
-    root = next((bpy.data.objects[k] for k in ("can", "bag", "bar", "bar_front", "can_front") if k in bpy.data.objects), None)
+    root = next((bpy.data.objects[k] for k in ("bar_front", "can_front", "can", "bag", "bar") if k in bpy.data.objects), None)   # a wrapper first: it holds the front
     if not root or not sc.camera: return
     meshes = [o for o in [root] + list(root.children_recursive) if o.type == "MESH" and o.visible_get()]
     out = {}
@@ -555,7 +555,48 @@ def anchors(sc, sid, spec, n):
         def scr(p): v = world_to_camera_view(sc, sc.camera, p); return [round(v.x, 4), round(1 - v.y, 4), round(v.z, 3)]
         out[str(fr)] = {"label": scr(Vector((c.x, lo.y, c.z))), "top": scr(Vector((c.x, c.y, hi.z))), "left": scr(Vector((lo.x, lo.y, c.z))),
                         "right": scr(Vector((hi.x, lo.y, c.z))), "low": scr(Vector((c.x, lo.y, lo.z + (hi.z - lo.z) * 0.3)))}
+    out["tracks"] = feature_tracks(sc, root, meshes, n)                    # callouts point at these, frame by frame
     json.dump(out, open(os.path.join(a.out, f"{sid}_anchors.json"), "w"), indent=1)
+
+
+FEATURES = {"logo": (0.55, None), "detail": (0.27, None), "top": (0.95, None), "base": (0.06, None)}   # height on the product
+
+
+def feature_tracks(sc, root, meshes, n, every=2):
+    """Named points ON the product (its front faces -x of the root at rotation 90, the lens): the logo, the lower
+    label (detail), the top rim or cap, the base. Found by casting rays at the settled product's own surface (in its
+    local space), then projected every `every` frames: [x, y from the top, facing], facing = how squarely the surface
+    there turns to the camera (callouts skip points turned away)."""
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils.bvhtree import BVHTree
+    sc.frame_set(n); dg = bpy.context.evaluated_depsgraph_get(); inv = root.matrix_world.inverted(); V, F = [], []
+    for o in meshes:
+        oe = o.evaluated_get(dg)
+        try: me = oe.to_mesh()
+        except RuntimeError: continue
+        m = inv @ oe.matrix_world; off = len(V)
+        V += [m @ v.co for v in me.vertices]; F += [[off + k for k in pl.vertices] for pl in me.polygons]; oe.to_mesh_clear()
+    if len(V) < 8 or not F: return {}
+    bvh = BVHTree.FromPolygons(V, F)
+    x0, z0, z1 = min(v.x for v in V), min(v.z for v in V), max(v.z for v in V); y0, y1 = min(v.y for v in V), max(v.y for v in V)
+    yc, hgt = (y0 + y1) / 2, z1 - z0
+    logo_v = (PRODUCT or {}).get("logo_v", FEATURES["logo"][0])
+    pts = {}
+    for name, (zf, _) in FEATURES.items():
+        z = z0 + (logo_v if name == "logo" else zf) * hgt
+        loc, nrm, _i, _d = bvh.ray_cast(Vector((x0 - 1.0, yc, z)), Vector((1, 0, 0)))
+        if loc is None: continue
+        if nrm.x > 0: nrm = -nrm                                           # the side facing the ray
+        pts[name] = (loc, nrm.normalized())
+    tracks = {"frames": []}; tracks.update({k: [] for k in pts})
+    frames = list(range(1, n + 1, every)) + ([n] if (n - 1) % every else [])
+    for fr in frames:
+        sc.frame_set(fr); M = root.matrix_world; R = M.to_3x3(); cam = sc.camera.matrix_world.translation
+        tracks["frames"].append(fr)
+        for k, (p_, nrm) in pts.items():
+            w = M @ p_; nw = (R @ nrm).normalized(); v = world_to_camera_view(sc, sc.camera, w)
+            tracks[k].append([round(v.x, 4), round(1 - v.y, 4), round(nw.dot((cam - w).normalized()), 2)])
+    return tracks
 
 
 EVENT = {"crown": 24, "twist": 24, "tear": 22, "snap": 24, "split": 30, "open": 22, "toppop": 22, "drops": 18, "burst": 2}   # default frame of each shot's physical event

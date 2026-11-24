@@ -68,12 +68,13 @@ literature says, and what the skill must do. Statuses: DONE / PARTIAL / TODO.
 
 **The callouts** (now: spaced caps, dot, straight line, stuck at an edge)
 - They point at a real feature (the logo, the fruit pieces, the cap, the "zero sugar" line), not at the bounding box
-  edge. TODO: feature anchors (Blender empties on the product: logo, top, ingredient), tracked every frame.
+  edge. DONE 1.16: feature tracks (logo, detail, top, base) ray-cast on the product, projected every 2nd frame.
 - They are designed per mood: fresh/playful = hand-drawn curved arrow drawn on + handwritten text; luxury = hairline
   elbow leader, small serif caps, a ring marker, a slow wipe reveal; tech = elbow leader with corner brackets and a
   glow, a scan line; clean = a dot and a short line, gentle fade. TODO: callout style kit; needs a handwriting font
-  with Thai (OFL, e.g. Mali or Itim from Google Fonts - ask before downloading).
-- They animate in order: marker, line draws, text reveals; they leave before the next beat. PARTIAL (line grows).
+  with Thai (OFL, e.g. Mali or Itim from Google Fonts - ask before downloading). DONE 1.16: `callouts.py` looks dot,
+  hairline, tech, hand; Mali SemiBold bundled (the user approved the download).
+- They animate in order: marker, line draws, text reveals; they leave before the next beat. DONE 1.16.
 
 ## 4. Other gaps the references expose
 | Craft point | Skill now | To do |

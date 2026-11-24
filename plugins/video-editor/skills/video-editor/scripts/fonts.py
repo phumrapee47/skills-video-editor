@@ -5,6 +5,8 @@ them), falling back to system fonts. libass (titles, captions, subtitles) finds 
 Roles:  sans          Kanit Bold          (Thai + Latin; fallback Leelawadee UI Bold, then DejaVu Sans Bold)
         serif_italic  Playfair Display Italic (fallback Georgia Italic)  - key words in mixed-type captions
         heavy         Anton               (fallback Impact)               - huge words behind the person
+        sans_semibold Kanit SemiBold                                      - callout text (clean, Thai in luxury)
+        hand          Mali SemiBold       (Thai + Latin handwriting)      - fresh/playful callouts
 Set VIDEO_EDITOR_FONTS=system to prefer the system fonts (the look of edits made before 1.4).
 Thai text must be shaped: libass does it; Pillow only with raqm, see thai_text.py.
 """
@@ -20,6 +22,9 @@ ROLES = {
                      ("DejaVu Serif", pathlib.Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf"))],
     "heavy": [("Anton", FONT_DIR / "Anton-Regular.ttf"), ("Impact", WIN / "impact.ttf"),
               ("DejaVu Sans", pathlib.Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))],
+    "sans_semibold": [("Kanit SemiBold", FONT_DIR / "Kanit-SemiBold.ttf"), ("Leelawadee UI", WIN / "LeelawUI.ttf"),
+                      ("DejaVu Sans", pathlib.Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))],
+    "hand": [("Mali SemiBold", FONT_DIR / "Mali-SemiBold.ttf"), ("Kanit SemiBold", FONT_DIR / "Kanit-SemiBold.ttf")],
 }
 
 

@@ -563,6 +563,42 @@ def ad_sells_structure_abcd(tmp):
     assert np.allclose(a1, a2) and not np.allclose(a1, make_sfx.sonic_logo("VOLT", "fresh"))
 
 
+@test
+def callout_looks_track_and_reveal(tmp):
+    """1.16 callouts.py: each look (dot, hairline, tech, hand) draws its marker on the feature and its text on the
+    shelf; the tip follows a moving track while the label stays put; the text is revealed (clip starts closed); Thai
+    is never letter-spaced (spaced caps would pull the tone marks off their letters); strokes are real polygons."""
+    import numpy as np, callouts as C
+    from edit_plan import titles_ass, ass_fontsdir
+    poly = C.stroke([(0, 0), (100, 0), (100, 80)], 6); assert len(poly) >= 6 and abs(C._area(poly)) > 6 * 150, poly
+    assert abs(sum(np.hypot(*np.subtract(b, a)) for a, b in zip(C.partial([(0, 0), (100, 0)], 0.25), C.partial([(0, 0), (100, 0)], 0.25)[1:])) - 25) < 0.5
+    W, H = 540, 960; tr = [[0.0, 0.40, 0.55], [2.0, 0.56, 0.55]]          # the feature slides right
+    def frame(look, t, text="real yuzu"):
+        it = {"text": text, "style": "callout", "look": look, "track": tr, "side": "right", "label": [0.62, 0.40], "start": 0.0, "end": 2.0, "fps": 24}
+        titles_ass([it], W, H, tmp / f"{look}.ass")
+        out = tmp / f"{look}_{t}.png"
+        ff("-f", "lavfi", "-i", f"color=black:s={W}x{H}:d=2", "-ss", t, "-vf", f"ass='{(tmp / f'{look}.ass').as_posix().replace(':', chr(92) + ':')}'{ass_fontsdir()}",
+           "-frames:v", "1", out)
+        from PIL import Image
+        return np.asarray(Image.open(out).convert("L")).astype(int), (tmp / f"{look}.ass").read_text(encoding="utf-8")
+    for look in ("dot", "hairline", "tech", "hand"):
+        a, ass = frame(look, 1.2)
+        tx, ty = 0.40 + (0.56 - 0.40) * 0.6, 0.55
+        near = a[int(ty * H) - 30:int(ty * H) + 30, int(tx * W) - 30:int(tx * W) + 30]
+        assert near.max() > 120, (look, "nothing at the feature")       # marker / arrowhead on the moving tip
+        shelf = a[int(0.40 * H) - 70:int(0.40 * H) + 40, int(0.62 * W):int(0.84 * W)]
+        assert (shelf > 150).sum() > 150, (look, "no text by the shelf")
+        assert "\\clip(" in ass and "\\t(0," in ass, look                 # the reveal
+        b, _ = frame(look, 0.3)
+        a_ = frame(look, 1.9)[0]
+        def cx(img):                                                     # where the lit pixels near the tip row are
+            band = img[int(ty * H) - 25:int(ty * H) + 25, : int(0.62 * W) - 10]; xs = np.nonzero(band > 120)[1]
+            return xs.mean() if len(xs) else None
+        if look != "hand": assert cx(a_) is not None and cx(a) is not None and cx(a_) > cx(a) + 15, (look, cx(a), cx(a_))
+    _, ass = frame("tech", 1.2, text="ไม่มีน้ำตาล")
+    assert "\\fsp0" in ass and "\\fsp0" in [x for x in ass.splitlines() if "ไม่มีน้ำตาล" in x][0], "Thai must not be letter-spaced"
+
+
 def blender_exe():
     import glob, os, shutil
     return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)

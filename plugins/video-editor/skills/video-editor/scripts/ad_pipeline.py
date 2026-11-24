@@ -353,24 +353,85 @@ def anchors_of(frames_dir, sid):
     return json.load(open(f)) if f.exists() else None
 
 
+CALLOUT_LOOK = {"fresh": "hand", "luxury": "hairline", "tech": "tech", "clean": "dot"}   # callouts.py looks per mood
+FEATURE_ORDER = ["logo", "detail", "top", "base"]                          # what a callout points at, in this order
+ABOVE_MIN_Y = 0.44                                                         # callouts placed above the product stay below the titles
+
+
 def place_callouts(st, sp, starts, frames_dir):
-    """Labels pointing at the product. A 9:16 hero often fills the width, so the callouts go to the shot (not the
-    hook) with the most free room beside the product once it has settled, both on the roomier side, stacked; the
-    right edge stops at the apps' button column (0.84)."""
-    shots = st["shots"]; texts = next((s["callouts"] for s in shots if s.get("callouts")), None)
-    if not texts or not frames_dir: return []
-    fps = st["fps"]; best = None
+    """Callouts that point at real features of the product (Blender's per-frame tracks: logo, detail, top, base) on
+    the shot (not the hook) with the most free room beside the settled product, on the roomier side; the right edge
+    stops at the apps' button column (0.84). Each points at a feature that faces the lens all through its window,
+    they enter one after another and leave together before the cut; the look follows the mood family (brief
+    "callout_style" overrides). Copy items may be {"text", "at": "<feature>", "look"}."""
+    shots = st["shots"]; raw = next((s["callouts"] for s in shots if s.get("callouts")), None)
+    if not raw or not frames_dir: return []
+    items = [x if isinstance(x, dict) else {"text": str(x)} for x in raw][:3]
+    fps = st["fps"]; best = above = None
     for i, (s, x) in enumerate(zip(shots, sp)):
         an = anchors_of(frames_dir, s["id"])
         if not an or s.get("role") == "hook" or i == 0: continue
-        last = an[str(max(map(int, an)))]; lx, rx = last["left"][0], last["right"][0]
+        fr_keys = [k for k in an if k.isdigit()]
+        if not fr_keys: continue
+        last = an[str(max(map(int, fr_keys)))]; lx, rx = last["left"][0], last["right"][0]
         room_l, room_r = lx - 0.05, 0.84 - rx; side = "left" if room_l >= room_r else "right"; room = max(room_l, room_r)
-        if 0 < lx < rx < 1 and (best is None or room > best[0]): best = (room, i, side, last)
-    if not best or best[0] < 0.2: return []                                 # nowhere readable: no callouts rather than squeezed ones
-    room, i, side, last = best; x = sp[i]; t0 = starts[i]; base = x["base"] / fps
-    pt_x = last["left" if side == "left" else "right"][0]; yc = min(0.66, max(0.32, last["label"][1]))
-    return [{"text": txt, "style": "callout", "at": [round(pt_x, 3), round(yc + (k - 0.5) * 0.09, 3)], "side": side,
-             "size": 42, "length": 0.05, "start": round(t0 + base * 0.45 + 0.15 * k, 2), "end": round(t0 + base - 0.15, 2)} for k, txt in enumerate(texts[:2])]
+        if 0 < lx < rx < 1 and (best is None or room > best[0]): best = (room, i, side, last, an)
+        top_room = last.get("top", [0, 0])[1] - ABOVE_MIN_Y                  # free space between the title band and the product
+        if 0 < lx < rx < 1 and top_room > 0.1 and (above is None or top_room > above[0]): above = (top_room, i, "above", last, an)
+    if not best or best[0] < 0.2:                                           # sides full (a 9:16 hero fills the width): above it,
+        if not above: return []                                             # or no callouts rather than squeezed ones
+        best = above
+    room, i, side, last, an = best; x = sp[i]; t0 = starts[i]; base = x["base"]
+    look = (st.get("brief_file") or {}).get("callout_style") or CALLOUT_LOOK.get(st.get("brief"), "dot")
+    tr = an.get("tracks") or {}; tsec = lambda fr: t0 + (fr - 1) / fps
+    gap = {"hairline": 0.5, "hand": 0.45}.get(look, 0.35); end = round(t0 + base / fps - 0.15, 2)
+    first = t0 + base * 0.45 / fps
+    gap = max(0.12, min(gap, (end - first - 0.8) / max(1, len(items) - 1)))   # a short shot: tighter stagger, all still readable
+    out, used = [], set()
+    for k, it in enumerate(items):
+        start = round(t0 + base * 0.45 / fps + gap * k, 2)
+        if end - start < 0.6: break
+        c = {"text": it["text"], "style": "callout", "look": it.get("look", look), "side": side, "start": start, "end": end, "fps": fps}
+        if side == "above": c["side"] = "right"                              # set per label below
+        if tr.get("frames"):
+            win = [j for j, fr in enumerate(tr["frames"]) if start - 0.1 <= tsec(fr) <= end + 0.1]
+            cand = [it["at"]] if it.get("at") in tr else [f for f in FEATURE_ORDER if f in tr and f not in used]
+            def ready(f):                                                  # first moment the feature faces the lens (0.15: seen,
+                ok = [tr[f][j][2] > 0.15 for j in win]                       # if at a slant) and keeps facing it to the end
+                for q in range(len(ok)):
+                    if all(ok[q:]): return q
+                return None
+            got = [(ready(f), n_, f) for n_, f in enumerate(cand) if win]
+            got = [g_ for g_ in got if g_[0] is not None and end - tsec(tr["frames"][win[g_[0]]]) >= 0.6]
+            if not got: continue                                           # nothing of the product faces the lens for it
+            q, _, feat = min(got); win = win[q:]                           # wait for it rather than skip it
+            c["start"] = round(max(start, tsec(tr["frames"][win[0]])), 2)
+            used.add(feat); c["feature"] = feat
+            c["track"] = [[round(tsec(tr["frames"][j]), 3), tr[feat][j][0], tr[feat][j][1]] for j in win]
+        else:                                                              # older anchors: a still point at the edge
+            pt_x = last["left" if side == "left" else "right"][0]; yc = min(0.66, max(0.32, last["label"][1]))
+            c["at"] = [round(pt_x, 3), round(yc + (k - 0.5) * 0.09, 3)]
+        out.append(c)
+    mid = lambda c: (c["track"][len(c["track"]) // 2][2] if c.get("track") else c["at"][1])
+    midx = lambda c: (c["track"][len(c["track"]) // 2][1] if c.get("track") else c["at"][0])
+    if side == "above":                                                     # a vertical leader up to a shelf over the product
+        y = last["top"][1] - 0.05
+        for k, c in enumerate(out):                                         # copy order: the first line gets the space;
+            tx = midx(c); right = (tx < 0.5) if k == 0 else not out[0]["side"] == "right"   # the next shelf turns the other way
+            kx = min(0.8, max(0.16, tx + (0.025 if right else -0.025)))      # so leaders never cross a shelf
+            c["side"] = "right" if right else "left"
+            c["label"] = [round(kx, 3), round(max(ABOVE_MIN_Y, y), 3)]; y -= 0.085
+        return [c for c in out if c["label"][1] > ABOVE_MIN_Y - 0.001 or len(out) == 1]
+    # the shelves: just outside the product, above their points, stacked so they never overlap
+    edge = last["right"][0] if side == "right" else last["left"][0]
+    kx = round(min(0.70, edge + 0.04), 3) if side == "right" else round(max(0.30, edge - 0.04), 3)
+    lift = 0.09 if look == "hand" else 0.06
+    ys = sorted(range(len(out)), key=lambda n_: mid(out[n_])); prev = None
+    for n_ in ys:
+        ly = min(0.76, max(0.16, mid(out[n_]) - lift))
+        if prev is not None and ly < prev + 0.085: ly = prev + 0.085
+        out[n_]["label"] = [kx, round(ly, 3)]; prev = ly
+    return out
 
 
 def layout(st, d, frames_dir=None):

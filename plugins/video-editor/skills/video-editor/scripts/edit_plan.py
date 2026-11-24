@@ -120,24 +120,9 @@ def titles_ass(titles, W, H, path):
         if it.get("color"): r, g, b = it["color"]; base = "\\c&H%02X%02X%02X&" % (b, g, r)
         else: base = ""
         st = it.get("style")
-        if st == "callout":                                          # ---- ad: thin line from a point on the product to a label
-            px_, py_ = it.get("at", [0.5, 0.5]); X0, Y0 = round(W * px_), round(H * py_)
-            right = it.get("side", "right" if px_ < 0.6 else "left") == "right"
-            L = round(W * float(it.get("length", 0.14))); sz = int(it.get("size", round(H * (0.032 if H > W else 0.045))))
-            label_w = text_width(str(it["text"]).upper(), sz) + len(str(it["text"])) * max(2, sz // 4)
-            limit_r = W * (0.84 if H > W else 0.97)                     # vertical: clear of the apps' button column
-            if "side" not in it:                                       # the label goes where it fits
-                if right and X0 + L + label_w > limit_r: right = False
-                elif not right and X0 - L - label_w < W * 0.03: right = True
-            X1 = X0 + (L if right else -L); Y1 = Y0 - round(H * 0.05); lw = max(2, round(min(W, H) / 400))
-            if (right and X1 + label_w > limit_r) or (not right and X1 - label_w < W * 0.03):   # still too long: smaller type
-                room = (limit_r - X1) if right else (X1 - W * 0.03); sz = max(12, int(sz * room / label_w))
-            dot = f"m 0 {-lw * 3} b {lw * 3} {-lw * 3} {lw * 3} {lw * 3} 0 {lw * 3} b {-lw * 3} {lw * 3} {-lw * 3} {-lw * 3} 0 {-lw * 3}"
-            ev(1, s, e, "S", f"\\an7\\pos({X0},{Y0})\\1c&H{bgr(accent)}&\\bord1\\3c&H000000&\\p1\\fscx0\\fscy0\\t(0,180,\\fscx100\\fscy100)\\fad(0,{fi})", dot)
-            seg = (f"m 0 0 l {X1 - X0} {Y1 - Y0} l {X1 - X0} {Y1 - Y0 + lw} l 0 {lw}")   # the slanted leg; grows from the dot
-            ev(1, s + 0.08, e, "S", f"\\an7\\pos({X0},{Y0})\\1c&HFFFFFF&\\bord1\\3c&H000000&\\p1\\clip({min(X0, X1) - 2},{min(Y0, Y1) - 4},{min(X0, X1) - 2},{max(Y0, Y1) + 4})\\t(0,260,\\clip({min(X0, X1) - 2},{min(Y0, Y1) - 4},{max(X0, X1) + 2},{max(Y0, Y1) + 4}))\\fad(0,{fi})", seg)
-            tx = X1 + (round(W * 0.01) if right else -round(W * 0.01))
-            ev(1, s + 0.3, e, "T", f"\\an{4 if right else 6}\\pos({tx},{Y1})\\fs{sz}\\fn{SANS}\\fsp{max(2, sz // 4)}\\bord{max(3, ol * 3 // 4)}\\shad{sh}\\fad(200,{fi}){base}", ass_text(str(it["text"]).upper(), accent))
+        if st == "callout":                                          # ---- ad: points at a feature of the product (callouts.py)
+            import callouts
+            rows.extend(callouts.events(it, W, H, accent))
             continue
         if st == "echo":                                             # ---- ad (fresh): one huge word repeated, fading copies above/below
             word = str(it["text"]).upper(); n = int(it.get("repeat", 5)); fn = HEAVY if it.get("font", "heavy") == "heavy" else SANS
