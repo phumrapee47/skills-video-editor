@@ -31,7 +31,7 @@ def make_clip(path, dur, color="testsrc2", size="1280x720", speech=None):
     """A test-pattern video with sound: flite speech if available, else a tone that pulses like speech."""
     a = (f"flite=text='{speech}':voice=slt" if speech and has_flite() else
          f"sine=f=220:d={dur},volume='if(lt(mod(t,1),0.6),1,0.05)':eval=frame")
-    ff("-f", "lavfi", "-i", f"{color}=s={size}:r=25:d={dur}", "-f", "lavfi", "-i", a, "-t", dur, "-shortest" if not speech else "-t", dur,
+    ff("-f", "lavfi", "-i", f"{color}=s={size}:r=25:d={dur}", "-f", "lavfi", "-i", a, "-t", dur, *(["-shortest"] if not speech else ["-t", dur]),
        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", path)
 
 
@@ -648,6 +648,50 @@ def blender_drink_water_props(tmp):
     out = r.stdout + r.stderr; row = next((l.split()[1:] for l in out.splitlines() if l.startswith("DRINK")), None)
     assert row, out[-3000:]
     assert row == ["True"] * 7, row
+
+
+@test
+def deliverables_cutdown_stems_prores(tmp):
+    """1.18: a cutdown keeps the hook and the hero, fits its length in whole beats, keeps an event shot's event and
+    only the voiceover lines whose shots stay (6 s: the brand line); captions are valid SRT; stems (voice, sfx, ducked
+    music) sum to the pre-master mix; a .mov output is ProRes 422 HQ with PCM audio; an empty card text adds no title."""
+    import numpy as np, wave, ad_pipeline as AP
+    shots = [{"id": f"s{i}", "type": t, "beats": b, "role": r} for i, (t, b, r) in
+             enumerate([("split", 6, "hook"), ("drops", 4, "benefit"), ("zerog", 4, "proof"), ("open", 4, "demo"), ("hero_low", 6, "name")])]
+    shots[0]["event_beat"] = 2
+    st = {"fps": 24, "music": {"period": 0.5}, "size": "1080x1920", "card": {"text": "Order", "beats": 3}, "shots": shots,
+          "vo": {"lines": {"hook": "Sunshine.", "benefit": "Real yuzu.", "name": "LUMA Yuzu.", "cta": "Order now."}}}
+    c6 = AP.cutdown(st, 6); ids = [s["id"] for s in c6["shots"]]
+    assert ids[0] == "s0" and ids[-1] == "s4", ids
+    assert sum(s["beats"] for s in c6["shots"]) + c6["card"]["beats"] <= round(6 / 0.5), [s["beats"] for s in c6["shots"]]
+    assert c6["shots"][0]["beats"] >= 4 and c6["shots"][0]["event_beat"] == 2, c6["shots"][0]   # the event survives
+    assert list(c6["vo"]["lines"]) == ["name"], c6["vo"]
+    assert c6["shots"][-1].get("cut_in", 0) > 0 and not any(x.get("callouts") for x in c6["shots"]), c6["shots"][-1]   # hero's end, no callouts
+    c15 = AP.cutdown(st, 10); r15 = [s["role"] for s in c15["shots"]]                      # a 10 s cut of a 13.5 s ad
+    assert r15[0] == "hook" and r15[-1] == "name" and "demo" in r15 and len(r15) < 5, r15
+    assert set(c15["vo"]["lines"]) <= set(r15) | {"cta"}, c15["vo"]
+    AP.srt([{"start": 0.5, "dur": 1.25, "text": "LUMA Yuzu. Two for seventy-nine baht, order on LINE today."}], tmp / "c.srt")
+    t = (tmp / "c.srt").read_text(encoding="utf-8"); assert t.startswith("1\n00:00:00,500 --> 00:00:01,750\n") and t.count("\n") >= 4, t
+    # stems + ProRes + an empty card on a tiny edit
+    make_clip(tmp / "c0.mp4", 3, "testsrc2")
+    ff("-f", "lavfi", "-i", "sine=f=220:d=6", tmp / "music.wav"); ff("-f", "lavfi", "-i", "sine=f=660:d=1.2", tmp / "voice.wav")
+    ff("-f", "lavfi", "-i", "anoisesrc=d=0.3:a=0.5", tmp / "hit.wav")
+    plan = {"output": {"path": "out.mov", "size": [360, 640], "fps": 24, "target": "shorts"}, "stems_dir": "stems",
+            "clips": [{"src": "c0.mp4", "in": 0, "out": 3, "volume_db": -90, "speech": False},
+                      {"card": {"text": ""}, "in": 0, "out": 1.5, "transition": {"type": "fade", "dur": 0.3}}],
+            "audio": [{"src": "music.wav", "role": "music", "start": 0}, {"src": "voice.wav", "role": "voice", "start": 0.5},
+                      {"src": "hit.wav", "role": "sfx", "start": 2.0, "rel_db": -6}], "music_mix": {"gap_db": 0, "under_db": -9}}
+    json.dump(plan, open(tmp / "plan.json", "w"))
+    r = subprocess.run(PY + [SC / "edit_plan.py", tmp / "plan.json", "--no-qa"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stdout[-800:] + r.stderr[-800:]
+    v = probe(tmp / "out.mov", "stream=codec_name,profile,pix_fmt")["streams"]
+    assert v[0]["codec_name"] == "prores" and v[0]["pix_fmt"] == "yuv422p10le" and v[1]["codec_name"] == "pcm_s24le", v
+    def rd(n):
+        with wave.open(str(tmp / "stems" / f"{n}.wav")) as w: return np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(float)
+    parts = rd("voice") + rd("sfx") + rd("music"); mix = rd("mix_premaster")
+    assert np.abs(parts).max() > 1000 and np.abs(parts - mix).max() <= 3, np.abs(parts - mix).max()   # int16 rounding only
+    ass = (tmp / "out.mov.titles.ass").read_text(encoding="utf-8") if (tmp / "out.mov.titles.ass").exists() else ""
+    assert "Dialogue" not in ass, "an empty card must not add a title"
 
 
 def blender_exe():

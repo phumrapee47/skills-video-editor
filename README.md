@@ -90,6 +90,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - **The cut and liquids**: the fruit cut shows a steel blade and a seam of light running down the skin, juice beads well up along it, juice films stretch between the halves and tear, mist and pulp fly, the camera jolts on the hit; a `crown` shot drops the product into its own drink (crown splash that frames the label, ripple rings, milk / coffee / juice colours); a seamless studio sweep instead of a floor and a wall, and a contact shadow under hovering products; the brief can pick the shots (`board`)
 - **Callouts designed per mood**: they point at real features of the product (logo, small print, top, base) and follow them frame by frame; a hand-drawn arrow with handwriting (fresh, Thai + Latin), a hairline ring with serif italics (luxury), corner brackets with a glowing leader (tech) or a dot (clean); marker, line, then text, one after another; above the product when its sides are full
 - **Looks from references**: give the brief a still you like and its palette, set colours, light side and mood drive the design; a still-water set (perfume look), strip lights, fingerprints and uneven gloss on shiny surfaces; a styled glass drink (layers, piped cream, chocolate or caramel running over the rim, striped straw, beads only where the cold drink is); prop kits (hearts, coffee beans, mint leaves, pearls, sprinkles)
+- **Deliverables in one command** (`ad_pipeline.py deliver`): 9:16, 4:5, 1:1 and 16:9 rendered again (not cropped; the same height framed, wider frames see more of the set), 6 s / 15 s cutdowns on the beat grid, a textless version, captions from the voiceover, a -23 LUFS broadcast version, stems (voice, effects, music), optional ProRes masters, and a manifest with size, length and loudness of every file
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -146,8 +147,9 @@ not shown.
 | 1.15 | the user: the cut and the callouts looked "too easy" -> study of studio work -> blade, seam of light, juice films, crown splash, seamless set | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
 | 1.16 | callouts that point at real features and follow them; four looks by mood; above the product when its sides are full; Mali handwriting font | [▶ hand (LUMA)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4) · [▶ hairline (MOLTO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4) · [▶ tech (VOLT)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4) |
 | 1.17 | read a reference still (palette, light side, mood); still-water set, strip lights, smudges on gloss, styled glass drink, prop kits; a metaball sauce broke into blocks under motion blur, so it is baked to a mesh | [▶ glass drink (MOMO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4) · water set and hearts stills in the gallery |
+| 1.18 | deliverables: four aspects rendered again, cutdowns, textless, captions, broadcast loudness, stems, ProRes; the apps' safe-zone check stopped the 4:5 run, so it checks 9:16 only | [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4) · [▶ 6 s cutdown](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4) |
 
-Regression tests grew from 10 (1.4) to 35 (1.17); GitHub Actions runs them on every push (Blender tests skip there).
+Regression tests grew from 10 (1.4) to 36 (1.18); GitHub Actions runs them on every push (Blender tests skip there).
 
 ### Demos
 
@@ -256,6 +258,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - **รอยผ่าและของเหลว**: ผ่าผลไม้เห็นใบมีดเหล็กและเส้นแสงวิ่งตามรอยบนผิว น้ำผลไม้ผุดตามรอยตัด แผ่นน้ำยืดระหว่างสองซีกแล้วขาด ละอองและเนื้อกระเด็น กล้องกระตุกตอนกระทบ; ช็อต `crown` สินค้าตกลงในเครื่องดื่มของตัวเอง มงกุฎน้ำล้อมโดยไม่บังฉลาก วงคลื่นกระจาย สีตามเครื่องดื่ม (นม กาแฟ น้ำผลไม้); ฉากโค้งต่อเนื่องไม่มีเส้นมุมห้อง และเงาใต้สินค้าที่ลอยอยู่; เลือกช็อตเองได้ใน brief (`board`)
 - **ป้ายชี้ออกแบบตามอารมณ์**: ชี้ที่จุดจริงบนสินค้า (โลโก้ ตัวหนังสือเล็ก ฝา ฐาน) และตามจุดนั้นทุกเฟรม ลูกศรวาดมือกับตัวหนังสือลายมือ (fresh ไทยและอังกฤษ) วงแหวนเส้นบางกับตัวเซริฟเอียง (luxury) กรอบมุมกับเส้นเรือง (tech) หรือจุด (clean) ขึ้นทีละส่วน: จุด เส้น ตัวหนังสือ ถ้าข้างสินค้าไม่มีที่ว่าง ป้ายย้ายไปอยู่เหนือสินค้า
 - **ลุคจากภาพอ้างอิง**: ใส่ภาพที่ชอบใน brief แล้วระบบดึงพาเลต สีฉาก ทิศแสง และอารมณ์มาออกแบบ ฉากน้ำนิ่งแบบโฆษณาน้ำหอม ไฟแถบยาว รอยนิ้วและความมันไม่สม่ำเสมอบนผิวเงา แก้วเครื่องดื่มแต่งหน้า (เครื่องดื่มหลายชั้น วิปครีมบีบเกลียว ช็อกโกแลตหรือคาราเมลไหลย้อยขอบแก้ว หลอดลาย หยดน้ำเกาะเฉพาะส่วนที่เย็น) และชุดพร็อพ (หัวใจ เมล็ดกาแฟ ใบมิ้นต์ ไข่มุก เกล็ดน้ำตาล)
+- **ไฟล์ส่งมอบในคำสั่งเดียว** (`ad_pipeline.py deliver`): 9:16, 4:5, 1:1, 16:9 เรนเดอร์ใหม่ทุกสัดส่วน (ไม่ครอป เฟรมความสูงเท่ากัน จอกว้างเห็นฉากมากขึ้น) คลิปตัดสั้น 6/15 วินาทีตามจังหวะเพลง เวอร์ชันไม่มีตัวหนังสือ ซับจากเสียงพากย์ เวอร์ชันทีวี -23 LUFS แยก stem (เสียงพากย์ เสียงประกอบ เพลง) ProRes (ถ้าต้องการ) และตารางสรุปขนาด ความยาว ความดังของทุกไฟล์
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
@@ -311,8 +314,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 | 1.15 | ผู้ใช้: รอยผ่าและป้ายชี้ "ทำง่ายเกินไป" -> ศึกษางานสตูดิโอ -> ใบมีด เส้นแสง แผ่นน้ำ มงกุฎน้ำ ฉากโค้งต่อเนื่อง | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
 | 1.16 | ป้ายชี้ชี้ที่จุดจริงบนสินค้าและตามทุกเฟรม 4 ลุคตามอารมณ์ วางเหนือสินค้าเมื่อข้างเต็ม ฟอนต์ลายมือ Mali | [▶ ลายมือ (LUMA)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4) · [▶ เส้นบาง (MOLTO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4) · [▶ tech (VOLT)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4) |
 | 1.17 | อ่านภาพอ้างอิง (พาเลต ทิศแสง อารมณ์) ฉากน้ำนิ่ง ไฟแถบยาว รอยนิ้วบนผิวเงา แก้วเครื่องดื่มแต่งหน้า ชุดพร็อพ; ซอส metaball แตกเป็นบล็อกเมื่อเปิด motion blur จึงแปลงเป็น mesh | [▶ แก้วนมชมพู (MOMO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4) · ภาพฉากน้ำและหัวใจในแกลเลอรี |
+| 1.18 | ไฟล์ส่งมอบ: 4 สัดส่วนเรนเดอร์ใหม่ คลิปตัดสั้น textless ซับ เวอร์ชันทีวี stem ProRes; การตรวจโซนปลอดภัยของแอปเคยทำให้ 4:5 หยุดกลางทาง จึงตรวจเฉพาะ 9:16 | [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4) · [▶ ตัดสั้น 6 วินาที](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4) |
 
-เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 35 (1.17) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
+เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 36 (1.18) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
 
 ### เดโม
 
@@ -418,3 +422,11 @@ Frames from each result video; click a title to play it. Credits: [`demos/CREDIT
 **Still-water set and hearts (stills) · ฉากน้ำนิ่งและหัวใจ (ภาพนิ่ง)** · 1.17
 
 ![ad3d-water-hearts-stills](docs/history/ad3d-water-hearts-stills.jpg)
+
+**Deliverables: one moment in 9:16, 4:5, 1:1, 16:9 · ไฟล์ส่งมอบ ช่วงเดียวกันใน 4 สัดส่วน** · 1.18 · [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4)
+
+![ad3d-deliver-luma-aspects](docs/history/ad3d-deliver-luma-aspects.jpg)
+
+**[6 s cutdown · คลิปตัดสั้น 6 วินาที](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4)** · 1.18 · 6 s
+
+![ad3d-deliver-luma-6s](docs/history/ad3d-deliver-luma-6s.jpg)

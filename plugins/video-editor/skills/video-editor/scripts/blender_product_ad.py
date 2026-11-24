@@ -511,7 +511,8 @@ def camera(loc, look, lens=50, focus=None, fstop=2.0):
     if not cam:
         bpy.ops.object.camera_add(); cam = bpy.context.object; cam.name = "Cam"; bpy.context.scene.camera = cam
     cam.location = loc; cam.data.lens = lens
-    d = Vector(look) - Vector(loc)
+    cam.data.sensor_fit = "VERTICAL"; cam.data.sensor_height = 36.0      # the height framed as in 9:16 for every aspect: wider
+    d = Vector(look) - Vector(loc)                                         # deliverables (4:5, 1:1, 16:9) just see more of the set
     tgt = bpy.data.objects.get("CamTarget")
     if not tgt:
         tgt = bpy.data.objects.new("CamTarget", None); bpy.context.scene.collection.objects.link(tgt)

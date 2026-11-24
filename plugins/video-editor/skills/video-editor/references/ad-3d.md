@@ -365,3 +365,23 @@ perfume bottle on rippled water) set the bar; `references/ad-craft.md` holds the
   still of the same frame was clean): a metaball re-meshes at every blur step with a different topology. The sauce
   only moves with the glass, so it is baked to a mesh at build time. Bisect such frames by switching one setting at a
   time on a 6-frame render (motion blur, ray tracing, shadow pool, Geometry Nodes): only "no motion blur" cured it.
+
+## 1.18: deliverables (`ad_pipeline.py deliver`)
+What a client or a media buyer asks for once the ad is approved, from one command (`--source preview|final`, or
+`animatic` to try it fast) into `<dir>/deliver/` with `deliverables.md` / `.json` (size, fps, length, codecs, LUFS, true
+peak, MB per file):
+- **Aspects** 9:16 1080x1920, 4:5 1080x1350, 1:1 1080x1080, 16:9 1920x1080: every shot rendered again in Blender at
+  that size, never cropped. The camera's sensor is fit to the height (36 mm) for every aspect, so the product is framed
+  at the same height and wider frames see more of the set; props spread to the real aspect; callouts use the right
+  edge rule of the frame (vertical: the apps' button column at 0.84; landscape 0.95). The edit is always at full size
+  (titles are sized for it).
+- **Cutdowns** (`--cutdowns 6 15`, 9:16 unless `--cutdowns-all`): the hook and the hero always, then the product's
+  action, proof, benefit, detail while they fit, in whole beats (an event shot keeps its event), a 2-beat card for
+  6 s; the voiceover keeps only lines whose shots stay (6 s: the brand line). Built from the shots already rendered.
+- **Textless** (no titles, callouts or card text; the logo stays) for localising; **captions** `<name>.srt` from the
+  voiceover lines (one timeline for every aspect master; each cutdown its own).
+- **Broadcast**: the 16:9 master at -23 LUFS integrated, true peak -1 dBTP (two-pass loudnorm, linear), PCM in .mov.
+- **Stems** (pre-master, the same bus gain as the mix): voice, sfx, music (ducked as in the mix) and the pre-master
+  mix; voice + sfx + music = mix_premaster. The social masters stay at -14 LUFS.
+- **ProRes** (`--prores`): a 422 HQ 10-bit master per aspect with 24-bit PCM - edit_plan writes ProRes whenever the
+  output path ends in .mov.

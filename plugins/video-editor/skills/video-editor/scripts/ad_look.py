@@ -17,6 +17,10 @@ from mathutils import Vector, Matrix
 import ad_can as AC
 
 
+def _aspect():
+    r = bpy.context.scene.render; return r.resolution_x / max(1, r.resolution_y)     # 9:16 -> 0.5625, 16:9 -> 1.78
+
+
 def _cam():
     return bpy.data.objects["Cam"], bpy.data.objects["CamTarget"]
 
@@ -83,7 +87,7 @@ def foreground(C, T, L, k, seed):
     for i in range(min(k, 3)):                                             # at the frame edges: the product stays clear
         z = (T - C).length * rnd.uniform(0.2, 0.3); hh = z * 18 / L
         xo = math.copysign(rnd.uniform(0.6, 0.95), rnd.uniform(-1, 1))
-        pos = C + fwd * z + right * xo * hh * 9 / 16 + up * rnd.uniform(-0.9, 0.9) * hh
+        pos = C + fwd * z + right * xo * hh * _aspect() + up * rnd.uniform(-0.9, 0.9) * hh
         bpy.ops.mesh.primitive_uv_sphere_add(radius=z * rnd.uniform(0.008, 0.018), location=pos); o = bpy.context.object
         o.data.materials.append(m); o.visible_shadow = False
 
@@ -190,7 +194,7 @@ def decor(kind, n, seed=5, palette=None):
         z = dist * (rnd.uniform(0.3, 0.5) if near else rnd.uniform(0.75, 1.8)); hh = z * 18 / L   # turn into orbs over the product
         xo, yo = rnd.uniform(-1, 1), rnd.uniform(-1, 1)
         if (near or z < dist * 1.15) and abs(xo) < 0.55 and abs(yo) < 0.5: xo = math.copysign(rnd.uniform(0.55, 1.0), xo)   # the product stays clear
-        pos = C + fwd * z + right * xo * hh * 9 / 16 + up * yo * hh
+        pos = C + fwd * z + right * xo * hh * _aspect() + up * yo * hh
         r = rnd.uniform(r0, r1) * (2.2 if near else 1.0) * (z / dist) ** 0.5
         if kind == "light_specks": bpy.ops.mesh.primitive_cube_add(size=r * 2, location=pos)
         else: bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=16, ring_count=10, location=pos)
@@ -454,7 +458,7 @@ def props(kind, n, seed=5, palette=None):
         xo, yo = rnd.uniform(-1, 1), rnd.uniform(-1, 1)
         if near: xo = math.copysign(rnd.uniform(0.8, 1.05), xo)                # near the lens: only at the sides, never over the product
         elif z < dist * 1.15 and abs(xo) < 0.6 and abs(yo) < 0.5: xo = math.copysign(rnd.uniform(0.6, 1.0), xo)   # the product stays clear
-        pos = C + fwd * z + right * xo * hh * 9 / 16 + up * yo * hh
+        pos = C + fwd * z + right * xo * hh * _aspect() + up * yo * hh
         r = rnd.uniform(r0, r1) * (1.4 if near else 1.0) * (z / dist) ** 0.5
         o = bpy.data.objects.new(f"{kind}{i}", me); bpy.context.scene.collection.objects.link(o)
         o.material_slots[0].link = "OBJECT"; o.material_slots[0].material = mat_for(i)

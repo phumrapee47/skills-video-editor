@@ -16,6 +16,8 @@ brief.json: {"product": "what it is", "photo": "front.jpg", "back": "back.jpg", 
   python -I ad_pipeline.py run <dir>              run the next stage; it stops at its gate
   python -I ad_pipeline.py run <dir> --approve    the user approved what the last stage showed: go on
   python -I ad_pipeline.py status <dir>
+  python -I ad_pipeline.py deliver <dir> [--source preview|final|animatic] [--aspects 9:16 4:5 1:1 16:9] [--cutdowns 6 15]
+         [--cutdowns-all] [--prores] [--no-textless] [--no-broadcast] [--no-stems]   (after the preview is approved)
 
 Stages (each gate needs the user's yes, passed on with --approve):
   board     one still per shot at its key frame -> board.jpg with shot, length in beats, event, title, sound
@@ -28,7 +30,7 @@ lasts a whole number of beats ("beats") and its physical event (the slash, the t
 shots.json per shot: id, type, beats, event_beat, cold, camera ({"from","to","look","look_to","lens","fstop"}),
 title ({"text","style",...,"at": s from the shot start}), sfx ([{"sound","at": "event"|"start","offset","rel_db"}]).
 """
-import argparse, glob, json, math, os, pathlib, shutil, subprocess, sys, time
+import argparse, glob, json, math, os, pathlib, re, shutil, subprocess, sys, time
 
 SC = pathlib.Path(__file__).resolve().parent; ROOT = SC.parent
 sys.path.insert(0, str(SC))
@@ -375,14 +377,15 @@ def place_callouts(st, sp, starts, frames_dir):
     shots = st["shots"]; raw = next((s["callouts"] for s in shots if s.get("callouts")), None)
     if not raw or not frames_dir: return []
     items = [x if isinstance(x, dict) else {"text": str(x)} for x in raw][:3]
-    fps = st["fps"]; best = above = None
+    fps = st["fps"]; best = above = None; W_, H_ = map(int, st.get("size", "1080x1920").split("x"))
     for i, (s, x) in enumerate(zip(shots, sp)):
         an = anchors_of(frames_dir, s["id"])
         if not an or s.get("role") == "hook" or i == 0: continue
         fr_keys = [k for k in an if k.isdigit()]
         if not fr_keys: continue
         last = an[str(max(map(int, fr_keys)))]; lx, rx = last["left"][0], last["right"][0]
-        room_l, room_r = lx - 0.05, 0.84 - rx; side = "left" if room_l >= room_r else "right"; room = max(room_l, room_r)
+        rlim = 0.84 if H_ > W_ else 0.95                                   # vertical: the apps' buttons on the right
+        room_l, room_r = lx - 0.05, rlim - rx; side = "left" if room_l >= room_r else "right"; room = max(room_l, room_r)
         if 0 < lx < rx < 1 and (best is None or room > best[0]): best = (room, i, side, last, an)
         top_room = last.get("top", [0, 0])[1] - ABOVE_MIN_Y                  # free space between the title band and the product
         if 0 < lx < rx < 1 and top_room > 0.1 and (above is None or top_room > above[0]): above = (top_room, i, "above", last, an)
@@ -391,7 +394,8 @@ def place_callouts(st, sp, starts, frames_dir):
         best = above
     room, i, side, last, an = best; x = sp[i]; t0 = starts[i]; base = x["base"]
     look = (st.get("brief_file") or {}).get("callout_style") or CALLOUT_LOOK.get(st.get("brief"), "dot")
-    tr = an.get("tracks") or {}; tsec = lambda fr: t0 + (fr - 1) / fps
+    shift = float(shots[i].get("cut_in", 0))                                # a cutdown starts the hero later
+    tr = an.get("tracks") or {}; tsec = lambda fr: t0 + (fr - 1) / fps - shift
     gap = {"hairline": 0.5, "hand": 0.45}.get(look, 0.35); end = round(t0 + base / fps - 0.15, 2)
     first = t0 + base * 0.45 / fps
     gap = max(0.12, min(gap, (end - first - 0.8) / max(1, len(items) - 1)))   # a short shot: tighter stagger, all still readable
@@ -432,7 +436,7 @@ def place_callouts(st, sp, starts, frames_dir):
         return [c for c in out if c["label"][1] > ABOVE_MIN_Y - 0.001 or len(out) == 1]
     # the shelves: just outside the product, above their points, stacked so they never overlap
     edge = last["right"][0] if side == "right" else last["left"][0]
-    kx = round(min(0.70, edge + 0.04), 3) if side == "right" else round(max(0.30, edge - 0.04), 3)
+    kx = round(min(0.70 if H_ > W_ else 0.82, edge + 0.04), 3) if side == "right" else round(max(0.30 if H_ > W_ else 0.18, edge - 0.04), 3)
     lift = 0.09 if look == "hand" else 0.06
     ys = sorted(range(len(out)), key=lambda n_: mid(out[n_])); prev = None
     for n_ in ys:
@@ -480,7 +484,8 @@ def make_plan(st, d, frames_dir, out_name):
     import ad_design, make_sfx
     fps = st["fps"]; Lo = layout(st, d, frames_dir); clips = []
     for i, (s, x) in enumerate(zip(st["shots"], Lo["sp"])):
-        c = {"src": os.path.relpath(frames_dir / f"{x['id']}.mp4", d).replace("\\", "/"), "in": 0, "out": round(x["frames"] / fps, 3), "speech": False, "volume_db": -90}
+        cin = float(s.get("cut_in", 0))                                    # a cutdown plays the hero's end
+        c = {"src": os.path.relpath(frames_dir / f"{x['id']}.mp4", d).replace("\\", "/"), "in": cin, "out": round(cin + x["frames"] / fps, 3), "speech": False, "volume_db": -90}
         ty, td, _ = ad_design.TRANSITIONS.get(s.get("transition_in") or "cut", (None, 0.0, None))
         if ty and i: c["transition"] = {"type": ty, "dur": td}
         clips.append(c)
@@ -550,10 +555,160 @@ def render_edit(pp, check_safe=True):
     out = run(PY + [SC / "edit_plan.py", pp])
     qa = [l for l in out.splitlines() if l.startswith(("PASS", "FAIL", "WARN", "RESULT"))]
     mp4 = pp.parent / json.load(open(pp, encoding="utf-8"))["output"]["path"]
-    if check_safe and (mp4.parent / (mp4.name + ".titles.ass")).exists():
-        qa.append(run(PY + [SC / "safe_zones.py", mp4, mp4.parent / (mp4.name + ".titles.ass")]).strip().splitlines()[-1])
+    if check_safe and (mp4.parent / (mp4.name + ".titles.ass")).exists():   # reported, not fatal: the gate shows it to the user
+        r = subprocess.run([str(c) for c in PY + [SC / "safe_zones.py", mp4, mp4.parent / (mp4.name + ".titles.ass")]], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        lines = (r.stdout or r.stderr).strip().splitlines()
+        qa.append(("PASS  " if r.returncode == 0 else "FAIL  safe zones: ") + (lines[-1] if lines else "no output"))
     return mp4, qa
 
+
+# ---------------------------------------------------------------- deliverables
+ASPECTS = {"9:16": (1080, 1920), "4:5": (1080, 1350), "1:1": (1080, 1080), "16:9": (1920, 1080)}
+CUT_ROLES = ["hook", "name", "demo", "payoff", "proof", "benefit", "detail"]      # what a cutdown keeps first
+
+
+def cutdown(st, seconds):
+    """A shorter cut on the same beat grid from the rendered shots: the hook and the hero (name) always, then the
+    product's own action, proof, benefit, detail while they fit; shots shortened in whole beats (an event shot keeps
+    its event); a shorter card; the voiceover keeps only lines whose shots stay (6 s: the brand line only)."""
+    import copy as _c
+    s2 = _c.deepcopy(st); per = st["music"]["period"]; shots = s2["shots"]
+    card_beats = 2 if seconds <= 8 else 3; s2["card"]["beats"] = card_beats
+    budget = round(seconds / per) - card_beats
+    def need(s): return max(2, (s.get("event_beat", 0) + 2) if "event_beat" in s else 2)
+    def want(s, r): return min(s["beats"], max(need(s), round((2.4 if r == "hook" else 2.0 if r == "name" else 1.6) / per)))
+    keep = {0: want(shots[0], "hook"), len(shots) - 1: want(shots[-1], "name")}
+    for r in CUT_ROLES[2:]:
+        for i, s in enumerate(shots):
+            if i in keep or s.get("role") != r: continue
+            if sum(keep.values()) + want(s, r) <= budget: keep[i] = want(s, r)
+    while sum(keep.values()) < budget:                                     # fill the time: lengthen the hero, then the hook
+        grew = False
+        for i in (len(shots) - 1, 0):
+            if i in keep and keep[i] < shots[i]["beats"] and sum(keep.values()) < budget: keep[i] += 1; grew = True
+        if not grew: break
+    while sum(keep.values()) > budget and any(keep[i] > need(shots[i]) for i in keep):
+        i = max(keep, key=lambda k: keep[k] - need(shots[k])); keep[i] -= 1
+    new = []; last = max(keep)
+    for i in sorted(keep):
+        s = shots[i]
+        if i == last and keep[i] < s["beats"]: s["cut_in"] = round((s["beats"] - keep[i]) * per, 3)   # the hero: its settled end
+        if seconds <= 8: s["callouts"] = None                              # no time to read them
+        s["beats"] = keep[i]
+        if "event_beat" in s: s["event_beat"] = min(s["event_beat"], s["beats"] - 1)
+        for t in titles_of(s):
+            if "at" in t: t["at"] = min(t["at"], max(0.2, s["beats"] * per - 1.0))
+        new.append(s)
+    if new and new[0].get("transition_in"): new[0]["transition_in"] = "cut"
+    s2["shots"] = new
+    if isinstance(s2.get("vo"), dict) and s2["vo"].get("lines"):
+        roles = {s.get("role") for s in new}
+        lines = s2["vo"]["lines"]
+        s2["vo"]["lines"] = ({"name": lines["name"]} if "name" in lines else {}) if seconds <= 8 else \
+            {r: l for r, l in lines.items() if r in roles or r == "cta"}
+    return s2
+
+
+def srt(vo, path, offset=0.0):
+    """Captions for the voiceover lines (start, duration, text), one cue per line, long lines split at the middle space."""
+    def ts(t): t = max(0.0, t); return "%02d:%02d:%02d,%03d" % (t // 3600, t // 60 % 60, t % 60, round(t % 1 * 1000) % 1000)
+    out = []
+    for k, v in enumerate(vo, 1):
+        txt = v["text"]
+        if len(txt) > 42 and " " in txt:
+            sp = [i for i, ch in enumerate(txt) if ch == " "]; m = min(sp, key=lambda i: abs(i - len(txt) / 2)); txt = txt[:m] + "\n" + txt[m + 1:]
+        out.append(f"{k}\n{ts(v['start'] + offset)} --> {ts(v['start'] + v['dur'] + offset)}\n{txt}\n")
+    pathlib.Path(path).write_text("\n".join(out), encoding="utf-8"); return path
+
+
+def measure(f):
+    """ffprobe size, fps, duration, codec + integrated loudness and true peak (loudnorm analysis)."""
+    pr = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,r_frame_rate:format=duration",
+                                    "-of", "json", str(f)], capture_output=True, text=True).stdout or "{}")
+    v = next((x for x in pr.get("streams", []) if x.get("codec_type") == "video"), {}); a_ = next((x for x in pr.get("streams", []) if x.get("codec_type") == "audio"), {})
+    r = {"file": pathlib.Path(f).name, "size": f"{v.get('width')}x{v.get('height')}" if v else "-", "video": v.get("codec_name", "-"), "audio": a_.get("codec_name", "-"),
+         "seconds": round(float(pr.get("format", {}).get("duration", 0)), 2), "MB": round(pathlib.Path(f).stat().st_size / 1e6, 2)}
+    if v.get("r_frame_rate"): n_, d_ = v["r_frame_rate"].split("/"); r["fps"] = round(int(n_) / max(1, int(d_)), 3)
+    if a_ or not v:
+        e = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(f), "-af", "loudnorm=print_format=json", "-f", "null", "-"], capture_output=True, text=True).stderr
+        try: j = json.loads(e[e.rindex("{"):e.rindex("}") + 1]); r["LUFS"] = float(j["input_i"]); r["dBTP"] = float(j["input_tp"])
+        except Exception: pass
+    return r
+
+
+def broadcast(src, dst, lufs=-23.0, tp=-1.0):
+    """A TV version: EBU R128 / ATSC-style loudness (-23 LUFS, true peak -1 dBTP), PCM audio, the picture untouched."""
+    e = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(src), "-af", f"loudnorm=I={lufs}:TP={tp}:LRA=15:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True).stderr
+    m = json.loads(e[e.rindex("{"):e.rindex("}") + 1])
+    af = (f"loudnorm=I={lufs}:TP={tp}:LRA=15:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}:"
+          f"measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true,aresample=48000")
+    run(["ffmpeg", "-v", "error", "-y", "-i", src, "-c:v", "copy", "-af", af, "-c:a", "pcm_s24le", dst]); return dst
+
+
+def deliver(d, st, a):
+    """Everything a client or a media buyer asks for, from the approved ad: every aspect (rendered again in Blender at
+    that size, the same height framed, so wider frames see more of the set - nothing cropped), cutdowns on the beat
+    grid, a textless version, voiceover captions, a broadcast-loudness version, stems, optional ProRes masters, and a
+    manifest with size, length, loudness and true peak per file."""
+    import copy as _c
+    src = a.source if a.source in ("final", "preview", "animatic") else "preview"
+    if src == "preview" and (d / "final.mp4").exists() and a.source != "preview": src = "final"
+    if not (d / f"{src}.mp4").exists(): sys.exit(f"render the {src} first (run until its gate)")
+    eng, samples, scale = {"final": ("cycles", 128, 1.0), "preview": ("eevee", 16, 1.0), "animatic": ("eevee", 4, 1 / 3)}[src]
+    out = d / "deliver"; out.mkdir(exist_ok=True)
+    name = re.sub(r"[^a-z0-9]+", "_", (st.get("brand_name") or (st.get("product") or {}).get("desc") or "ad").lower()).strip("_") or "ad"
+    files = []
+    def edit(stx, fd, fname, check):
+        mp4, qa = render_edit(make_plan(stx, d, fd, f"deliver/{fname}"), check_safe=check)
+        files.append({"path": mp4, "qa": [q for q in qa if q.startswith(("RESULT", "FAIL  safe"))]}); return mp4
+    masters = {}
+    for asp in a.aspects:
+        W, H = ASPECTS[asp]; w_, h_ = int(round(W * scale / 2) * 2), int(round(H * scale / 2) * 2); tag = asp.replace(":", "x")
+        stx = _c.deepcopy(st); stx["size"] = f"{W}x{H}"                   # the edit at full size (titles are sized for it)
+        fd = d / src if asp == "9:16" else out / f"{src}_{tag}"
+        if asp != "9:16":
+            blender(stx, d, fd, f"{w_}x{h_}", samples, engine=eng)
+            for x in derived(stx): encode(stx, fd, x["id"])
+        masters[asp] = (stx, fd)
+        vert = asp == "9:16"                                               # the apps' overlays (tabs, buttons) exist on 9:16 only
+        print(f"  {asp}: master"); edit(stx, fd, f"{name}_{tag}.mp4", vert)
+        if a.prores: print(f"  {asp}: ProRes"); edit(stx, fd, f"{name}_{tag}.mov", False)
+        if asp == "9:16" or a.cutdowns_all:
+            for sec in a.cutdowns:
+                if sec >= sum(x["base"] for x in derived(st)) / st["fps"]: continue
+                print(f"  {asp}: {sec:g} s cutdown"); cx = cutdown(stx, sec); edit(cx, fd, f"{name}_{tag}_{sec:g}s.mp4", vert)
+                Lc = layout(cx, d, fd)
+                if Lc["vo"]: srt(Lc["vo"], out / f"{name}_{tag}_{sec:g}s.srt")
+        if a.textless and (asp == "9:16" or a.cutdowns_all):
+            tx = _c.deepcopy(stx); tx["card"]["text"] = ""
+            for s in tx["shots"]: s["title"] = None; s["callouts"] = None
+            print(f"  {asp}: textless"); edit(tx, fd, f"{name}_{tag}_textless.mp4", False)
+    st0, fd0 = masters.get("9:16") or next(iter(masters.values()))
+    L0 = layout(st0, d, fd0)
+    if L0["vo"]: files.append({"path": srt(L0["vo"], out / f"{name}.srt"), "qa": ["captions for every aspect master (same timeline)"]})
+    if a.broadcast:
+        asp = "16:9" if "16:9" in masters else next(iter(masters)); src_mp4 = out / f"{name}_{asp.replace(':', 'x')}.mp4"
+        print(f"  broadcast loudness ({asp})"); files.append({"path": broadcast(src_mp4, out / f"{name}_{asp.replace(':', 'x')}_broadcast.mov"), "qa": ["-23 LUFS, -1 dBTP"]})
+    if a.stems:
+        stx, fd = masters.get("9:16") or next(iter(masters.values()))
+        if (out / "stems").exists(): shutil.rmtree(out / "stems")            # a fresh set (a rerun must not rename old stems again)
+        pp = make_plan(stx, d, fd, f"deliver/_stems_{name}.mp4"); plan = json.load(open(pp, encoding="utf-8"))
+        plan["stems_dir"] = "deliver/stems"; json.dump(plan, open(pp, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        print("  stems"); run(PY + [SC / "edit_plan.py", pp, "--no-qa"])
+        (out / f"_stems_{name}.mp4").unlink(missing_ok=True)
+        for w in sorted((out / "stems").glob("*.wav")):
+            t_ = w.with_name(f"{name}_{w.name}"); w.replace(t_); files.append({"path": t_, "qa": ["stem, pre-master; voice + sfx + music = mix_premaster"]})
+    rows = []
+    for f in files:
+        r = measure(f["path"]) if pathlib.Path(f["path"]).suffix.lower() in (".mp4", ".mov", ".wav") else {"file": pathlib.Path(f["path"]).name}
+        r["note"] = "; ".join(f["qa"]); rows.append(r)
+    json.dump({"source": src, "files": rows}, open(out / "deliverables.json", "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    cols = ["file", "size", "fps", "seconds", "video", "audio", "LUFS", "dBTP", "MB", "note"]
+    md = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)] + ["| " + " | ".join(str(r.get(c, "")) for c in cols) + " |" for r in rows]
+    (out / "deliverables.md").write_text("# Deliverables (" + src + ")\n\n" + "\n".join(md) + "\n", encoding="utf-8")
+    return out, rows
 
 # ---------------------------------------------------------------- board sheet
 def glyph(dr, move, x, y, s=70):
@@ -653,9 +808,14 @@ def stage(d, st):
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["init", "run", "status", "variants"]); ap.add_argument("dir")
+    ap.add_argument("cmd", choices=["init", "run", "status", "variants", "deliver"]); ap.add_argument("dir")
+    ap.add_argument("--aspects", nargs="*", default=["9:16", "4:5", "1:1", "16:9"], choices=list(ASPECTS), help="deliver: which aspects")
+    ap.add_argument("--cutdowns", nargs="*", type=float, default=[6, 15], help="deliver: cutdown lengths in seconds (9:16; --cutdowns-all for every aspect)")
+    ap.add_argument("--cutdowns-all", action="store_true"); ap.add_argument("--no-textless", dest="textless", action="store_false")
+    ap.add_argument("--prores", action="store_true", help="deliver: ProRes 422 HQ masters too (.mov, large)")
+    ap.add_argument("--no-broadcast", dest="broadcast", action="store_false"); ap.add_argument("--no-stems", dest="stems", action="store_false")
     ap.add_argument("--n", type=int, default=3, help="variants: how many openings in all (the preview is #1)")
-    ap.add_argument("--source", default="preview", choices=["preview", "animatic"], help="variants: build on the preview (final look) or the animatic (fast)")
+    ap.add_argument("--source", default="preview", choices=["preview", "animatic", "final"], help="variants / deliver: build on the preview (final look), the animatic (fast) or the final")
     ap.add_argument("--product"); ap.add_argument("--label"); ap.add_argument("--label-front", type=float, default=0.5)
     ap.add_argument("--alt", nargs="*", default=[]); ap.add_argument("--fruit"); ap.add_argument("--set", nargs=2)
     ap.add_argument("--brief", default="fresh"); ap.add_argument("--track"); ap.add_argument("--fps", type=int, default=24)
@@ -683,6 +843,9 @@ if __name__ == "__main__":
             blender(st2, d, fd, size, samples, only=[h["id"]]); encode(st2, fd, h["id"])
             mp4, qa = render_edit(make_plan(st2, d, fd, f"{a.source}_hook{k}.mp4")); outs.append(f"{mp4}  ({h['move']}" + (f", '{hooks[k - 2]}'" if len(hooks) >= k - 1 else "") + ")")
         print("hook variants (the same ad after the opening):\n  " + "\n  ".join(outs)); sys.exit(0)
+    if a.cmd == "deliver":
+        if "preview" not in st["approved"] and a.source != "animatic": sys.exit("approve the preview first (deliverables are cut from an approved ad)")
+        o, rows = deliver(d, st, a); print(f"deliverables in {o} ({len(rows)} files): deliverables.md"); sys.exit(0)
     if a.cmd == "status":
         print("stage:", st["stage"], " approved:", ", ".join(st["approved"]) or "-", " timings:", st.get("timings")); sys.exit(0)
     if a.approve:

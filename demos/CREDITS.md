@@ -95,3 +95,7 @@ voiceover in `ad3d-luma-performance` and `ad3d-luma-crown` is a Microsoft Edge n
 - 1.17 glass drink video (`ad3d-glass-drink-momo`): MOMO is a made-up brand; the glass, drink, cream, sauce, straw and
   hearts are built by the skill (`ad_drink.py`, `ad_look.py`). Music: "Disco con Tutti" Kevin MacLeod (incompetech.com),
   Licensed under Creative Commons: By Attribution 4.0 License. Licence: CC BY 4.0.
+- 1.18 deliverable videos (`ad3d-deliver-luma-16x9`, `ad3d-deliver-luma-6s`): the LUMA ad as above (made-up brand), its
+  16:9 version and 6 s cutdown, rendered from the animatic (fast, low samples). Music: "Happy Alley" Kevin MacLeod
+  (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License; voiceover: Microsoft Edge neural
+  text-to-speech (en-US-AndrewNeural, via edge-tts). Licence: CC BY 4.0.

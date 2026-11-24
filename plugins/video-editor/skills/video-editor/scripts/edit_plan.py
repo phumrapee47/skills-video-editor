@@ -464,6 +464,11 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     tail.append("scale=out_range=tv,format=yuv420p")
     fg.append(f"[{acc}]{','.join(tail)}[vout]")
     out = tmp / "video.mp4"
+    if str(plan["output"].get("path", "")).lower().endswith(".mov"):        # a mastering copy: ProRes 422 HQ, 10-bit 4:2:2
+        out = tmp / "video.mov"; tail[-1] = "scale=out_range=tv,format=yuv422p10le"; fg[-1] = f"[{acc}]{','.join(tail)}[vout]"
+        subprocess.run(cmd + ["-filter_complex", ";".join(fg), "-map", "[vout]", "-c:v", "prores_ks", "-profile:v", "3", "-vendor", "apl0",
+                              "-color_range", "tv", "-an", str(out)], check=True)
+        return out
     subprocess.run(cmd + ["-filter_complex", ";".join(fg), "-map", "[vout]", "-c:v", "libx264", "-crf", str(plan["output"].get("crf", 19)),
                           "-preset", "medium", "-g", str(int(round(2 * float(plan["output"].get("fps") or 30)))),   # a keyframe every 2 s:
                           "-color_range", "tv", "-an", str(out)], check=True)                                     # clean seeking, upload-friendly
@@ -545,8 +550,13 @@ def render_audio(plan, tl, total, tmp):
     gap_db = float(mm.get("gap_db", -8)); under_db = float(mm.get("under_db", -30))   # vlog default: off under speech
     env = db(under_db) * mask + db(gap_db) * (1 - mask)
     mix = speech + other + music * env[:, None]
-    peak = np.abs(mix).max()
-    if peak > 0.95: mix *= 0.95 / peak
+    peak = np.abs(mix).max(); g_bus = 0.95 / peak if peak > 0.95 else 1.0
+    mix *= g_bus
+    if plan.get("stems_dir"):                                 # delivery stems: voice, effects, music (ducked), pre-master; they sum to the mix
+        sd = pathlib.Path(plan["stems_dir"]); sd.mkdir(parents=True, exist_ok=True)
+        for nm, x in (("voice", speech), ("sfx", other), ("music", music * env[:, None]), ("mix_premaster", mix / g_bus)):
+            with wave.open(str(sd / f"{nm}.wav"), "wb") as w:
+                w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(x * g_bus, -1, 1) * 32767).astype(np.int16).tobytes())
     path = tmp / "mix.wav"
     with wave.open(str(path), "wb") as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(mix, -1, 1) * 32767).astype(np.int16).tobytes())
@@ -587,13 +597,14 @@ if __name__ == "__main__":
     for c in plan["clips"]:
         if c.get("card"):                                   # {"card": {"text", "bg", "size", "anim"}, "in": 0, "out": seconds}
             c.setdefault("src", "card"); c.setdefault("in", 0.0); c["speech"] = False; c["captions"] = False
-            c.setdefault("titles", []).append({"text": c["card"]["text"], "start": 0.15, "end": float(c["out"]) - float(c["in"]) - 0.1,
+            if str(c["card"].get("text") or "").strip(): c.setdefault("titles", []).append({"text": c["card"]["text"], "start": 0.15, "end": float(c["out"]) - float(c["in"]) - 0.1,
                 "pos": "center", "anim": c["card"].get("anim", "words"), "size": c["card"].get("size", 110), "word_step": c["card"].get("word_step", 0.14),
                 "accent": c["card"].get("accent", ACCENT)})
         else:
             c["src"] = rp(c["src"])
     for x in plan.get("audio", []): x["src"] = rp(x["src"])
     if plan.get("subtitles"): plan["subtitles"]["src"] = rp(plan["subtitles"]["src"])
+    if plan.get("stems_dir"): plan["stems_dir"] = rp(plan["stems_dir"])     # relative to the plan, like every other path
     o = plan["output"]; W, H = o.get("size", [1920, 1080]); fps = o.get("fps", 30)
     target = o.get("target", "youtube"); lufs = float(o.get("lufs", TARGETS[target]))
     out = rp(o["path"]) if not a.preview else rp(str(pathlib.Path(o["path"]).with_name(pathlib.Path(o["path"]).stem + f"_preview_{a.preview[0]:g}-{a.preview[1]:g}.mp4")))
@@ -607,7 +618,8 @@ if __name__ == "__main__":
         cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video)]
         cmd += (["-ss", str(a0), "-t", str(a1 - a0)] if a.preview else []) + ["-i", str(mix)]
         subprocess.run(cmd + ["-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", loudnorm_filter(mix, lufs, a0, (a1 - a0) if a.preview else None) + f",aresample=192000,alimiter=limit={(plan.get('master') or {}).get('limit', 0.63)}:attack=1:release=50:level=false,aresample=48000", "-ar", "48000",
-                              "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out], check=True)
+                              *(["-c:a", "pcm_s24le", "-ar", "48000"] if out.lower().endswith(".mov") else ["-c:a", "aac", "-b:a", "192k"]),
+                              "-shortest", "-movflags", "+faststart", out], check=True)
     json.dump({"duration": round(total, 3), "clips": [{k: c[k] for k in ("i", "src", "in", "out", "start", "end", "speed")} for c in tl],
                "speech": [[round(x, 2), round(y, 2)] for x, y in sorted(talk)]},
               open(out + ".timeline.json", "w", encoding="utf-8"), indent=1)
