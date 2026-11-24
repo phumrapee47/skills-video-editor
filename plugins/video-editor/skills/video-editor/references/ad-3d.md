@@ -330,3 +330,38 @@ Studio callouts point at a real feature, are designed for the mood and animate i
   the height.
 - The feature tracker must use a wrapper object when there is one (`bar_front`): the inner bar's own -x is its end,
   so every point came out on the bar's end, turned away.
+
+## 1.17: looks from references (sets, props, food styling, glass drinks)
+The user's references (Thai 3D studios: a frappe mug with whipped cream, chocolate drip and floating hearts; a
+perfume bottle on rippled water) set the bar; `references/ad-craft.md` holds the study.
+- **Read a reference** (`scripts/ref_style.py ref.jpg`; brief `"reference": "ref.jpg"`): palette (k-means), set
+  colours from the bottom and top bands, accent, light side and height (highlights against the subject), brightness,
+  contrast, saturation -> mood family (neon on dark = tech; low-key = luxury; near-neutral high-key = clean; pastel or
+  saturated = fresh). The brief's own `set` / `family` win; the light side moves the key; the palette colours the props.
+- **Water set** (`background: "water"`, `ad_look.water_set`): the floor becomes still water - a dark mirror tinted by
+  the set, slow ripple rings from where the product stands, a faint swell - and a haze band softens the horizon.
+- **Strip lights** (`RIGS[...]["strips"]`, fresh and clean): two tall thin softboxes beside the product for the long
+  clean highlights on glass and metal. Luxury keeps its single streak.
+- **Imperfection** (`ad_look.imperfect`, `--no-imperfect` to switch off): every glossy Principled material on the
+  product (mesh or metaball) gets slightly uneven roughness plus soft smudges; matte ones (> 0.45) are left alone.
+- **Glass drink** (`scripts/ad_drink.py`, product.json `"shape": "drink"`): mug / cup / tall glass (lathe, thick
+  base, rounded rim, mug handle cut into the wall); the drink in soft-edged layers slightly into the inner wall (no gap
+  line); piped cream (an eight-ridge star section swept up a narrowing spiral to a peak, on a dome); chocolate or
+  caramel sauce as metaballs - a band over the rim, tongues running down the outside with a drop at the end, a drizzle
+  along the top of the swirl; a diagonal-striped straw; sprinkles; condensation only on the glass below the drink line.
+  In the catalogue as `glass_drink` (frappe, milkshake, iced latte, ชานม, นมชมพู): hook `zerog` (the styled glass
+  turns), detail `macro` (framed on the rim, the sauce and the cream for drinks), `crown` avoided (`shot_avoid`).
+- **Prop kits** (`decor`: hearts, beans, leaves, pearls, sprinkles; brief `"decor"`, or the ingredient's `props`:
+  milk -> pearls, coffee -> beans, mint -> leaves, berry -> hearts, chocolate -> sprinkles): in depth layers, the near
+  ones only at the sides (never over the product), drifting and turning, coloured from the palette.
+
+### Pitfalls found building 1.17
+- A pastel reference is low in chroma like a white one: "clean" only below saturation 0.09; pastel with a hue is
+  playful (fresh). Neon lines are thin: count vivid cyan/magenta pixels, k-means averages them away.
+- A big prop near the lens covered the mug's base: near props go to the sides only.
+- The macro's camera was framed for a can label; for a drink it frames the rim, the sauce and the cream.
+- The concept planner made milk's crown splash the hook for a mug (it would drop into a pool): `shot_avoid`.
+- EEVEE motion blur on a metaball turned the chocolate sauce into blocky garbage in some frames of the animation (a
+  still of the same frame was clean): a metaball re-meshes at every blur step with a different topology. The sauce
+  only moves with the glass, so it is baked to a mesh at build time. Bisect such frames by switching one setting at a
+  time on a 6-frame render (motion blur, ray tracing, shadow pool, Geometry Nodes): only "no motion blur" cured it.

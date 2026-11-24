@@ -264,4 +264,6 @@ def build(spec, name, label=None, front=0.5, **kw):
     if s == "box": return box(spec, name)
     if s == "pouch": return pouch(spec, name, kw.get("tear_at"))
     if s == "bar": return bar(spec, name)
+    if s == "drink":                                                       # a styled glass drink (ad_drink.py)
+        import ad_drink; return ad_drink.build(spec, name)
     raise ValueError(f"unknown shape {s}")

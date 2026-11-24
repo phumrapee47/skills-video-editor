@@ -151,6 +151,13 @@ def init(a):
     import ad_concept
     d = pathlib.Path(a.dir); d.mkdir(parents=True, exist_ok=True)
     brief = from_brief(a) if a.brief_file else {}
+    ref = None
+    if brief.get("reference"):                                             # a still the user likes -> palette, set, light, mood
+        import ref_style
+        rp = pathlib.Path(brief["reference"]); rp = rp if rp.is_absolute() else pathlib.Path(a.brief_file).resolve().parent / rp
+        ref = ref_style.analyse(rp); ref_style.show(ref)
+        if not brief.get("set"): a.set = ref["set"]
+        if not brief.get("family"): a.brief = ref["family"]
     if not a.product: sys.exit("init needs --product (what it is) or a brief file with \"product\"")
     prod_json, shape = None, "can"
     if a.photo:                                                            # the user's photo -> product.json + textures
@@ -218,7 +225,7 @@ def init(a):
                       "alt": [str(pathlib.Path(x).resolve()) for x in a.alt], "fruit": fruit, "set": a.set, "liquid": c.get("liquid")},
           "music": {"src": str(src), "in": beats["first"], "bpm": beats["bpm"], "period": beats["period"], "strength": beats["strength"]},
           "shots": shots, "card": {"text": a.card + (f"\n**{a.handle}**" if a.handle else ""), "bg": "0x" + a.set[1].lstrip("#"), "beats": 3},
-          "to_build": todo, "timings": {}, "structure": structure, "copy": brief.get("copy") or {}, "vo": brief.get("vo"),
+          "to_build": todo, "timings": {}, "reference": ref, "props": c.get("props"), "structure": structure, "copy": brief.get("copy") or {}, "vo": brief.get("vo"),
           "brand_name": bname, "brand": bkit, "sonic_logo": brief.get("sonic_logo", True), "length": a.length}
     save(d, st)
     print(f"music: {src.name} {beats['bpm']} BPM (beat {beats['period']} s, strength {beats['strength']}), starts on the beat at {beats['first']:.2f} s")
@@ -249,7 +256,8 @@ def derived(st):
         sp["key"] = min(base, sp["event"] + round(0.45 * fps)) if "event" in sp else round(base * 0.6)
         if s.get("camera"): sp["camera"] = s["camera"]
         if s.get("move"): sp["move"] = s["move"]
-        for k_, v_ in (("bg", D.get("background")), ("decor", D.get("decor")), ("motion", D.get("motion")), ("family", D.get("family") or st.get("brief"))):
+        for k_, v_ in (("bg", D.get("background")), ("decor", D.get("decor")), ("motion", D.get("motion")), ("family", D.get("family") or st.get("brief")),
+                       ("key_side", (st.get("reference") or {}).get("key_side")), ("palette", [h for h, _ in (st.get("reference") or {}).get("palette", [])][:4] or None)):
             if v_: sp[k_] = v_
         out.append(sp)
     return out

@@ -62,9 +62,12 @@ BACKGROUNDS = {"gradient_bokeh": "soft light blobs drift across the wall, bokeh 
                "haze_glints": "thin haze drifts through the light, gold glints twinkle, a dark glossy floor",
                "neon_grid": "a glowing grid floor, neon strips slide across the wall",
                "window_light": "window-frame shadows slide slowly across a soft white wall",
+               "water": "still water: a dark mirror floor, slow ripple rings from the product, haze at the horizon (perfume look)",
                "plain": "the colour set, no movement"}
 DECOR = {"droplets": "clear droplets float in front of and behind the product (out of focus near the lens)",
          "gold_dust": "gold motes drift in the light", "light_specks": "small glowing specks drift", "soft_dust": "soft white dust drifts",
+         "hearts": "puffy glossy hearts in the palette, big ones at the sides near the lens", "beans": "roasted coffee beans drift",
+         "leaves": "mint leaves drift and turn", "pearls": "dark glossy tapioca pearls", "sprinkles": "candy sprinkles tumble",
          "none": "nothing extra"}
 MOTION = {"bouncy": "settles with a small overshoot", "smooth": "slow in, slow out, never stops dead", "snappy": "fast out, hard stop",
           "auto": "Blender's default ease"}
@@ -74,6 +77,8 @@ EVENT_EARLY = 0.4
 def design(st, variant=1, lock=None, background=None, decor=None, motion=None):
     """Fill st["design"] and every shot's "move" and "transition_in"; returns the reasons."""
     fam = st.get("brief", "fresh"); F = FAMILY.get(fam, FAMILY["fresh"]); rnd = random.Random(1000 + variant)
+    bf = st.get("brief_file") or {}                                        # the brief may pick the set and the props
+    background = background or bf.get("background"); decor = decor or bf.get("decor") or st.get("props")   # the ingredient's props
     lock = lock or {}; per = st["music"]["period"]; shots = st["shots"]; why = []; used = {}; prev_move = prev_size = None
     for i, s in enumerate(shots):
         typ = s["type"]; cand = ALLOWED.get(typ, ["native"])

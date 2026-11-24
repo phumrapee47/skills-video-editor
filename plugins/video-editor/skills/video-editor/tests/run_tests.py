@@ -599,6 +599,57 @@ def callout_looks_track_and_reveal(tmp):
     assert "\\fsp0" in ass and "\\fsp0" in [x for x in ass.splitlines() if "ไม่มีน้ำตาล" in x][0], "Thai must not be letter-spaced"
 
 
+@test
+def ref_style_reads_mood_and_light(tmp):
+    """1.17 ref_style.py: a reference still -> family and light side. Neon lines on black: tech; near-white: clean;
+    pastel: fresh (playful), not clean; dark and warm: luxury; a subject lit from the left: key on the left."""
+    import numpy as np, ref_style
+    from PIL import Image, ImageDraw
+    def img(name, bg, draw=None):
+        im = Image.new("RGB", (240, 400), bg); d = ImageDraw.Draw(im)
+        if draw: draw(d)
+        im.save(tmp / name); return ref_style.analyse(tmp / name)
+    tech = img("tech.png", (6, 8, 14), lambda d: [d.line([(0, y), (240, y)], fill=(40, 230, 255), width=2) for y in range(250, 400, 25)])
+    clean = img("clean.png", (238, 238, 236), lambda d: d.rectangle([90, 120, 150, 300], fill=(214, 214, 212)))
+    pastel = img("pastel.png", (236, 214, 246), lambda d: d.rectangle([90, 120, 150, 300], fill=(246, 178, 200)))
+    lux = img("lux.png", (30, 20, 10), lambda d: d.rectangle([90, 160, 150, 300], fill=(90, 60, 30)))
+    assert (tech["family"], clean["family"], pastel["family"], lux["family"]) == ("tech", "clean", "fresh", "luxury"), \
+        (tech["family"], clean["family"], pastel["family"], lux["family"])
+    def lit_left(d):
+        d.rectangle([80, 100, 160, 320], fill=(120, 60, 40)); d.rectangle([82, 110, 100, 310], fill=(250, 220, 200))
+    side = img("side.png", (40, 40, 44), lit_left)
+    assert side["key_side"] == "left", side
+    assert pastel["set"][0].startswith("#") and len(pastel["palette"]) == 6, pastel
+
+
+@test
+def blender_drink_water_props(tmp):
+    """1.17: the glass drink (glass, layered drink, cream swirl, sauce, straw; beads only on the glass below the drink
+    line), the water set (water + haze), hearts kept off the product, and imperfect roughness on glossy materials.
+    Skipped without Blender."""
+    exe = blender_exe()
+    if not exe: print("  (skipped: no Blender)"); return
+    json.dump({"shape": "drink", "glass": "mug", "layers": [{"color": "#5A2E1A", "to": 0.2}, {"color": "#F4B3C2", "to": 1.0}], "cream": "#FFF7EE",
+               "drip": "chocolate", "straw": ["#FFFFFF", "#EC6A9A"], "sprinkles": True}, open(tmp / "drink.json", "w"))
+    json.dump({"shots": [{"id": "d", "type": "hero_low", "bg": "water", "family": "fresh", "decor": "hearts"}]}, open(tmp / "spec.json", "w"))
+    base = ["--product", str(tmp / "drink.json"), "--out", str(tmp / "o"), "--spec", str(tmp / "spec.json"), "--still", "--frame", "1", "--size", "54x96", "--samples", "1"]
+    code = (f"import sys, bpy; sys.path.insert(0, r'{SC}')\n"
+            f"sys.argv = ['b', '--'] + {base!r}; exec(open(r'{SC / 'blender_product_ad.py'}', encoding='utf-8').read(), {{'__name__': '__main__', '__file__': r'{SC / 'blender_product_ad.py'}'}})\n"
+            "O = bpy.data.objects; g = O['can_glass']\n"
+            "cold = [p.center.z for p in g.data.polygons if p.material_index == 1]; dz = O['can_drink'].data.vertices; top = max(v.co.z for v in dz)\n"
+            "from bpy_extras.object_utils import world_to_camera_view as w2c\n"
+            "sc = bpy.context.scene; sc.frame_set(1)\n"
+            "hearts = [o for o in O if o.name.startswith('hearts')]\n"
+            "over = [o.name for o in hearts if (lambda v: abs(v.x - 0.5) < 0.2 and 0.2 < v.y < 0.8 and v.z < (sc.camera.location - O['can'].matrix_world.translation).length)(w2c(sc, sc.camera, o.matrix_world.translation))]\n"
+            "cream = bpy.data.materials['sauce'].node_tree.nodes['Principled BSDF'].inputs['Roughness'].is_linked\n"
+            "print('DRINK', all(k in O for k in ('can_drink', 'can_cream', 'can_sauce', 'can_straw', 'can_handle')), len(cold) > 20, max(cold) < top,\n"
+            "      'water' in O and 'haze' in O, len(hearts) >= 6, len(over) == 0, cream)\n")
+    r = subprocess.run([exe, "-b", "--python-exit-code", "1", "--python-expr", code], capture_output=True, text=True, timeout=900)
+    out = r.stdout + r.stderr; row = next((l.split()[1:] for l in out.splitlines() if l.startswith("DRINK")), None)
+    assert row, out[-3000:]
+    assert row == ["True"] * 7, row
+
+
 def blender_exe():
     import glob, os, shutil
     return os.environ.get("BLENDER") or shutil.which("blender") or next(iter(sorted(glob.glob(r"C:\Program Files\Blender Foundation\Blender *\blender.exe"))[::-1]), None)

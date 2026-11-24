@@ -102,6 +102,7 @@ def background(kind, c1, c2, n, seed=3):
     """Something alive behind the product: the eye reads a still wall as a render, a moving one as a set."""
     rnd = random.Random(seed); sc = bpy.context.scene
     if kind in (None, "plain"): return
+    if kind == "water": return water_set(c1, c2, n, seed)
     if kind == "gradient_bokeh":
         wall = bpy.data.materials.get("wall")
         if wall:                                                           # two soft pools of light drift across the wall
@@ -174,8 +175,9 @@ def background(kind, c1, c2, n, seed=3):
 
 
 # ---------------------------------------------------------------- decoration in depth
-def decor(kind, n, seed=5):
+def decor(kind, n, seed=5, palette=None):
     if kind in (None, "none"): return
+    if kind in PROPS: return props(kind, n, seed, palette)
     C, T, L = anchor(); rnd = random.Random(seed); fwd = (T - C).normalized(); dist = (T - C).length
     right = fwd.cross(Vector((0, 0, 1))).normalized(); up = right.cross(fwd)
     spec = {"droplets": (18, (0.012, 0.035), None), "gold_dust": (45, (0.002, 0.005), ((1.0, 0.75, 0.35), 1.8)),
@@ -230,20 +232,24 @@ def ease(style="auto", whip=False):
 # ---------------------------------------------------------------- light per mood family
 RIGS = {   # key: energy, size, colour; rims: energy, size, colour (left, right); world: strength factor; extras
     # tuned against the approved v5 look: brighter rigs washed the colours out to pink under the neutral view
-    "fresh":  {"key": (430, 3.5, (1.0, 0.98, 0.94)), "rims": (450, 0.8, (1.0, 0.94, 0.84), (1.0, 0.9, 0.8)), "world": 1.0, "fill": 110},
+    "fresh":  {"key": (430, 3.5, (1.0, 0.98, 0.94)), "rims": (450, 0.8, (1.0, 0.94, 0.84), (1.0, 0.9, 0.8)), "world": 1.0, "fill": 110, "strips": 70},
     "luxury": {"key": (230, 1.2, (1.0, 0.9, 0.8)), "rims": (1000, 0.35, (1.0, 0.72, 0.38), (1.0, 0.78, 0.45)), "world": 0.3, "streak": 160},
     "tech":   {"key": (180, 1.5, (0.75, 0.85, 1.0)), "rims": (1600, 0.3, (1.0, 0.2, 0.8), (0.1, 0.9, 1.0)), "world": 0.3},
-    "clean":  {"key": (260, 6.0, (1.0, 1.0, 1.0)), "rims": (200, 1.5, (1.0, 1.0, 1.0), (1.0, 1.0, 1.0)), "world": 1.0, "fill": 90, "top": True},
+    "clean":  {"key": (260, 6.0, (1.0, 1.0, 1.0)), "rims": (200, 1.5, (1.0, 1.0, 1.0), (1.0, 1.0, 1.0)), "world": 1.0, "fill": 90, "top": True, "strips": 90},
 }
 
 
-def light_rig(family):
-    """Re-light the studio for the mood family (the studio's key/rimL/rimR lights and the world)."""
+def light_rig(family, key_side=None):
+    """Re-light the studio for the mood family (the studio's key/rimL/rimR lights and the world). key_side (from a
+    reference image): "left" moves the key to the other side; strips: two tall thin softboxes beside the product,
+    the long clean highlights studios put down glass and metal (references/ad-craft.md)."""
     R = RIGS.get(family); objs = bpy.data.objects
     if not R: return
     e, sz, col = R["key"]; k = objs.get("key")
     if k:
         k.data.energy, k.data.size, k.data.color = e, sz, col
+        if key_side == "left":
+            k.location.x = -abs(k.location.x); d = Vector((0, 0, 0.6)) - k.location; k.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
         if R.get("top"):                                                   # clean: one big soft light from above the front
             k.location = (0.0, -1.6, 4.6); d = Vector((0, 0, 0.6)) - k.location; k.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
     e, sz, cl, cr = R["rims"]
@@ -260,6 +266,11 @@ def light_rig(family):
     if R.get("fill"):
         bpy.ops.object.light_add(type="AREA", location=(0, -4.5, 1.2)); f = bpy.context.object; f.name = "fill"
         f.data.energy, f.data.size = R["fill"], 4.0; d = Vector((0, 0, 0.7)) - f.location; f.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+    if R.get("strips"):
+        for i, x in enumerate((-2.3, 2.3)):
+            bpy.ops.object.light_add(type="AREA", location=(x, -0.9, 0.9)); sl = bpy.context.object; sl.name = f"strip{i}"
+            sl.data.shape = "RECTANGLE"; sl.data.size, sl.data.size_y = 0.16, 2.8; sl.data.energy = R["strips"]
+            d = Vector((0, 0, 0.7)) - sl.location; sl.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
     if R.get("streak"):                                                    # luxury: a long thin light = a clean streak on the product
         bpy.ops.object.light_add(type="AREA", location=(-2.2, 0.6, 1.4)); st = bpy.context.object; st.name = "streak"   # beside and behind: an edge streak
         st.data.shape = "RECTANGLE"; st.data.size, st.data.size_y = 0.12, 3.0; st.data.energy = R["streak"]; st.data.color = (1.0, 0.92, 0.8)
@@ -332,3 +343,154 @@ def cyclorama(floor_mat, c1, c2, y0=4.0, r=6.5, top=22.0, width=40.0):
     for p in me.polygons:
         p.material_index = 0 if p.center.z < 0.01 else 1; p.use_smooth = True
     return ob
+
+
+# ---------------------------------------------------------------- 1.17: sets, props, imperfection
+def water_set(c1, c2, n, seed=3):
+    """Perfume-on-water: the floor becomes still water - a dark mirror tinted by the set, slow ripple rings spreading
+    from where the product stands, a faint swell - and a haze band softens the horizon. Low cameras suit it."""
+    rnd = random.Random(seed)
+    deep = tuple(x * 0.28 for x in c1)
+    bpy.ops.mesh.primitive_circle_add(vertices=128, radius=30, fill_type="TRIFAN", location=(0, 0, 0.012)); w = bpy.context.object; w.name = "water"
+    m = AC.principled("water_set", deep, 0.0, 0.015, **{"Coat Weight": 0.6, "Coat Roughness": 0.01, "Specular IOR Level": 0.9}); N = m.node_tree.nodes; L = m.node_tree.links
+    tc = N.new("ShaderNodeTexCoord"); ln = N.new("ShaderNodeVectorMath"); ln.operation = "LENGTH"; L.new(tc.outputs["Object"], ln.inputs[0])
+    ph = N.new("ShaderNodeMath"); ph.operation = "MULTIPLY_ADD"; ph.inputs[1].default_value = 9.0; L.new(ln.outputs["Value"], ph.inputs[0])
+    sn = N.new("ShaderNodeMath"); sn.operation = "SINE"; L.new(ph.outputs[0], sn.inputs[0])
+    fall = N.new("ShaderNodeMath"); fall.operation = "EXPONENT"; neg = N.new("ShaderNodeMath"); neg.operation = "MULTIPLY"; neg.inputs[1].default_value = -0.55
+    L.new(ln.outputs["Value"], neg.inputs[0]); L.new(neg.outputs[0], fall.inputs[0])
+    ring = N.new("ShaderNodeMath"); ring.operation = "MULTIPLY"; L.new(sn.outputs[0], ring.inputs[0]); L.new(fall.outputs[0], ring.inputs[1])
+    nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 0.6; nz.inputs["Detail"].default_value = 2; L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    sw = N.new("ShaderNodeMath"); sw.operation = "MULTIPLY_ADD"; sw.inputs[1].default_value = 0.35; L.new(nz.outputs["Fac"], sw.inputs[0]); L.new(ring.outputs[0], sw.inputs[2])
+    bump = N.new("ShaderNodeBump"); bump.inputs["Strength"].default_value = 0.35; bump.inputs["Distance"].default_value = 0.02; L.new(sw.outputs[0], bump.inputs["Height"])
+    b = N["Principled BSDF"]; L.new(bump.outputs["Normal"], b.inputs["Normal"])
+    if "Coat Normal" in b.inputs: L.new(bump.outputs["Normal"], b.inputs["Coat Normal"])
+    w.data.materials.append(m); phase = ph.inputs[2]
+    phase.default_value = 0.0; phase.keyframe_insert("default_value", frame=1)
+    phase.default_value = -0.11 * n; phase.keyframe_insert("default_value", frame=n)            # rings drift outward, slowly
+    for fc in (m.node_tree.animation_data.action.fcurves if hasattr(m.node_tree.animation_data.action, "fcurves") else []):
+        for kp in fc.keyframe_points: kp.interpolation = "LINEAR"
+    # the haze band at the horizon: wall colour, opaque low, clear higher up
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 7.0, 1.2), rotation=(math.radians(90), 0, 0)); hz = bpy.context.object; hz.name = "haze"
+    hz.scale = (40, 2.6, 1)
+    hm = bpy.data.materials.new("haze"); hm.use_nodes = True; HN = hm.node_tree.nodes; HL = hm.node_tree.links; HN.remove(HN["Principled BSDF"])
+    em = HN.new("ShaderNodeEmission"); em.inputs["Color"].default_value = (*_light(c2, 0.35), 1); em.inputs["Strength"].default_value = 0.6
+    tr = HN.new("ShaderNodeBsdfTransparent"); mx = HN.new("ShaderNodeMixShader"); tcz = HN.new("ShaderNodeTexCoord"); sx = HN.new("ShaderNodeSeparateXYZ")
+    mr = HN.new("ShaderNodeMapRange"); mr.inputs["From Min"].default_value = -0.5; mr.inputs["From Max"].default_value = 0.5
+    mr.inputs["To Min"].default_value = 0.75; mr.inputs["To Max"].default_value = 0.0
+    for x_, y_ in ((tcz.outputs["Object"], sx.inputs[0]), (sx.outputs["Y"], mr.inputs["Value"]), (mr.outputs["Result"], mx.inputs[0]), (tr.outputs[0], mx.inputs[1]),
+                   (em.outputs[0], mx.inputs[2]), (mx.outputs[0], HN["Material Output"].inputs["Surface"])):
+        HL.new(x_, y_)
+    try: hm.surface_render_method = "BLENDED"
+    except Exception: pass
+    hz.data.materials.append(hm); hz.visible_shadow = False
+    return w
+
+
+PROPS = {   # kind: (count, size range, how they look)
+    "hearts": (12, (0.06, 0.14), "puffy glossy hearts in the set's colours"),
+    "beans": (18, (0.05, 0.08), "roasted coffee beans with their centre groove"),
+    "leaves": (14, (0.08, 0.16), "mint leaves, bent, with a midrib"),
+    "pearls": (20, (0.035, 0.06), "dark glossy tapioca pearls"),
+    "sprinkles": (60, (0.018, 0.03), "candy sprinkles in bright colours"),
+}
+
+
+def _prop_mesh(kind, rnd):
+    import bmesh as _bm
+    bm = _bm.new()
+    if kind == "hearts":
+        pts = []
+        for k in range(48):
+            t = 2 * math.pi * k / 48; x = 16 * math.sin(t) ** 3; y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+            pts.append(bm.verts.new((x / 17, 0, (y + 2) / 17)))
+        f = bm.faces.new(pts); ex = _bm.ops.extrude_face_region(bm, geom=[f])
+        for v in [e for e in ex["geom"] if isinstance(e, _bm.types.BMVert)]: v.co.y += 0.55
+        _bm.ops.translate(bm, verts=bm.verts, vec=(0, -0.275, 0))
+    elif kind in ("beans", "pearls", "sprinkles"):
+        _bm.ops.create_uvsphere(bm, u_segments=20, v_segments=12, radius=1.0)
+        for v in bm.verts:
+            if kind == "beans":
+                v.co.x *= 1.0; v.co.y *= 0.72; v.co.z *= 0.5
+                if v.co.z > 0.2 and abs(v.co.y) < 0.12: v.co.z -= 0.18 * (1 - abs(v.co.y) / 0.12)      # the groove
+            elif kind == "sprinkles": v.co.x *= 2.6; v.co.y *= 0.8; v.co.z *= 0.8
+    else:                                                                  # a leaf: two arcs, bent along its length, midrib
+        nx, ny = 14, 5
+        for j in range(ny + 1):
+            for i in range(nx + 1):
+                u = i / nx; half = math.sin(math.pi * u) ** 0.8 * 0.38; v = (j / ny - 0.5) * 2 * half
+                bm.verts.new((u - 0.5, v, 0.18 * (u - 0.5) ** 2 - 0.05 * abs(v) / max(half, 1e-3) * half))
+        bm.verts.ensure_lookup_table()
+        for j in range(ny):
+            for i in range(nx):
+                a = j * (nx + 1) + i; bm.faces.new((bm.verts[a], bm.verts[a + 1], bm.verts[a + nx + 2], bm.verts[a + nx + 1]))
+    me = bpy.data.meshes.new(f"prop_{kind}"); bm.to_mesh(me); bm.free()
+    for p_ in me.polygons: p_.use_smooth = True
+    return me
+
+
+def props(kind, n, seed=5, palette=None):
+    """Themed props in depth layers round the product: a few large ones near the lens (out of focus), more behind,
+    the product kept clear; they drift and turn slowly. Colours come from the palette (reference or set)."""
+    C, T, L = anchor(); rnd = random.Random(seed); fwd = (T - C).normalized(); dist = (T - C).length
+    right = fwd.cross(Vector((0, 0, 1))).normalized(); up = right.cross(fwd)
+    cnt, (r0, r1), _ = PROPS[kind]; cnt = max(6, int(cnt * min(1.0, dist / 2.5)))
+    me = _prop_mesh(kind, rnd); me.materials.append(None)                  # one slot; each object fills it (link OBJECT)
+    def lin(h):
+        h = h.lstrip("#"); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        return tuple(((x + 0.055) / 1.055) ** 2.4 if x > 0.04045 else x / 12.92 for x in c)
+    pal = [lin(h) for h in (palette or [])]
+    pal = [c for c in pal if 0.08 < max(c) and (max(c) - min(c)) > 0.05] or [(1.0, 0.45, 0.6), (1.0, 0.75, 0.82), (0.95, 0.95, 1.0)]
+    def mat_for(i):
+        if kind == "beans": return AC.principled("bean", (0.09, 0.035, 0.012), 0.0, 0.32, **{"Coat Weight": 0.3})
+        if kind == "pearls": return AC.principled("pearl", (0.035, 0.015, 0.008), 0.0, 0.08, **{"Coat Weight": 0.8, "Subsurface Weight": 0.2})
+        if kind == "leaves": return AC.principled("leaf", (0.06, 0.32, 0.08), 0.0, 0.45, **{"Subsurface Weight": 0.25})
+        if kind == "sprinkles":
+            c = [(1.0, 0.25, 0.45), (0.2, 0.55, 1.0), (1.0, 0.85, 0.2), (0.95, 0.95, 0.95), (0.4, 0.85, 0.5)][i % 5]
+            return AC.principled(f"sprinkle{i % 5}", c, 0.0, 0.3)
+        c = pal[i % len(pal)]; return AC.principled(f"heart{i % len(pal)}", c, 0.0, 0.22, **{"Coat Weight": 0.5, "Subsurface Weight": 0.15})
+    for i in range(cnt):
+        near = i % 4 == 0 and dist > 1.8                                   # close shots: the side band is too narrow for a big one
+        z = dist * (rnd.uniform(0.35, 0.55) if near else (rnd.uniform(0.8, 1.7) if dist > 1.8 else rnd.uniform(1.25, 1.9))); hh = z * 18 / L   # close: behind it
+        xo, yo = rnd.uniform(-1, 1), rnd.uniform(-1, 1)
+        if near: xo = math.copysign(rnd.uniform(0.8, 1.05), xo)                # near the lens: only at the sides, never over the product
+        elif z < dist * 1.15 and abs(xo) < 0.6 and abs(yo) < 0.5: xo = math.copysign(rnd.uniform(0.6, 1.0), xo)   # the product stays clear
+        pos = C + fwd * z + right * xo * hh * 9 / 16 + up * yo * hh
+        r = rnd.uniform(r0, r1) * (1.4 if near else 1.0) * (z / dist) ** 0.5
+        o = bpy.data.objects.new(f"{kind}{i}", me); bpy.context.scene.collection.objects.link(o)
+        o.material_slots[0].link = "OBJECT"; o.material_slots[0].material = mat_for(i)
+        o.scale = (r,) * 3; o.visible_shadow = False
+        rot0 = Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0, 6.28)))
+        if kind == "hearts": rot0 = Vector((rnd.uniform(-0.3, 0.3), 0, rnd.uniform(-0.5, 0.5))) + Vector((0, 0, math.atan2(-fwd.x, fwd.y)))
+        spin = Vector((rnd.uniform(-0.4, 0.4), rnd.uniform(-0.4, 0.4), rnd.uniform(-0.6, 0.6)))
+        drift = Vector((rnd.uniform(-0.04, 0.04), rnd.uniform(-0.04, 0.04), rnd.uniform(0.03, 0.12))) * dist * 0.4
+        _key(o, 1, location=pos, rotation_euler=rot0); _key(o, n, location=pos + drift, rotation_euler=rot0 + spin)
+        if kind == "hearts":
+            sub = o.modifiers.new("puff", "SUBSURF"); sub.levels = sub.render_levels = 2
+            bev = o.modifiers.new("round", "BEVEL"); bev.width = 0.12; bev.segments = 4; o.modifiers.move(1, 0)
+
+
+def imperfect(root, seed=4):
+    """Studio realism: no surface is perfectly even. Every glossy Principled material on the product gets roughness
+    that varies a little (noise) plus a few soft smudges (fingerprints); a Principled with a texture on its roughness
+    is left alone."""
+    if not root: return
+    done = set()
+    for o in [root] + list(root.children_recursive):
+        if o.type not in ("MESH", "META"): continue                         # metaball sauces are glossy too
+        for slot in o.material_slots:
+            m = slot.material
+            if not m or m.name in done or not m.use_nodes: continue
+            done.add(m.name); N = m.node_tree.nodes; L = m.node_tree.links
+            b = next((nd for nd in N if nd.type == "BSDF_PRINCIPLED"), None)
+            if not b or b.inputs["Roughness"].is_linked: continue
+            r = b.inputs["Roughness"].default_value
+            if r > 0.45: continue
+            tc = N.new("ShaderNodeTexCoord"); nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 7.0; nz.inputs["Detail"].default_value = 6
+            vo = N.new("ShaderNodeTexVoronoi"); vo.inputs["Scale"].default_value = 3.2
+            sm = N.new("ShaderNodeMapRange"); sm.inputs["From Min"].default_value = 0.18; sm.inputs["From Max"].default_value = 0.05
+            mr = N.new("ShaderNodeMapRange"); mr.inputs["To Min"].default_value = max(0.0, r - 0.03); mr.inputs["To Max"].default_value = r + 0.05
+            ad = N.new("ShaderNodeMath"); ad.operation = "MULTIPLY_ADD"; ad.inputs[1].default_value = 0.10 + 0.4 * (0.12 - min(r, 0.12))
+            for x_, y_ in ((tc.outputs["Object"], nz.inputs["Vector"]), (tc.outputs["Object"], vo.inputs["Vector"]), (nz.outputs["Fac"], mr.inputs["Value"]),
+                           (vo.outputs["Distance"], sm.inputs["Value"]), (sm.outputs["Result"], ad.inputs[0]), (mr.outputs["Result"], ad.inputs[2]),
+                           (ad.outputs[0], b.inputs["Roughness"])):
+                L.new(x_, y_)

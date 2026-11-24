@@ -35,6 +35,7 @@ ap.add_argument("--product", help="product.json (product_from_photo.py or by han
 ap.add_argument("--spec", help="shot list JSON (ad_pipeline.py): per shot id, type, frames, event frame, key frame, camera path, cold; "
                                 "renders <out>/<id>/####.png, resumes (frames already on disk are skipped)")
 ap.add_argument("--label-metal", help="where the can shows bare metal through the print: 'auto' (grey/silver pixels of the label) or a mask image (white = metal)")
+ap.add_argument("--no-imperfect", action="store_true", help="perfectly even surfaces (no smudges or roughness variation)")
 ap.add_argument("--liquid", help="hex colour of the drink for the crown pool (milk, coffee...); default: the fruit juice, else the set colour")
 ap.add_argument("--cold", action="store_true", help="condensation beads on the can (Geometry Nodes)")
 ap.add_argument("--engine", default="eevee", choices=["eevee", "cycles"], help="cycles: GPU path tracing + denoise for the final render")
@@ -672,8 +673,12 @@ def build(spec):
             for p in pieces: p.location.y += 1.8
         elif shot == "macro":
             key(body, 1, rotation_euler=(0, 0, math.radians(70))); key(body, n, rotation_euler=(0, 0, math.radians(110)))
-            cam = camera((0.25, -1.25, 0.72), (0, -0.33, 0.66), 60, focus=0.95, fstop=2.0)   # glide across the front of the label
-            key(cam, 1, location=(0.35, -1.25, 0.78)); key(cam, n, location=(-0.3, -1.2, 0.6))
+            if (PRODUCT or {}).get("shape") == "drink":                    # a styled drink: the rim, the sauce tongues, the cream
+                cam = camera((0.3, -1.6, 1.02), (0, -0.36, 0.86), 60, focus=1.25, fstop=2.2)
+                key(cam, 1, location=(0.4, -1.6, 1.08)); key(cam, n, location=(-0.3, -1.5, 0.98))
+            else:
+                cam = camera((0.25, -1.25, 0.72), (0, -0.33, 0.66), 60, focus=0.95, fstop=2.0)   # glide across the front of the label
+                key(cam, 1, location=(0.35, -1.25, 0.78)); key(cam, n, location=(-0.3, -1.2, 0.6))
             for p in pieces: p.location = (p.location.x * 0.3, -1.6, p.location.z)
         elif shot == "burst":
             for i, p in enumerate(pieces):
@@ -688,9 +693,11 @@ def build(spec):
             key(cam, 1, location=(0, -3.0, 0.9)); key(cam, n, location=(0, -3.7, 1.0))
     if spec.get("camera"): camera_path(spec["camera"], n)                 # an explicit path wins over the designed move
     elif spec.get("move"): LK.move(spec["move"], n, seed=sum(map(ord, sid)))
-    LK.light_rig(spec.get("family"))                                      # the mood family's light
+    LK.light_rig(spec.get("family"), spec.get("key_side"))                # the mood family's light (key side from a reference)
     LK.background(spec.get("bg"), lin(c1), lin(c2), n)                     # the design pass (ad_design.py)
-    LK.decor(spec.get("decor"), n, seed=sum(map(ord, sid)) + 1)
+    LK.decor(spec.get("decor"), n, seed=sum(map(ord, sid)) + 1, palette=spec.get("palette") or [a.set[0], a.set[1]])
+    if not a.no_imperfect:                                                 # fingerprints and uneven gloss: real surfaces
+        LK.imperfect(next((bpy.data.objects[k] for k in ("bar_front", "can_front", "can", "bag", "bar") if k in bpy.data.objects), None))
     if shot in ("split", "snap", "tear", "twist", "crown", "open", "toppop") and F: LK.shake(F, n)     # the camera feels the hit
     LK.contact_shadow(n)                                                   # a soft shadow under a hovering product
     if spec.get("motion"): LK.ease(spec["motion"], whip=spec.get("move") == "whip_in")

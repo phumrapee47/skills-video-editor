@@ -92,3 +92,6 @@ voiceover in `ad3d-luma-performance` and `ad3d-luma-crown` is a Microsoft Edge n
   "sb passage" by Scott Buckley (www.scottbuckley.com.au), released under Creative Commons Attribution 4.0 (MOLTO);
   "Blipotron" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License (VOLT).
   Callout text in Mali SemiBold, Kanit and Playfair Display (SIL Open Font License, bundled in `assets/fonts`).
+- 1.17 glass drink video (`ad3d-glass-drink-momo`): MOMO is a made-up brand; the glass, drink, cream, sauce, straw and
+  hearts are built by the skill (`ad_drink.py`, `ad_look.py`). Music: "Disco con Tutti" Kevin MacLeod (incompetech.com),
+  Licensed under Creative Commons: By Attribution 4.0 License. Licence: CC BY 4.0.

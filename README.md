@@ -89,6 +89,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - **Ads that sell**: a `performance` structure (hook, benefit, proof, demo, offer, call to action - also on the hero shot) or a `brand` film; an AI voiceover that says the brand early (edge-tts, Thai or English), a sonic logo made from the brand name, the brand kit's fonts and logo, callouts that point at the 3D product where there is room; an ABCD check at the gates (product and hook by 3 s, brand seen and said by 5 s, calls to action, readable text, works muted); hook variants for testing (`ad_pipeline.py variants`)
 - **The cut and liquids**: the fruit cut shows a steel blade and a seam of light running down the skin, juice beads well up along it, juice films stretch between the halves and tear, mist and pulp fly, the camera jolts on the hit; a `crown` shot drops the product into its own drink (crown splash that frames the label, ripple rings, milk / coffee / juice colours); a seamless studio sweep instead of a floor and a wall, and a contact shadow under hovering products; the brief can pick the shots (`board`)
 - **Callouts designed per mood**: they point at real features of the product (logo, small print, top, base) and follow them frame by frame; a hand-drawn arrow with handwriting (fresh, Thai + Latin), a hairline ring with serif italics (luxury), corner brackets with a glowing leader (tech) or a dot (clean); marker, line, then text, one after another; above the product when its sides are full
+- **Looks from references**: give the brief a still you like and its palette, set colours, light side and mood drive the design; a still-water set (perfume look), strip lights, fingerprints and uneven gloss on shiny surfaces; a styled glass drink (layers, piped cream, chocolate or caramel running over the rim, striped straw, beads only where the cold drink is); prop kits (hearts, coffee beans, mint leaves, pearls, sprinkles)
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -144,8 +145,9 @@ not shown.
 | 1.14 | performance structure, AI voiceover, sonic logo, ABCD check, hook variants | ABCD check all PASS · [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4) |
 | 1.15 | the user: the cut and the callouts looked "too easy" -> study of studio work -> blade, seam of light, juice films, crown splash, seamless set | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
 | 1.16 | callouts that point at real features and follow them; four looks by mood; above the product when its sides are full; Mali handwriting font | [▶ hand (LUMA)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4) · [▶ hairline (MOLTO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4) · [▶ tech (VOLT)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4) |
+| 1.17 | read a reference still (palette, light side, mood); still-water set, strip lights, smudges on gloss, styled glass drink, prop kits; a metaball sauce broke into blocks under motion blur, so it is baked to a mesh | [▶ glass drink (MOMO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4) · water set and hearts stills in the gallery |
 
-Regression tests grew from 10 (1.4) to 33 (1.16); GitHub Actions runs them on every push (Blender tests skip there).
+Regression tests grew from 10 (1.4) to 35 (1.17); GitHub Actions runs them on every push (Blender tests skip there).
 
 ### Demos
 
@@ -253,6 +255,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - **โฆษณาที่ขายของ**: โครงแบบ `performance` (hook, ประโยชน์, หลักฐาน, สาธิต, ข้อเสนอ, CTA ทั้งกลางคลิปและท้าย) หรือแบบ `brand` เสียงพากย์ AI ที่พูดชื่อแบรนด์ตั้งแต่ต้น (edge-tts ไทย/อังกฤษ) sonic logo จากชื่อแบรนด์ ใช้ฟอนต์และโลโก้จาก brand kit ป้ายชี้สินค้า 3D เมื่อมีที่ว่าง ตรวจ ABCD ที่ขั้นอนุมัติ (สินค้าและ hook ใน 3 วิ, เห็นและได้ยินแบรนด์ใน 5 วิ, CTA, ข้อความอ่านทัน, ปิดเสียงก็เข้าใจ) และทำ hook หลายแบบไว้ทดสอบ (`ad_pipeline.py variants`)
 - **รอยผ่าและของเหลว**: ผ่าผลไม้เห็นใบมีดเหล็กและเส้นแสงวิ่งตามรอยบนผิว น้ำผลไม้ผุดตามรอยตัด แผ่นน้ำยืดระหว่างสองซีกแล้วขาด ละอองและเนื้อกระเด็น กล้องกระตุกตอนกระทบ; ช็อต `crown` สินค้าตกลงในเครื่องดื่มของตัวเอง มงกุฎน้ำล้อมโดยไม่บังฉลาก วงคลื่นกระจาย สีตามเครื่องดื่ม (นม กาแฟ น้ำผลไม้); ฉากโค้งต่อเนื่องไม่มีเส้นมุมห้อง และเงาใต้สินค้าที่ลอยอยู่; เลือกช็อตเองได้ใน brief (`board`)
 - **ป้ายชี้ออกแบบตามอารมณ์**: ชี้ที่จุดจริงบนสินค้า (โลโก้ ตัวหนังสือเล็ก ฝา ฐาน) และตามจุดนั้นทุกเฟรม ลูกศรวาดมือกับตัวหนังสือลายมือ (fresh ไทยและอังกฤษ) วงแหวนเส้นบางกับตัวเซริฟเอียง (luxury) กรอบมุมกับเส้นเรือง (tech) หรือจุด (clean) ขึ้นทีละส่วน: จุด เส้น ตัวหนังสือ ถ้าข้างสินค้าไม่มีที่ว่าง ป้ายย้ายไปอยู่เหนือสินค้า
+- **ลุคจากภาพอ้างอิง**: ใส่ภาพที่ชอบใน brief แล้วระบบดึงพาเลต สีฉาก ทิศแสง และอารมณ์มาออกแบบ ฉากน้ำนิ่งแบบโฆษณาน้ำหอม ไฟแถบยาว รอยนิ้วและความมันไม่สม่ำเสมอบนผิวเงา แก้วเครื่องดื่มแต่งหน้า (เครื่องดื่มหลายชั้น วิปครีมบีบเกลียว ช็อกโกแลตหรือคาราเมลไหลย้อยขอบแก้ว หลอดลาย หยดน้ำเกาะเฉพาะส่วนที่เย็น) และชุดพร็อพ (หัวใจ เมล็ดกาแฟ ใบมิ้นต์ ไข่มุก เกล็ดน้ำตาล)
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
@@ -307,8 +310,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 | 1.14 | โครงแบบ performance เสียงพากย์ AI sonic logo ตรวจ ABCD hook หลายแบบ | ABCD ผ่านทุกข้อ · [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-performance.mp4) |
 | 1.15 | ผู้ใช้: รอยผ่าและป้ายชี้ "ทำง่ายเกินไป" -> ศึกษางานสตูดิโอ -> ใบมีด เส้นแสง แผ่นน้ำ มงกุฎน้ำ ฉากโค้งต่อเนื่อง | [▶ animatic](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-luma-crown.mp4) |
 | 1.16 | ป้ายชี้ชี้ที่จุดจริงบนสินค้าและตามทุกเฟรม 4 ลุคตามอารมณ์ วางเหนือสินค้าเมื่อข้างเต็ม ฟอนต์ลายมือ Mali | [▶ ลายมือ (LUMA)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hand-luma.mp4) · [▶ เส้นบาง (MOLTO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-hairline-molto.mp4) · [▶ tech (VOLT)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4) |
+| 1.17 | อ่านภาพอ้างอิง (พาเลต ทิศแสง อารมณ์) ฉากน้ำนิ่ง ไฟแถบยาว รอยนิ้วบนผิวเงา แก้วเครื่องดื่มแต่งหน้า ชุดพร็อพ; ซอส metaball แตกเป็นบล็อกเมื่อเปิด motion blur จึงแปลงเป็น mesh | [▶ แก้วนมชมพู (MOMO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4) · ภาพฉากน้ำและหัวใจในแกลเลอรี |
 
-เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 33 (1.16) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
+เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 35 (1.17) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
 
 ### เดโม
 
@@ -406,3 +410,11 @@ Frames from each result video; click a title to play it. Credits: [`demos/CREDIT
 **[Callouts, tech look · ป้ายชี้แบบ tech](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-callouts-tech-volt.mp4)** · 1.16 · 11 s
 
 ![ad3d-callouts-tech-volt](docs/history/ad3d-callouts-tech-volt.jpg)
+
+**[Styled glass drink, made-up brand MOMO · แก้วนมชมพูแต่งหน้า แบรนด์สมมติ](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4)** · 1.17 · 9 s
+
+![ad3d-glass-drink-momo](docs/history/ad3d-glass-drink-momo.jpg)
+
+**Still-water set and hearts (stills) · ฉากน้ำนิ่งและหัวใจ (ภาพนิ่ง)** · 1.17
+
+![ad3d-water-hearts-stills](docs/history/ad3d-water-hearts-stills.jpg)

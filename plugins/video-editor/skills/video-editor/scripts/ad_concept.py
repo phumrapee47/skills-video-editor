@@ -29,11 +29,12 @@ def find(group, words):
 def concept(product, ingredient=None, family="fresh", flavours=1):
     p, _ = find("products", product); ing, ing_word = find("ingredients", ingredient or product)
     shape = CAT["products"].get(p, {}).get("shape") or "can"; needs = CAT.get("shot_needs", {})
-    fits = lambda x: not x.get("shot") or needs.get(x["shot"], shape) == shape      # a shot built for another shape is not built here
+    avoid = CAT.get("shot_avoid", {})                                      # e.g. a mug does not drop into a pool (crown)
+    fits = lambda x: not x.get("shot") or (needs.get(x["shot"], shape) == shape and shape not in avoid.get(x["shot"], []))
     acts = [dict(a, of=p) for a in CAT["products"].get(p, {}).get("actions", [])]
     evs = [dict(e, of=ing) for e in CAT["ingredients"].get(ing, {}).get("events", [])]
     for x in acts + evs:
-        if not fits(x): x["build"] = f"shot '{x['shot']}' is built for a {needs[x['shot']]} only"; x["shot"] = None
+        if not fits(x): x["build"] = (f"shot '{x['shot']}' is built for a {needs[x['shot']]} only" if x["shot"] in needs else f"shot '{x['shot']}' does not suit a {shape}"); x["shot"] = None
     built = lambda xs, beat: [x for x in xs if x["beat"] == beat and x.get("shot")]
     board = []
     hooks = [x for x in acts + evs if x["beat"] == "hook"]                                   # the product's own action first
@@ -52,7 +53,7 @@ def concept(product, ingredient=None, family="fresh", flavours=1):
     board.append(("end", "card", "line + handle on the brand colour", "chime"))
     todo = [x for x in acts + evs if not x.get("shot")]
     return {"product": p, "shape": shape, "ingredient": ing, "fruit": ing_word if CAT["ingredients"].get(ing, {}).get("fruit") else None,
-            "liquid": CAT["ingredients"].get(ing, {}).get("liquid"), "family": family, "family_rules": CAT["families"].get(family),
+            "liquid": CAT["ingredients"].get(ing, {}).get("liquid"), "props": CAT["ingredients"].get(ing, {}).get("props"), "family": family, "family_rules": CAT["families"].get(family),
             "actions": acts, "events": evs, "board": board, "to_build": todo,
             "shots": [b[1] for b in board if b[1] != "card" and not b[1].startswith("TO BUILD")], "seconds": round(sum(LEN_S.get(b[1], 2.4) for b in board), 1)}
 

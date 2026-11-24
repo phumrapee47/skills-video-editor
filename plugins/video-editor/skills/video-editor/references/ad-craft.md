@@ -81,11 +81,11 @@ literature says, and what the skill must do. Statuses: DONE / PARTIAL / TODO.
 |---|---|---|
 | Seamless backdrop | DONE 1.15: cyclorama, floor-to-wall gradient | mesh gradients (several colour points) |
 | Contact shadow | DONE 1.15: `contact_shadow` follows the product's height | - |
-| Imperfection | fine noise only | fingerprints/smudges on gloss, edge wear, roughness variation, micro bevels |
-| Textured light | flat area lights | gradient/softbox textures on lights, strip lights for long highlights |
-| Prop kits | fruit, ice, droplets, dust | themed props (hearts, sprinkles, beans, leaves, pearls, flowers) in depth layers, palette-matched |
-| Food styling | none | whipped cream swirl (piped star profile), chocolate/caramel drip over a rim, sprinkles |
-| Glass drinks | can/bottle only | glass mug/cup with layered drink, beads where the drink is, caustics (Cycles) |
+| Imperfection | DONE 1.17: `imperfect` - uneven roughness + smudges on gloss | edge wear, micro bevels |
+| Textured light | PARTIAL 1.17: strip lights (fresh, clean), luxury streak | gradient textures on softboxes |
+| Prop kits | DONE 1.17: hearts, beans, leaves, pearls, sprinkles in depth layers, palette-matched | flowers |
+| Food styling | DONE 1.17: piped cream swirl, sauce over the rim + drizzle, sprinkles (`ad_drink.py`) | - |
+| Glass drinks | DONE 1.17: mug/cup/tall, layered drink, beads only below the drink line, straw | caustics (Cycles) |
 | Crown splash | DONE 1.15: `crown` shot (procedural crown, pool with ripples, drops) | Mantaflow/FLIP for finals |
-| Water set | PARTIAL 1.15: liquid floor + ripple rings + low camera in `crown` | a still water set for luxury, haze horizon |
-| Reference match | none | read the user's reference images: palette, light direction, contrast, props -> the design |
+| Water set | DONE 1.17: `water` background - still dark mirror, ripple rings, haze horizon | - |
+| Reference match | DONE 1.17: `ref_style.py` - palette, set, accent, light side, mood family | props from the picture |

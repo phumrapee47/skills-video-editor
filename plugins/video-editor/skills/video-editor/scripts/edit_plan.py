@@ -465,7 +465,8 @@ def render_video(plan, tl, total, W, H, fps, tmp, a0, a1):
     fg.append(f"[{acc}]{','.join(tail)}[vout]")
     out = tmp / "video.mp4"
     subprocess.run(cmd + ["-filter_complex", ";".join(fg), "-map", "[vout]", "-c:v", "libx264", "-crf", str(plan["output"].get("crf", 19)),
-                          "-preset", "medium", "-color_range", "tv", "-an", str(out)], check=True)
+                          "-preset", "medium", "-g", str(int(round(2 * float(plan["output"].get("fps") or 30)))),   # a keyframe every 2 s:
+                          "-color_range", "tv", "-an", str(out)], check=True)                                     # clean seeking, upload-friendly
     return out
 
 

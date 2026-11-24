@@ -546,6 +546,52 @@
     }
    ],
    "shape": null
+  },
+  "glass_drink": {
+   "aka": [
+    "frappe",
+    "frappuccino",
+    "milkshake",
+    "smoothie",
+    "iced latte",
+    "iced coffee",
+    "pink milk",
+    "cocoa",
+    "drink in a glass",
+    "mug",
+    "ชานม",
+    "นมชมพู",
+    "เฟรปเป้",
+    "ปั่น"
+   ],
+   "shape": "drink",
+   "actions": [
+    {
+     "id": "styled_hero",
+     "do": "the styled glass turns slowly in the light: cream swirl, sauce running over the rim, beads on the cold glass",
+     "sound": "soft whoosh",
+     "camera": "low, 50 mm, slow orbit",
+     "beat": "hook",
+     "shot": "zerog"
+    },
+    {
+     "id": "cream_detail",
+     "do": "macro over the piped cream, sprinkles and the sauce tongues",
+     "sound": "none (music)",
+     "camera": "macro, shallow focus",
+     "beat": "detail",
+     "shot": "macro"
+    },
+    {
+     "id": "pour_layers",
+     "do": "the drink is poured in layers that settle",
+     "sound": "pour",
+     "camera": "side, glass in focus",
+     "beat": "payoff",
+     "shot": null,
+     "build": "metaball stream + layer heights animated"
+    }
+   ]
   }
  },
  "ingredients": {
@@ -614,7 +660,8 @@
      "shot": null
     }
    ],
-   "liquid": "#B5234E"
+   "liquid": "#B5234E",
+   "props": "hearts"
   },
   "coffee": {
    "aka": [
@@ -644,7 +691,8 @@
      "shot": null
     }
    ],
-   "liquid": "#6B4126"
+   "liquid": "#6B4126",
+   "props": "beans"
   },
   "chocolate": {
    "aka": [
@@ -667,7 +715,8 @@
      "shot": null
     }
    ],
-   "liquid": "#4E2A17"
+   "liquid": "#4E2A17",
+   "props": "sprinkles"
   },
   "milk": {
    "aka": [
@@ -684,7 +733,8 @@
      "shot": "crown"
     }
    ],
-   "liquid": "#F3EFE6"
+   "liquid": "#F3EFE6",
+   "props": "pearls"
   },
   "ice": {
    "aka": [
@@ -725,7 +775,8 @@
      "shot": null
     }
    ],
-   "liquid": "#BFE6C8"
+   "liquid": "#BFE6C8",
+   "props": "leaves"
   },
   "flower": {
    "aka": [
@@ -811,5 +862,13 @@
   "tear": "pouch",
   "snap": "bar",
   "trio": "can"
+ },
+ "shot_avoid": {
+  "crown": [
+   "drink",
+   "bar",
+   "pouch",
+   "box"
+  ]
  }
 }
