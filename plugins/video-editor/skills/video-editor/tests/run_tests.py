@@ -722,6 +722,8 @@ def blender_pour_clink_hdri(tmp):
             "P60, s60 = at(60); P110, s110 = at(110); g = O['pglass'].matrix_world.translation\n"
             "mouth = sys.modules.get('__main__') and None\n"
             "print('POUR', round((Vector((P60[-1].x, P60[-1].y, 0)) - Vector((g.x, g.y, 0))).length, 3), round(s60, 2), round(s110, 2), round(P60[0].z - P60[-1].z, 2))\n"
+            "dg = bpy.context.evaluated_depsgraph_get(); sf = O['pour_surface'].evaluated_get(dg).to_mesh(); zz = [v.co.z for v in sf.vertices]\n"
+            "print('LIQ', any(m.type == 'NODES' for m in st.modifiers), len(sf.vertices) > 1000, round(max(zz) - min(zz), 3))\n"
             f"sys.argv = ['b', '--'] + {base!r} + ['--spec', r'{tmp / 'sc.json'}']; exec(src, dict(G))\n"
             "sc = bpy.context.scene; O = bpy.data.objects\n"
             "def gap(f):\n"
@@ -731,15 +733,18 @@ def blender_pour_clink_hdri(tmp):
             "print('CLINK', round(gap(1), 3), round(gap(24), 3))\n"
             f"sys.argv = ['b', '--'] + {base!r} + ['--spec', r'{tmp / 'sh.json'}']; exec(src, dict(G))\n"
             "O = bpy.data.objects; w = bpy.context.scene.world\n"
-            "print('HDRI', 'tabletop' in O, O['cyclorama'].hide_render, any(n.type == 'TEX_ENVIRONMENT' and n.image and 'spiaggia' in n.image.filepath for n in w.node_tree.nodes))\n")
+            "print('HDRI', 'tabletop' in O, O['cyclorama'].hide_render, any(n.type == 'TEX_ENVIRONMENT' and n.image and 'spiaggia' in n.image.filepath for n in w.node_tree.nodes),\n"
+            "      all(o.hide_render for o in O if o.type == 'LIGHT' and o.name != 'bounce'))\n")
     r = subprocess.run([exe, "-b", "--python-exit-code", "1", "--python-expr", code], capture_output=True, text=True, timeout=900)
     out = r.stdout + r.stderr
     rows = {l.split()[0]: l.split()[1:] for l in out.splitlines() if l.split() and l.split()[0] in ("POUR", "CLINK", "HDRI")}
-    assert set(rows) == {"POUR", "CLINK", "HDRI"}, out[-3000:]
+    rows = {l.split()[0]: l.split()[1:] for l in out.splitlines() if l.split() and l.split()[0] in ("POUR", "CLINK", "HDRI", "LIQ")}
+    assert set(rows) == {"POUR", "CLINK", "HDRI", "LIQ"}, out[-3000:]
+    assert rows["LIQ"][:2] == ["True", "True"] and float(rows["LIQ"][2]) > 0.03, rows["LIQ"]   # 1.20: a stream body, a churning top
     land, s60, s110, drop = map(float, rows["POUR"])
-    assert land < 0.08 and s110 > s60 > 0.1 and drop > 0.3, rows["POUR"]                 # lands in the glass, the level rises
+    assert land < 0.1 and s110 > s60 > 0.1 and drop > 0.3, rows["POUR"]                  # lands in the glass (off centre), the level rises
     g1, g24 = map(float, rows["CLINK"]); assert g1 > 0.3 and g24 < 0.12, rows["CLINK"]      # apart, then the rims meet
-    assert rows["HDRI"] == ["True", "True", "True"], rows["HDRI"]
+    assert rows["HDRI"] == ["True", "True", "True", "True"], rows["HDRI"]          # 1.20: only the place (and the bounce card) lights it
 
 
 def blender_exe():

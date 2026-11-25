@@ -526,16 +526,24 @@ def _tabletop_material(kind):
 
 def hdri_scene(name, c1, c2, n):
     """A lifestyle shot: the product on a tabletop, a real place (CC0 HDRI, hdri.py) as the light and the blurred
-    backdrop. The studio sweep and haze go; the studio lights stay at half to model the product."""
+    backdrop - one photograph: the place is the only light (studio lights off), its sun (if it has one) is extracted
+    with a real, soft-edged shadow, and the exposure is metered from the place, so the product does not look pasted."""
     import hdri as HD
     p = HD.path(name)
     if not p:
         print(f"HDRI '{name}' not downloaded: python -I hdri.py fetch {name}  (ask the user first) - keeping the studio"); return None
     slug, _, _, top, rot, strength = HD.HDRIS[name]
     sc = bpy.context.scene; w = bpy.data.worlds.new("hdri"); sc.world = w; w.use_nodes = True; N = w.node_tree.nodes; L = w.node_tree.links
-    try: w.use_sun_shadow = False                                          # the same band artefact as the studio (1.15)
-    except Exception: pass
     env = N.new("ShaderNodeTexEnvironment"); env.image = bpy.data.images.load(str(p))
+    st = hdri_stats(env.image)                                             # the place's own light: meter it, find its sun
+    sun = st["peak"] > 25 * max(st["median"], 1e-4)                        # a real sun disk, not a cloudy sky or a window
+    try:
+        w.use_sun_shadow = sun; w.use_sun_shadow_jitter = sun             # its shadow, soft-edged as the real sun's size
+        w.sun_threshold = max(1.0, st["peak"] * 0.2) if sun else 1e6       # extract only the disk
+        w.sun_angle = math.radians(max(0.6, min(8.0, st["spot_deg"])))
+    except Exception: pass
+    sc.view_settings.exposure = max(-3.0, min(1.5, math.log2(0.36 / max(1e-4, st["clipped"] * strength))))   # metered on the place, not its sun
+    print(f"HDRI {name}: mean {st['mean']:.3f}, clipped {st['clipped']:.3f}, median {st['median']:.3f}, peak {st['peak']:.1f} ({'sun' if sun else 'no sun'}, {st['spot_deg']:.1f} deg), exposure {sc.view_settings.exposure:+.2f}")
     tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Rotation"].default_value = (0, 0, math.radians(rot))
     L.new(tc.outputs["Generated"], mp.inputs["Vector"]); L.new(mp.outputs["Vector"], env.inputs["Vector"])
     bg = N["Background"]; bg.inputs["Strength"].default_value = strength; L.new(env.outputs["Color"], bg.inputs["Color"])
@@ -547,7 +555,25 @@ def hdri_scene(name, c1, c2, n):
     bev = t.modifiers.new("edge", "BEVEL"); bev.width = 0.01; bev.segments = 2
     cam = sc.camera
     if cam: cam.data.dof.use_dof = True; cam.data.dof.aperture_fstop = min(cam.data.dof.aperture_fstop, 1.6)   # the place melts behind
-    for nm in ("key", "rimL", "rimR", "fill", "strip0", "strip1", "streak"):
-        o = bpy.data.objects.get(nm)
-        if o and o.type == "LIGHT": o.data.energy *= 0.5
+    for o in list(bpy.data.objects):                                       # one photograph: only the place lights the product
+        if o.type == "LIGHT": o.hide_render = True; o.hide_viewport = True
+    # ...plus a bounce card beside the lens, the colour of the place (what a photographer's reflector does): a backlit
+    # product keeps a readable front without a light the scene could not have
+    bpy.ops.object.light_add(type="AREA", location=(-1.4, -3.0, 1.3)); bc = bpy.context.object; bc.name = "bounce"
+    bc.data.shape = "RECTANGLE"; bc.data.size, bc.data.size_y = 2.2, 2.6; bc.data.color = st["tint"]
+    bc.data.energy = 220 * strength * 2 ** (-sc.view_settings.exposure) * st["median"]
+    d = Vector((0, 0, 0.6)) - bc.location; bc.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
     return t
+
+
+def hdri_stats(img):
+    """Mean / median / peak luminance of an equirectangular HDRI and the angular size of its hot spot (degrees)."""
+    import numpy as np
+    W, H = img.size; px = np.empty(W * H * 4, dtype=np.float32); img.pixels.foreach_get(px)
+    a = px.reshape(H, W, 4)[..., :3]; lum = a @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    k = max(1, W // 512); small = lum[: H // k * k, : W // k * k].reshape(H // k, k, W // k, k).mean(axis=(1, 3))
+    peak = float(small.max()); spot = (small > peak * 0.5).sum() * (360.0 / small.shape[1]) ** 2
+    med = float(np.median(small)); sel = (lum > 0) & (lum < np.percentile(lum, 98)); avg = a[sel].mean(axis=0)
+    clipped = float(np.minimum(lum, np.percentile(lum, 99)).mean())       # the light without its sun disk or lamps
+    tint = tuple(float(x) for x in (avg / max(1e-6, avg.max())) * 0.85 + 0.15)   # the place's average colour, a little desaturated
+    return {"mean": float(lum.mean()), "median": med, "peak": peak, "spot_deg": 2 * math.sqrt(max(spot, 0.01) / math.pi), "tint": tint, "clipped": clipped}

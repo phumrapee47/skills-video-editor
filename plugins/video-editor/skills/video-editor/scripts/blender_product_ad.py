@@ -531,6 +531,10 @@ def pour_shot(n, F=20):
     GX = 0.27; gl.location = (GX, 0.08, 0.6)
     G = AD.GLASS["tall"]; zb = AD.ZB + 0.07; zf = AD.ZB + 0.07 + (G["h"] - 0.07) * 0.86        # drink bottom/top, glass-local
     drink = bpy.data.objects["pglass_drink"]
+    import bmesh as _bm                                                    # no flat lid on the drink: the churning surface is its top
+    bm = _bm.new(); bm.from_mesh(drink.data); bm.faces.ensure_lookup_table()
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if f.normal.z > 0.9 and f.calc_center_median().z > zf - 0.01], context="FACES")
+    bm.to_mesh(drink.data); bm.free()
     piv = bpy.data.objects.new("fillpivot", None); bpy.context.scene.collection.objects.link(piv); piv.parent = gl; piv.location = (0, 0, zb)
     bpy.context.view_layer.update(); mw = drink.matrix_world.copy(); drink.parent = piv; drink.matrix_world = mw
     fill = lambda fr: 0.03 if fr <= F + 3 else min(1.0, 0.03 + 0.97 * ((fr - F - 3) / max(1, n - F - 14)) ** 0.9)
@@ -544,7 +548,7 @@ def pour_shot(n, F=20):
     # the stream: a curve recomputed every 2 frames, a ballistic arc from the mouth to the middle of the glass
     cu = bpy.data.curves.new("stream", "CURVE"); cu.dimensions = "3D"; cu.bevel_depth = 0.032; cu.bevel_resolution = 4; cu.use_fill_caps = True
     K = 18; sp = cu.splines.new("POLY"); sp.points.add(K - 1); st = bpy.data.objects.new("stream", cu); bpy.context.scene.collection.objects.link(st)
-    cu.materials.append(jm); g = 6.0; tgt = Vector((GX, 0.08, 0))
+    cu.materials.append(jm); g = 6.0; IMP = (-0.06, 0.0); tgt = Vector((GX + IMP[0], 0.08 + IMP[1], 0))   # it lands off centre, toward the can
     sc = bpy.context.scene; land = []
     for fr in list(range(F - 1, n + 1, 2)) + [n]:
         sc.frame_set(fr); P0, d0 = _mouth(body); zl = level(fr)
@@ -555,7 +559,9 @@ def pour_shot(n, F=20):
             sp.points[k].co = (p_.x + wob, p_.y + wob * 0.5, p_.z, 1); sp.points[k].radius = 1.0 - 0.45 * k / (K - 1)
             sp.points[k].keyframe_insert("co", frame=fr); sp.points[k].keyframe_insert("radius", frame=fr)
         land.append((fr, Vector((tgt.x, tgt.y, zl))))
-    for fr, e in ((F - 1, 0.0), (F + 4, 1.0)): cu.bevel_factor_end = e; cu.keyframe_insert("bevel_factor_end", frame=fr)
+    import ad_liquid as LQ
+    smod, grow = LQ.stream(st, jm, r0=0.03)                                # a real stream: sheet, necking, twist, ripples, drops
+    for fr, e in ((F - 1, 0.0), (F + 4, 1.0)): LQ.key_input(smod, grow, e, fr)
     for fr, h_ in ((F - 2, True), (F - 1, False)): st.hide_render = h_; st.keyframe_insert("hide_render", frame=fr)
     # drops jumping at the landing point, bubbles rising, a foam head, ice riding the level
     import ad_cut as CUT
@@ -572,14 +578,13 @@ def pour_shot(n, F=20):
         for fr in range(f0 + 1, n + 1, 3):
             z = 0.6 + zb + 0.02 + (fr - f0) * 0.018
             key(b_, fr, location=(GX + x0 + 0.01 * math.sin(fr * 0.5 + i), 0.08 + y0, min(z, level(fr) - 0.01)), scale=(r0, r0, r0) if z < level(fr) - 0.01 else (0, 0, 0))
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=48, ring_count=12, location=(GX, 0.08, 0)); fo = bpy.context.object; fo.name = "foam"
-    fm = AC.principled("foam", tuple(0.55 + 0.45 * c for c in col), 0.0, 0.55, **{"Subsurface Weight": 0.4}); fo.data.materials.append(fm)
-    dsp = fo.modifiers.new("bubbly", "DISPLACE"); tx = bpy.data.textures.new("foamtex", "VORONOI"); tx.noise_scale = 0.08; dsp.texture = tx; dsp.strength = 0.12
-    bpy.ops.object.shade_smooth()
-    for fr in [1, F + 6] + list(range(F + 8, n + 1, 2)):
-        r_in = AD.GLASS["tall"]["rb"] + (AD.GLASS["tall"]["rt"] - AD.GLASS["tall"]["rb"]) * (level(fr) - 0.6 - AD.ZB) / AD.GLASS["tall"]["h"] - 0.03
-        th = 0.0 if fr <= F + 6 else min(0.05, 0.004 * (fr - F - 6))
-        key(fo, fr, location=(GX, 0.08, level(fr)), scale=(r_in, r_in, max(0.001, th)))
+    # the top of the drink churns where the stream lands: a dip, rings, chop, a slosh, aerated white at the impact
+    GT = AD.GLASS["tall"]; rin = lambda fr: GT["rb"] + (GT["rt"] - GT["rb"]) * (level(fr) - 0.6 - AD.ZB) / GT["h"] - 0.032
+    smat = LQ.aerated(AC.principled("pour_surface", col, 0.0, 0.05, **{"Coat Weight": 0.6, "Subsurface Weight": 0.15}))
+    surf, sfx_mod, pour_in = LQ.surface("pour_surface", 0.25, smat, impact=(IMP[0] / 0.25 * 0.25, IMP[1]))
+    for fr in [1, F + 3] + list(range(F + 5, n + 1, 2)):
+        k_ = rin(fr) / 0.25; key(surf, fr, location=(GX, 0.08, level(fr) + 0.002), scale=(k_, k_, k_))
+    for fr, v in ((1, 0.0), (F + 3, 0.0), (F + 7, 1.0), (n, 1.0)): LQ.key_input(sfx_mod, pour_in, v, fr)
     for i in range(3):
         ic = AC.ice_cube(f"pour_ice{i}", 0.09, seed=i); ph = i * 2.1
         for fr in range(1, n + 1, 3):

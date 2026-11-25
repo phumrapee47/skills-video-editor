@@ -404,3 +404,22 @@ peak, MB per file):
   Haven, fetched on request into `~/.video-editor/hdri` (`scripts/hdri.py list | fetch <name>`; ask the user first,
   about 6-7 MB each at 2k) - never bundled. The panorama is turned so the lens sees its best part
   (u = 0.75 - rotation / 360: the sea, the pergola path, the window). Without the file the studio stays.
+
+## 1.20: realism down to small details (the user's review of 1.19)
+- **One photograph on an HDRI** (`ad_look.hdri_scene`): the place is the only light - the studio lights go off; the
+  HDRI is metered (`hdri_stats`: mean, median, mean with the brightest 1 % clipped, the hot spot's peak and angular size,
+  the average colour). A real sun disk (peak > 25 x the median) is extracted by EEVEE's world sun with its shadow, soft
+  as the sun's measured size (`use_sun_shadow`, `sun_threshold` = 20 % of the peak, `sun_angle`); cloudy skies and
+  rooms stay soft. Exposure is set like a light meter from the clipped mean (not the sun, which inflated the plain mean
+  by two stops). A bounce card beside the lens in the place's own colour keeps a backlit product's front readable,
+  as a photographer's reflector would.
+- **A real pour stream** (`scripts/ad_liquid.py stream`, Geometry Nodes on the stream curve, driven by the scene
+  clock): a flat sheet at the lip, thinning as it speeds up (area ~ 1/velocity), an elliptical section that twists,
+  two trains of ripples running down that grow with the fall, the last part broken into a line of drops; "Grow"
+  trims it while it first reaches down. It lands off centre, toward the can.
+- **A churning glass top** (`ad_liquid.surface`): the drink body has no flat lid; the top is a disc on the level with a
+  dip where the stream lands, rings spreading from it, choppy noise, a slow slosh, pinned at the glass; an aerated
+  froth of small bubbles at the impact (attribute `aer` -> `ad_liquid.aerated`: whiter, rougher, bubbly) and fine
+  moving ripples everywhere (bump). "Pour" sets how hard it churns.
+- Blender 5.2: a Geometry Nodes modifier's inputs are `mod.properties.inputs.<Socket_n>.value` (keyframe "value");
+  `mod["Socket_n"]` raises - `ad_liquid.key_input` handles both.

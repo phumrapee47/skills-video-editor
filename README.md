@@ -92,6 +92,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - **Looks from references**: give the brief a still you like and its palette, set colours, light side and mood drive the design; a still-water set (perfume look), strip lights, fingerprints and uneven gloss on shiny surfaces; a styled glass drink (layers, piped cream, chocolate or caramel running over the rim, striped straw, beads only where the cold drink is); prop kits (hearts, coffee beans, mint leaves, pearls, sprinkles)
 - **Deliverables in one command** (`ad_pipeline.py deliver`): 9:16, 4:5, 1:1 and 16:9 rendered again (not cropped; the same height framed, wider frames see more of the set), 6 s / 15 s cutdowns on the beat grid, a textless version, captions from the voiceover, a -23 LUFS broadcast version, stems (voice, effects, music), optional ProRes masters, and a manifest with size, length and loudness of every file
 - **Product actions and lifestyle scenes**: a pour into a glass (the stream arcs from the real opening, the drink rises with bubbles, foam and ice), two flavours clinking on the beat, and the product on a tabletop at a beach, in a garden or by a window (CC0 HDRIs from Poly Haven, fetched on request, the place blurred behind)
+- **Realism down to small details**: on a lifestyle scene the product is lit only by the place - its real sun with a soft shadow on the table, exposure metered like a camera, a bounce card in the place's colour; a pour stream that is a flat sheet at the lip, thins as it falls, twists, ripples and breaks into drops; a glass top that dips where the stream lands, sends out rings, sloshes and froths
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -150,8 +151,9 @@ not shown.
 | 1.17 | read a reference still (palette, light side, mood); still-water set, strip lights, smudges on gloss, styled glass drink, prop kits; a metaball sauce broke into blocks under motion blur, so it is baked to a mesh | [▶ glass drink (MOMO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4) · water set and hearts stills in the gallery |
 | 1.18 | deliverables: four aspects rendered again, cutdowns, textless, captions, broadcast loudness, stems, ProRes; the apps' safe-zone check stopped the 4:5 run, so it checks 9:16 only | [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4) · [▶ 6 s cutdown](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4) |
 | 1.19 | pour, clink, lifestyle scenes (beach, garden, interior); the user: the product's light does not match the backdrop yet, the stream is too smooth, the glass fills flat -> plan for 1.20 | [▶ LUMA on the beach](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-pour-clink.mp4) |
+| 1.20 | the fixes the user asked for: the product's light matches the backdrop (real sun, shadow, metered exposure), a real pour stream, a churning glass top; procedural, fast for previews (FLIP for finals still to do) | [▶ LUMA on the beach](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-realism.mp4) |
 
-Regression tests grew from 10 (1.4) to 37 (1.19); GitHub Actions runs them on every push (Blender tests skip there).
+Regression tests grew from 10 (1.4) to 37 (1.20); GitHub Actions runs them on every push (Blender tests skip there).
 
 ### Demos
 
@@ -262,6 +264,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - **ลุคจากภาพอ้างอิง**: ใส่ภาพที่ชอบใน brief แล้วระบบดึงพาเลต สีฉาก ทิศแสง และอารมณ์มาออกแบบ ฉากน้ำนิ่งแบบโฆษณาน้ำหอม ไฟแถบยาว รอยนิ้วและความมันไม่สม่ำเสมอบนผิวเงา แก้วเครื่องดื่มแต่งหน้า (เครื่องดื่มหลายชั้น วิปครีมบีบเกลียว ช็อกโกแลตหรือคาราเมลไหลย้อยขอบแก้ว หลอดลาย หยดน้ำเกาะเฉพาะส่วนที่เย็น) และชุดพร็อพ (หัวใจ เมล็ดกาแฟ ใบมิ้นต์ ไข่มุก เกล็ดน้ำตาล)
 - **ไฟล์ส่งมอบในคำสั่งเดียว** (`ad_pipeline.py deliver`): 9:16, 4:5, 1:1, 16:9 เรนเดอร์ใหม่ทุกสัดส่วน (ไม่ครอป เฟรมความสูงเท่ากัน จอกว้างเห็นฉากมากขึ้น) คลิปตัดสั้น 6/15 วินาทีตามจังหวะเพลง เวอร์ชันไม่มีตัวหนังสือ ซับจากเสียงพากย์ เวอร์ชันทีวี -23 LUFS แยก stem (เสียงพากย์ เสียงประกอบ เพลง) ProRes (ถ้าต้องการ) และตารางสรุปขนาด ความยาว ความดังของทุกไฟล์
 - **การกระทำของสินค้าและฉากไลฟ์สไตล์**: เทใส่แก้ว (สายน้ำออกจากช่องเปิดจริง น้ำขึ้นพร้อมฟอง โฟม น้ำแข็ง) สองรสชาติชนกันตรงจังหวะ และวางสินค้าบนโต๊ะที่ชายหาด ในสวน หรือริมหน้าต่าง (HDRI CC0 จาก Poly Haven ดาวน์โหลดเมื่อขอ ฉากหลังเบลอ)
+- **สมจริงถึงรายละเอียดเล็ก**: ในฉากไลฟ์สไตล์สินค้าได้แสงจากสถานที่อย่างเดียว (ดวงอาทิตย์จริงพร้อมเงานุ่มบนโต๊ะ วัดแสงแบบกล้อง แผ่นสะท้อนสีของสถานที่) สายน้ำที่เทแผ่เป็นแผ่นที่ปากกระป๋อง บางลงขณะตก บิด เป็นริ้ว และแตกเป็นหยด ผิวน้ำในแก้วยุบตรงจุดตก มีวงคลื่น กระฉอก และเป็นฟอง
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
@@ -319,8 +322,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 | 1.17 | อ่านภาพอ้างอิง (พาเลต ทิศแสง อารมณ์) ฉากน้ำนิ่ง ไฟแถบยาว รอยนิ้วบนผิวเงา แก้วเครื่องดื่มแต่งหน้า ชุดพร็อพ; ซอส metaball แตกเป็นบล็อกเมื่อเปิด motion blur จึงแปลงเป็น mesh | [▶ แก้วนมชมพู (MOMO)](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-glass-drink-momo.mp4) · ภาพฉากน้ำและหัวใจในแกลเลอรี |
 | 1.18 | ไฟล์ส่งมอบ: 4 สัดส่วนเรนเดอร์ใหม่ คลิปตัดสั้น textless ซับ เวอร์ชันทีวี stem ProRes; การตรวจโซนปลอดภัยของแอปเคยทำให้ 4:5 หยุดกลางทาง จึงตรวจเฉพาะ 9:16 | [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4) · [▶ ตัดสั้น 6 วินาที](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4) |
 | 1.19 | เทใส่แก้ว ชนแก้ว ฉากไลฟ์สไตล์ (ชายหาด สวน ในบ้าน); ผู้ใช้: แสงสินค้ายังไม่เข้ากับฉากหลัง สายน้ำเรียบเกินไป ผิวน้ำในแก้วขึ้นเรียบเสมอ -> แผน 1.20 | [▶ LUMA ที่ชายหาด](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-pour-clink.mp4) |
+| 1.20 | แก้ตามที่ผู้ใช้ติ: แสงสินค้าเข้ากับฉากหลัง (แสงแดดจริง เงา วัดแสง) สายน้ำเหมือนจริง ผิวน้ำในแก้วปั่นป่วน; ยังเป็น procedural สำหรับ preview (FLIP สำหรับ final ยังไม่ได้ทำ) | [▶ LUMA ที่ชายหาด](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-realism.mp4) |
 
-เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 37 (1.19) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
+เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 37 (1.20) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
 
 ### เดโม
 
@@ -438,3 +442,11 @@ Frames from each result video; click a title to play it. Credits: [`demos/CREDIT
 **[Slash, pour, clink and hero on a beach table · ผ่า เท ชนแก้ว บนโต๊ะริมทะเล](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-pour-clink.mp4)** · 1.19 · 16 s
 
 ![ad3d-beach-pour-clink](docs/history/ad3d-beach-pour-clink.jpg)
+
+**[Realism pass: the same beach ad · รอบสมจริง โฆษณาชายหาดเดิม](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-realism.mp4)** · 1.20 · 16 s
+
+![ad3d-beach-realism](docs/history/ad3d-beach-realism.jpg)
+
+**Pour close-up: stream and churning top · ภาพใกล้การเท สายน้ำและผิวน้ำปั่นป่วน** · 1.20
+
+![ad3d-pour-close](docs/history/ad3d-pour-close.jpg)
