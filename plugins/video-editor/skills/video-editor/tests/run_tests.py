@@ -734,7 +734,7 @@ def blender_pour_clink_hdri(tmp):
             f"sys.argv = ['b', '--'] + {base!r} + ['--spec', r'{tmp / 'sh.json'}']; exec(src, dict(G))\n"
             "O = bpy.data.objects; w = bpy.context.scene.world\n"
             "print('HDRI', 'tabletop' in O, O['cyclorama'].hide_render, any(n.type == 'TEX_ENVIRONMENT' and n.image and 'spiaggia' in n.image.filepath for n in w.node_tree.nodes),\n"
-            "      all(o.hide_render for o in O if o.type == 'LIGHT' and o.name != 'bounce'))\n")
+            "      all(o.hide_render for o in O if o.type == 'LIGHT' and o.name not in ('bounce', 'hdri_sun')))\n")
     r = subprocess.run([exe, "-b", "--python-exit-code", "1", "--python-expr", code], capture_output=True, text=True, timeout=900)
     out = r.stdout + r.stderr
     rows = {l.split()[0]: l.split()[1:] for l in out.splitlines() if l.split() and l.split()[0] in ("POUR", "CLINK", "HDRI")}
@@ -745,6 +745,35 @@ def blender_pour_clink_hdri(tmp):
     assert land < 0.1 and s110 > s60 > 0.1 and drop > 0.3, rows["POUR"]                  # lands in the glass (off centre), the level rises
     g1, g24 = map(float, rows["CLINK"]); assert g1 > 0.3 and g24 < 0.12, rows["CLINK"]      # apart, then the rims meet
     assert rows["HDRI"] == ["True", "True", "True", "True"], rows["HDRI"]          # 1.20: only the place (and the bounce card) lights it
+
+
+@test
+def blender_flip_pour_and_details(tmp):
+    """1.21: --fluid flip bakes a real Mantaflow pour (coarse here) whose liquid lands and stays in the glass and rises;
+    the procedural stream and drink are hidden; drops run down the glass; in Cycles the cold mist is there, glass casts
+    caustics onto the floor, and the product's materials get a micro bevel (metal also edge wear)."""
+    exe = blender_exe()
+    if not exe: print("  (skipped: no Blender)"); return
+    ff("-f", "lavfi", "-i", "color=c=orange:s=256x128", "-frames:v", "1", tmp / "label.png")
+    json.dump({"shots": [{"id": "p", "type": "pour"}]}, open(tmp / "sp.json", "w"))
+    base = ["--label", str(tmp / "label.png"), "--fruit", "yuzu", "--out", str(tmp / "o"), "--still", "--frame", "70", "--size", "54x96", "--samples", "1",
+            "--engine", "cycles", "--fluid", "flip", "--fluid-res", "40", "--spec", str(tmp / "sp.json")]
+    code = (f"import sys, bpy; sys.path.insert(0, r'{SC}')\n"
+            f"src = open(r'{SC / 'blender_product_ad.py'}', encoding='utf-8').read()\n"
+            f"sys.argv = ['b', '--'] + {base!r}; exec(src, {{'__name__': '__main__', '__file__': r'{SC / 'blender_product_ad.py'}'}})\n"
+            "O = bpy.data.objects; sc = bpy.context.scene\n"
+            "can_mats = [s.material for o in [O['can']] + list(O['can'].children_recursive) for s in getattr(o, 'material_slots', []) if s.material]\n"
+            "print('DETAIL', 'flip_domain' in O, O['stream'].hide_render, O['pglass_drink'].hide_render, 'drip0' in O, 'cold_mist' in O,\n"
+            "      sc.cycles.caustics_refractive, O['pglass_glass'].cycles.is_caustics_caster, O['cyclorama'].cycles.is_caustics_receiver,\n"
+            "      any('micro_bevel' in m.node_tree.nodes for m in can_mats if m.use_nodes), any('edge_wear' in m.node_tree.nodes for m in can_mats if m.use_nodes))\n")
+    r = subprocess.run([exe, "-b", "--python-exit-code", "1", "--python-expr", code], capture_output=True, text=True, timeout=900)
+    out = r.stdout + r.stderr
+    flip = [l.split() for l in out.splitlines() if l.startswith("FLIP frame")]
+    det = next((l.split()[1:] for l in out.splitlines() if l.startswith("DETAIL")), None)
+    assert flip and det, out[-3000:]
+    assert det == ["True"] * 10, det
+    inside, level = float(flip[-1][5].rstrip("%")), float(flip[-1][10].rstrip("%"))   # FLIP frame N: V verts, P% in the glass, level L% ...
+    assert inside >= 50 and level > 5, flip                                # it lands in the glass and fills it
 
 
 def blender_exe():

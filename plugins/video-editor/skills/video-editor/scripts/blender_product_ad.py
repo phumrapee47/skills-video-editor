@@ -35,6 +35,8 @@ ap.add_argument("--product", help="product.json (product_from_photo.py or by han
 ap.add_argument("--spec", help="shot list JSON (ad_pipeline.py): per shot id, type, frames, event frame, key frame, camera path, cold; "
                                 "renders <out>/<id>/####.png, resumes (frames already on disk are skipped)")
 ap.add_argument("--label-metal", help="where the can shows bare metal through the print: 'auto' (grey/silver pixels of the label) or a mask image (white = metal)")
+ap.add_argument("--fluid", default="procedural", choices=["procedural", "flip"], help="pour: procedural (fast, previews) or a baked Mantaflow FLIP simulation (finals)")
+ap.add_argument("--fluid-res", type=int, default=110, help="FLIP domain resolution (finals: 160+)")
 ap.add_argument("--no-imperfect", action="store_true", help="perfectly even surfaces (no smudges or roughness variation)")
 ap.add_argument("--liquid", help="hex colour of the drink for the crown pool (milk, coffee...); default: the fruit juice, else the set colour")
 ap.add_argument("--cold", action="store_true", help="condensation beads on the can (Geometry Nodes)")
@@ -578,6 +580,16 @@ def pour_shot(n, F=20):
         for fr in range(f0 + 1, n + 1, 3):
             z = 0.6 + zb + 0.02 + (fr - f0) * 0.018
             key(b_, fr, location=(GX + x0 + 0.01 * math.sin(fr * 0.5 + i), 0.08 + y0, min(z, level(fr) - 0.01)), scale=(r0, r0, r0) if z < level(fr) - 0.01 else (0, 0, 0))
+    # after the pour: drops run down the outside of the glass, cold mist rolls over the rim and down the wall
+    LK.drips((GX, 0.08), G["rb"], G["rt"], 0.6 + AD.ZB, 0.6 + AD.ZB + G["h"], F, n, jm)
+    if AC.CYCLES: LK.cold_mist((GX, 0.08), G["rt"], 0.6 + AD.ZB + G["h"] + 0.04, 0.6 + AD.ZB, F + 20, n)
+    if a.fluid == "flip":                                                   # finals: the real thing, simulated and baked
+        for o in [st, drink] + [o for o in bpy.data.objects if o.name.startswith(("pour_drop", "pour_ice"))]: o.hide_render = True; o.hide_viewport = True
+        for o in bpy.data.objects:
+            if o.type == "MESH" and o.name.startswith("Sphere") and o.active_material and o.active_material.name.startswith("bubble"): o.hide_render = True
+        LQ.flip_pour(gl, lambda fr: _mouth(body), tgt + Vector((0, 0, 0.6 + zb)), F, n, jm, a.fluid_res, os.path.join(a.out, "flip_cache"))
+        cam = camera((0.0, -3.7, 1.1), (-0.05, 0, 0.98), 36, focus=3.7, fstop=4.0)
+        key(cam, 1, location=(0.12, -3.9, 1.15)); key(cam, n, location=(-0.05, -3.45, 1.05)); return
     # the top of the drink churns where the stream lands: a dip, rings, chop, a slosh, aerated white at the impact
     GT = AD.GLASS["tall"]; rin = lambda fr: GT["rb"] + (GT["rt"] - GT["rb"]) * (level(fr) - 0.6 - AD.ZB) / GT["h"] - 0.032
     smat = LQ.aerated(AC.principled("pour_surface", col, 0.0, 0.05, **{"Coat Weight": 0.6, "Subsurface Weight": 0.15}))
@@ -812,6 +824,7 @@ def build(spec):
         LK.imperfect(next((bpy.data.objects[k] for k in ("bar_front", "can_front", "can", "bag", "bar") if k in bpy.data.objects), None))
     if shot in ("split", "snap", "tear", "twist", "crown", "open", "toppop") and F: LK.shake(F, n)     # the camera feels the hit
     LK.contact_shadow(n)                                                   # a soft shadow under a hovering product
+    if AC.CYCLES: LK.caustics()                                            # light through glass and drink on the table
     if spec.get("motion"): LK.ease(spec["motion"], whip=spec.get("move") == "whip_in")
     else: ease_all()
     a.cold = cold0

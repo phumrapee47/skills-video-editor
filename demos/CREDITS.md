@@ -106,3 +106,5 @@ voiceover in `ad3d-luma-performance` and `ad3d-luma-crown` is a Microsoft Edge n
 - 1.20 realism video (`ad3d-beach-realism`): the same LUMA beach ad as 1.19 (made-up brand; HDRI "Spiaggia di Mondello",
   Poly Haven, CC0; music "Happy Alley" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution
   4.0 License; voiceover: edge-tts en-US-AndrewNeural), rendered from the animatic. Licence: CC BY 4.0.
+- 1.21 stills (`ad3d-v121-diff`, `ad3d-flip-pour`, `ad3d-cycles-beach`): the made-up LUMA can rendered in Cycles (HDRI "Spiaggia di
+  Mondello", Poly Haven, CC0). Licence: CC BY 4.0.

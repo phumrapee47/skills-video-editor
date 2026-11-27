@@ -423,3 +423,29 @@ peak, MB per file):
   moving ripples everywhere (bump). "Pour" sets how hard it churns.
 - Blender 5.2: a Geometry Nodes modifier's inputs are `mod.properties.inputs.<Socket_n>.value` (keyframe "value");
   `mod["Socket_n"]` raises - `ad_liquid.key_input` handles both.
+
+## 1.21: real physics and the last details (finals)
+- **The HDRI sun is a real lamp** (`ad_look.hdri_scene`): the sun disk is clamped out of the world (Vector Math
+  MINIMUM at `max(p99.5, 25 x median)`) and replaced by a SUN light with the measured direction (from the hot spot's
+  u, v and the world rotation), colour, angular size and irradiance (`hdri_stats`: `sun_dir`, `sun_rgb`, `sun_E` = the
+  radiance above the clamp x the solid angle per pixel; beach 4.8, garden 3.5, interior 2.3 W/m2). Same light in both
+  engines, sharp and sampled, and a caustic light in Cycles. EEVEE's world-sun extraction is off.
+- **FLIP pour for finals** (`--fluid flip [--fluid-res 110]`, `ad_liquid.flip_pour`): a Mantaflow liquid domain round
+  the glass and the opening, baked headless (`bpy.ops.fluid.bake_all` under `temp_override`) into `<out>/flip_cache`;
+  the glass mesh (`*_glass`, `*_handle`, not its drink) is a collision effector thickened to ~1.2 cells (a glass wall
+  is thinner than a cell and leaks); a liquid inflow follows the opening every 2 frames with a velocity aimed to cross
+  rim height a little inside the near rim (the opening sits beside the glass: aiming at the bottom hits the rim);
+  a hidden slow inflow on the glass floor tops the level up in the shot's time (the usual liquid-shot trick). The
+  procedural stream, drink, drops, bubbles and ice are hidden. It prints `FLIP frame N: V verts, P% in the glass,
+  level L% of the glass` - expect 75-85 % inside (some splash) and the level rising. Cost: res 64 about 1.5 min,
+  res 110 several minutes for a 5 s shot (CPU). `ad_pipeline.py` passes it for Cycles finals (product state
+  `"fluid": "procedural"` opts out); previews stay procedural.
+- **Micro details** (`ad_look.micro`, from `imperfect`): every glossy product material gets a micro bevel (Bevel node
+  on Normal and Coat Normal, 4 mm) - no real edge is knife-sharp; metal also gets edge wear (Geometry Pointiness on
+  convex edges x fine noise -> bare bright metal). Cycles shading; EEVEE ignores both.
+- **After the pour**: drops run down the outside of the glass in stick-slip steps with a thinning wet trail
+  (`ad_look.drips`); a cold mist sleeve rolls over the rim and sinks down the wall (`ad_look.cold_mist`, Cycles only:
+  EEVEE's volume grid draws it as a soft box).
+- **Caustics** (`ad_look.caustics`, Cycles): refractive + reflective caustics on; glass, drinks and ice cast (their
+  material transmits > 0.3), tabletop / floor / cyclorama receive, the lights are caustic lights.
+- The EEVEE specks on an empty glass are sampling noise (same in the procedural pour), not simulation debris.

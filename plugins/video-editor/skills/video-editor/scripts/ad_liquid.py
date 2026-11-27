@@ -178,3 +178,64 @@ def aerated(mat, white=(0.95, 0.94, 0.9)):
     L.new(nz.outputs["Fac"], bump.inputs["Height"]); L.new(bump.outputs["Normal"], b.inputs["Normal"])
     if "Coat Normal" in b.inputs: L.new(bump.outputs["Normal"], b.inputs["Coat Normal"])
     return mat
+
+
+def flip_pour(glass, mouth_at, target, F, n, mat, res=110, cache_dir=None, radius=0.05, g=9.81, fill_speed=0.25):
+    """A real (simulated) pour for final renders: a Mantaflow FLIP domain round the opening and the glass, a liquid
+    inflow that follows the opening every 2 frames with a velocity that carries it into the glass, the glass as a
+    collision effector; baked here (headless), the domain's liquid mesh rendered with the drink material. The stream
+    breaks, splashes, fills and sloshes by itself. mouth_at(frame) -> (point, direction)."""
+    import os, tempfile
+    from mathutils import Vector
+    sc = bpy.context.scene; sc.frame_set(F); P0, _ = mouth_at(F)
+    kids = [o for o in [glass] + list(glass.children_recursive) if o.type == "MESH" and o.name.endswith(("_glass", "_handle"))]   # the vessel, not its drink
+    pts = [o.matrix_world @ Vector(c) for o in kids for c in o.bound_box]
+    for fr in range(F, n + 1, 6): sc.frame_set(fr); pts.append(mouth_at(fr)[0])
+    sc.frame_set(F)
+    lo = Vector((min(p.x for p in pts) - 0.12, min(p.y for p in pts) - 0.12, max(0.0, min(p.z for p in pts) - 0.02)))
+    hi = Vector((max(p.x for p in pts) + 0.12, max(p.y for p in pts) + 0.12, max(p.z for p in pts) + 0.12))
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(lo + hi) / 2); dom = bpy.context.object; dom.name = "flip_domain"; dom.scale = hi - lo
+    m = dom.modifiers.new("fluid", "FLUID"); m.fluid_type = "DOMAIN"; ds = m.domain_settings
+    ds.domain_type = "LIQUID"; ds.resolution_max = res; ds.use_mesh = True; ds.mesh_scale = 2; ds.use_flip_particles = False
+    ds.cache_type = "ALL"; ds.cache_frame_start = max(1, F - 2); ds.cache_frame_end = n
+    ds.cache_directory = cache_dir or os.path.join(tempfile.gettempdir(), "ve_flip"); ds.time_scale = 0.8
+    try: ds.mesh_smoothen_pos = 2; ds.mesh_smoothen_neg = 1
+    except Exception: pass
+    dom.data.materials.append(mat)
+    for o in kids:                                                         # the glass: the liquid stays inside it
+        e = o.modifiers.new("fluid", "FLUID"); e.fluid_type = "EFFECTOR"; e.effector_settings.effector_type = "COLLISION"
+        try: e.effector_settings.surface_distance = max(0.012, 1.2 * max(hi - lo) / res)   # a glass wall is thinner than a cell: thicken it
+        except Exception: pass
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, segments=16, ring_count=8, location=P0); fl = bpy.context.object; fl.name = "flip_inflow"
+    fm = fl.modifiers.new("fluid", "FLUID"); fm.fluid_type = "FLOW"; fs = fm.flow_settings
+    fs.flow_type = "LIQUID"; fs.flow_behavior = "INFLOW"; fs.flow_source = "MESH"; fs.use_initial_velocity = True; fl.hide_render = True
+    # aim: the stream must clear the near rim, so it crosses rim height a little inside it (the real arc from an opening
+    # beside the glass); the target given is only a fallback when the opening is already over the glass
+    G0 = kids[0].matrix_world.translation; Rg = max(max(abs(v.co.x), abs(v.co.y)) for v in kids[0].data.vertices) * kids[0].matrix_world.to_scale().x
+    rim = max((kids[0].matrix_world @ v.co).z for v in kids[0].data.vertices)
+    for fr in list(range(max(1, F - 2), n + 1, 2)) + [n]:
+        sc.frame_set(fr); P, _ = mouth_at(fr); off = P.xy - G0.xy
+        if off.length > Rg * 0.5: aim = G0.xy + off.normalized() * Rg * 0.2; target = Vector((aim.x, aim.y, rim + 0.04))
+        dz = max(0.05, P.z - target.z); T = math.sqrt(2 * dz / g)
+        fl.location = P; fl.keyframe_insert("location", frame=fr)
+        fs.velocity_coord = ((target.x - P.x) / T, (target.y - P.y) / T, 0.0); fs.keyframe_insert("velocity_coord", frame=fr)
+        fs.use_inflow = fr >= F; fs.keyframe_insert("use_inflow", frame=fr)
+    # the level has to rise in the shot's time, a stream of the true thickness would take far longer: a hidden, slow inflow
+    # on the glass floor tops it up (the usual liquid-shot trick) while the stream keeps the surface churning
+    base = min((kids[0].matrix_world @ v.co).z for v in kids[0].data.vertices if (v.co.xy).length < Rg * 0.3)
+    floor_z = max((kids[0].matrix_world @ v.co).z for v in kids[0].data.vertices if (v.co.xy).length < Rg * 0.3 and (kids[0].matrix_world @ v.co).z < base + 0.2)
+    bpy.ops.mesh.primitive_cylinder_add(radius=Rg * 0.55, depth=0.03, vertices=24, location=(G0.x, G0.y, floor_z + 0.1)); bo = bpy.context.object; bo.name = "flip_fill"
+    bm_ = bo.modifiers.new("fluid", "FLUID"); bm_.fluid_type = "FLOW"; bf = bm_.flow_settings; bo.hide_render = True
+    bf.flow_type = "LIQUID"; bf.flow_behavior = "INFLOW"; bf.flow_source = "MESH"; bf.use_initial_velocity = True; bf.velocity_coord = (0, 0, fill_speed)
+    for fr, on in ((1, False), (F + 8, True), (int(F + (n - F) * 0.85), False)): bf.use_inflow = on; bf.keyframe_insert("use_inflow", frame=fr)
+    sc.frame_end = max(sc.frame_end, n)
+    with bpy.context.temp_override(active_object=dom, object=dom, selected_objects=[dom]):
+        bpy.ops.fluid.bake_all()
+    g0, rg = G0, Rg
+    for fr in (F + (n - F) // 2, n):                                       # QA: how much of the liquid is inside the glass
+        sc.frame_set(fr); me = dom.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
+        V = [dom.matrix_world @ v.co for v in me.vertices]; ins = sorted(v.z for v in V if (v.xy - g0.xy).length < rg and v.z < rim)
+        lv = (ins[int(len(ins) * 0.8)] - floor_z) / max(1e-6, rim - floor_z) if ins else 0.0
+        print(f"FLIP frame {fr}: {len(V)} verts, {100 * len(ins) / max(1, len(V)):.0f}% in the glass, level {100 * lv:.0f}% of the glass")
+        dom.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh_clear()
+    return dom

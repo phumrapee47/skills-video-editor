@@ -291,6 +291,8 @@ def blender(st, d, out, size, samples, still=False, engine="eevee", only=None):
     if p.get("label_metal"): cmd += ["--label-metal", p["label_metal"]]
     if p.get("fruit"): cmd += ["--fruit", p["fruit"]]
     if p.get("liquid"): cmd += ["--liquid", p["liquid"]]                    # the crown pool: milk, coffee, berry juice...
+    if engine == "cycles" and not still and p.get("fluid", "flip") == "flip":   # 1.21: finals pour a simulated liquid
+        cmd += ["--fluid", "flip", "--fluid-res", str(p.get("fluid_res", 120))]
     if still: cmd += ["--still"]
     if only: cmd += ["--shots", *only]
     t0 = time.time(); out = run(cmd); blender.log = out; return time.time() - t0

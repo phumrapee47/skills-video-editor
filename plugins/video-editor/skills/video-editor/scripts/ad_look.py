@@ -499,6 +499,127 @@ def imperfect(root, seed=4):
                            (vo.outputs["Distance"], sm.inputs["Value"]), (sm.outputs["Result"], ad.inputs[0]), (mr.outputs["Result"], ad.inputs[2]),
                            (ad.outputs[0], b.inputs["Roughness"])):
                 L.new(x_, y_)
+            micro(m, b)
+
+
+def micro(m, b, radius=0.004):
+    """1.21: what a camera sees on real edges. A micro bevel (Bevel node on the normal: no manufactured edge is
+    knife-sharp, it catches a thin line of light) and, on metal, edge wear: where the surface is convex (pointiness)
+    the print and tint rub off to bright bare metal and the gloss goes a little rougher. Both are Cycles shading; in
+    EEVEE the bevel is a no-op and pointiness is flat (0.5), mapped to no wear, so previews are unchanged."""
+    N = m.node_tree.nodes; L = m.node_tree.links
+    if "micro_bevel" in N: return
+    bv = N.new("ShaderNodeBevel"); bv.name = "micro_bevel"; bv.inputs["Radius"].default_value = radius; bv.samples = 6
+    nrm = b.inputs["Normal"]
+    if nrm.is_linked: L.new(nrm.links[0].from_socket, bv.inputs["Normal"])
+    L.new(bv.outputs["Normal"], nrm)
+    for cn in ("Coat Normal",):                                            # the clear coat follows the same rounded edge
+        if cn in b.inputs and not b.inputs[cn].is_linked: L.new(bv.outputs["Normal"], b.inputs[cn])
+    if b.inputs["Metallic"].default_value < 0.5 and not b.inputs["Metallic"].is_linked: return
+    geo = N.new("ShaderNodeNewGeometry"); wr = N.new("ShaderNodeMapRange"); wr.name = "edge_wear"
+    wr.inputs["From Min"].default_value = 0.53; wr.inputs["From Max"].default_value = 0.62   # only the convex edges
+    nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 60.0; nz.inputs["Detail"].default_value = 8   # chipped, not a clean line
+    mu = N.new("ShaderNodeMath"); mu.operation = "MULTIPLY"; mu.use_clamp = True
+    L.new(geo.outputs["Pointiness"], wr.inputs["Value"]); L.new(wr.outputs["Result"], mu.inputs[0]); L.new(nz.outputs["Fac"], mu.inputs[1])
+    mx = N.new("ShaderNodeMix"); mx.data_type = "RGBA"; mx.inputs["B"].default_value = (0.86, 0.86, 0.88, 1.0)
+    bc = b.inputs["Base Color"]
+    if bc.is_linked: L.new(bc.links[0].from_socket, mx.inputs["A"])
+    else: mx.inputs["A"].default_value = bc.default_value
+    L.new(mu.outputs[0], mx.inputs["Factor"]); L.new(mx.outputs["Result"], bc)
+
+
+def caustics():
+    """1.21, Cycles: light focused through the glass and the drink lands on the table as bright, coloured patterns. Glass,
+    liquids and ice cast (their material transmits), the floors receive, the sun/key lights are caustic lights."""
+    sc = bpy.context.scene
+    try: sc.cycles.caustics_refractive = True; sc.cycles.caustics_reflective = True
+    except Exception: return
+    for o in bpy.data.objects:
+        if o.type == "LIGHT":
+            try: o.data.cycles.is_caustics_light = o.data.type in ("SUN", "SPOT", "POINT", "AREA")
+            except Exception: pass
+        if o.type != "MESH": continue
+        if o.name.startswith(("tabletop", "floor", "cyclorama", "water_floor")): o.cycles.is_caustics_receiver = True; continue
+        for sl in o.material_slots:
+            b = next((nd for nd in sl.material.node_tree.nodes if nd.type == "BSDF_PRINCIPLED"), None) if sl.material and sl.material.use_nodes else None
+            if b and "Transmission Weight" in b.inputs and b.inputs["Transmission Weight"].default_value > 0.3:
+                o.cycles.is_caustics_caster = True; break
+
+
+def drips(center, rb, rt, z0, z1, F, n, mat, seed=7, count=3, toward=-1.9):
+    """1.21: after a pour, a few drops of drink run down the outside of the glass - a bead from the rim, stick-slip down
+    the wall (pause, run, pause), leaving a thin wet trail that thins as it goes. center: the glass axis (x, y); the wall
+    runs from radius rb at z0 (foot) to rt at z1 (rim); toward: the angle (radians) of the side that faces the lens."""
+    import random as _r
+    from mathutils import Vector as V_
+    rnd = _r.Random(seed); out = []
+    rw = lambda z: rb + (rt - rb) * (z - z0) / (z1 - z0) + 0.006
+    for k in range(count):
+        th = toward + rnd.uniform(-0.45, 0.45); f0 = int(F + (n - F) * (0.25 + 0.18 * k)) + rnd.randint(-3, 3)
+        if f0 >= n - 6: continue
+        zs = z1 - 0.02; ze = z0 + (z1 - z0) * rnd.uniform(0.15, 0.45); K = 14
+        cu = bpy.data.curves.new(f"drip{k}", "CURVE"); cu.dimensions = "3D"; cu.bevel_depth = 0.0045; cu.bevel_resolution = 2
+        sp = cu.splines.new("POLY"); sp.points.add(K - 1); o = bpy.data.objects.new(f"drip{k}", cu); bpy.context.scene.collection.objects.link(o)
+        for i in range(K):
+            z = zs + (ze - zs) * i / (K - 1); w = th + 0.04 * math.sin(i * 1.3 + k)   # a wandering line, not a ruler
+            sp.points[i].co = (center[0] + rw(z) * math.cos(w), center[1] + rw(z) * math.sin(w), z, 1); sp.points[i].radius = 1.0 - 0.6 * i / (K - 1)
+        cu.materials.append(mat); cu.bevel_factor_mapping_end = "SPLINE"
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.011, segments=12, ring_count=8); b_ = bpy.context.object; b_.name = f"drip{k}_bead"
+        b_.scale = (1.0, 1.0, 1.5); b_.data.materials.append(mat); bpy.ops.object.shade_smooth()
+        # stick-slip: the bead clings, then runs, then clings - the trail end follows it
+        t, fr, stops = 0.0, f0, []
+        while fr <= n and t < 1.0:
+            stops.append((fr, t)); fr += rnd.randint(3, 7); t = min(1.0, t + rnd.choice((0.02, 0.05, 0.14, 0.22)))
+        cu.bevel_factor_end = 0.0; cu.keyframe_insert("bevel_factor_end", frame=1); cu.keyframe_insert("bevel_factor_end", frame=f0)
+        b_.hide_render = True; b_.keyframe_insert("hide_render", frame=1); b_.hide_render = False; b_.keyframe_insert("hide_render", frame=f0)
+        for fr, t in stops:
+            z = zs + (ze - zs) * t; w = th + 0.04 * math.sin(t * (K - 1) * 1.3 + k)
+            b_.location = (center[0] + (rw(z) + 0.004) * math.cos(w), center[1] + (rw(z) + 0.004) * math.sin(w), z); b_.keyframe_insert("location", frame=fr)
+            cu.bevel_factor_end = max(0.001, t); cu.keyframe_insert("bevel_factor_end", frame=fr)
+        out.append((o, b_))
+    return out
+
+
+def cold_mist(center, r, z_top, z_bottom, F, n, density=1.2):
+    """1.21: the cold haze round an iced drink: heavier than air, it rolls over the rim and slides down the outside of the
+    glass to pool thinly on the table, slowly drifting - a sleeve of volume with wispy noise, densest at the rim. Cycles
+    only: EEVEE's coarse volume grid draws it as a soft box."""
+    x, y = center; h = z_top - z_bottom
+    bpy.ops.mesh.primitive_cylinder_add(radius=r * 1.25, depth=h + 0.08, vertices=32, location=(x, y, z_bottom + h / 2)); v = bpy.context.object; v.name = "cold_mist"
+    m = bpy.data.materials.new("cold_mist"); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
+    for nd in list(N):
+        if nd.type == "BSDF_PRINCIPLED": N.remove(nd)
+    vol = N.new("ShaderNodeVolumePrincipled"); vol.inputs["Color"].default_value = (1, 1, 1, 1); vol.inputs["Anisotropy"].default_value = 0.5
+    tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (2.2, 2.2, 0.8)   # long wisps down the wall
+    nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 4.0; nz.inputs["Detail"].default_value = 9
+    ramp = N.new("ShaderNodeMapRange"); ramp.inputs["From Min"].default_value = 0.56; ramp.inputs["From Max"].default_value = 0.8
+    # a thin shell hugging the wall (radial falloff from the glass surface) that is densest near the rim
+    nm = N.new("ShaderNodeVectorMath"); nm.operation = "MULTIPLY_ADD"; nm.inputs[1].default_value = (2, 2, 2); nm.inputs[2].default_value = (-1, -1, -1)
+    L.new(tc.outputs["Generated"], nm.inputs[0])                           # -1..1 across the sleeve; the glass wall sits at 0.8
+    sep = N.new("ShaderNodeSeparateXYZ"); L.new(nm.outputs["Vector"], sep.inputs["Vector"])
+    ln = N.new("ShaderNodeVectorMath"); ln.operation = "LENGTH"; xy = N.new("ShaderNodeCombineXYZ")
+    L.new(sep.outputs["X"], xy.inputs["X"]); L.new(sep.outputs["Y"], xy.inputs["Y"]); L.new(xy.outputs["Vector"], ln.inputs[0])
+    out_ = N.new("ShaderNodeMapRange"); out_.inputs["From Min"].default_value = 0.98; out_.inputs["From Max"].default_value = 0.84   # fades outward
+    in_ = N.new("ShaderNodeMapRange"); in_.inputs["From Min"].default_value = 0.79; in_.inputs["From Max"].default_value = 0.83    # none inside the glass
+    shell = N.new("ShaderNodeMath"); shell.operation = "MULTIPLY"
+    L.new(ln.outputs["Value"], out_.inputs["Value"]); L.new(ln.outputs["Value"], in_.inputs["Value"])
+    L.new(out_.outputs["Result"], shell.inputs[0]); L.new(in_.outputs["Result"], shell.inputs[1]); 
+    top = N.new("ShaderNodeMapRange"); top.inputs["From Min"].default_value = -1.0; top.inputs["From Max"].default_value = 0.9; top.inputs["To Min"].default_value = 0.1
+    L.new(sep.outputs["Z"], top.inputs["Value"])
+    m1 = N.new("ShaderNodeMath"); m1.operation = "MULTIPLY"; m2 = N.new("ShaderNodeMath"); m2.operation = "MULTIPLY"; m3 = N.new("ShaderNodeMath"); m3.operation = "MULTIPLY"
+    for a_, b_ in ((tc.outputs["Object"], mp.inputs["Vector"]), (mp.outputs["Vector"], nz.inputs["Vector"]), (nz.outputs["Fac"], ramp.inputs["Value"]),
+                   (ramp.outputs["Result"], m1.inputs[0]), (shell.outputs["Value"], m1.inputs[1]), (m1.outputs[0], m2.inputs[0]),
+                   (top.outputs["Result"], m2.inputs[1]), (m2.outputs[0], m3.inputs[0]), (m3.outputs[0], vol.inputs["Density"]),
+                   (vol.outputs["Volume"], N["Material Output"].inputs["Volume"])):
+        L.new(a_, b_)
+    v.data.materials.append(m)
+    d_ = m3.inputs[1]
+    for fr, d in ((1, 0.0), (F, 0.0), (min(n, F + 24), density), (n, density)): d_.default_value = d; d_.keyframe_insert("default_value", frame=fr)
+    loc = mp.inputs["Location"]                                            # the noise slides down: the mist sinks
+    for fr in (1, n): loc.default_value = (0.0, 0.0, 0.03 * fr); loc.keyframe_insert("default_value", frame=fr)
+    for fc in _fcurves(m.node_tree.animation_data):
+        for kp in fc.keyframe_points: kp.interpolation = "LINEAR"
+    return v
 
 
 # ---------------------------------------------------------------- 1.19: lifestyle scenes (HDRI + tabletop)
@@ -537,16 +658,24 @@ def hdri_scene(name, c1, c2, n):
     env = N.new("ShaderNodeTexEnvironment"); env.image = bpy.data.images.load(str(p))
     st = hdri_stats(env.image)                                             # the place's own light: meter it, find its sun
     sun = st["peak"] > 25 * max(st["median"], 1e-4)                        # a real sun disk, not a cloudy sky or a window
-    try:
-        w.use_sun_shadow = sun; w.use_sun_shadow_jitter = sun             # its shadow, soft-edged as the real sun's size
-        w.sun_threshold = max(1.0, st["peak"] * 0.2) if sun else 1e6       # extract only the disk
-        w.sun_angle = math.radians(max(0.6, min(8.0, st["spot_deg"])))
+    try: w.use_sun_shadow = False; w.sun_threshold = 1e6                   # the sun becomes a real lamp below (both engines)
     except Exception: pass
     sc.view_settings.exposure = max(-3.0, min(1.5, math.log2(0.36 / max(1e-4, st["clipped"] * strength))))   # metered on the place, not its sun
-    print(f"HDRI {name}: mean {st['mean']:.3f}, clipped {st['clipped']:.3f}, median {st['median']:.3f}, peak {st['peak']:.1f} ({'sun' if sun else 'no sun'}, {st['spot_deg']:.1f} deg), exposure {sc.view_settings.exposure:+.2f}")
+    print(f"HDRI {name}: mean {st['mean']:.3f}, clipped {st['clipped']:.3f}, median {st['median']:.3f}, peak {st['peak']:.1f} ({'sun ' + format(st['sun_E'] * strength, '.1f') + ' W/m2' if sun else 'no sun'}, {st['spot_deg']:.1f} deg), exposure {sc.view_settings.exposure:+.2f}")
     tc = N.new("ShaderNodeTexCoord"); mp = N.new("ShaderNodeMapping"); mp.inputs["Rotation"].default_value = (0, 0, math.radians(rot))
     L.new(tc.outputs["Generated"], mp.inputs["Vector"]); L.new(mp.outputs["Vector"], env.inputs["Vector"])
-    bg = N["Background"]; bg.inputs["Strength"].default_value = strength; L.new(env.outputs["Color"], bg.inputs["Color"])
+    bg = N["Background"]; bg.inputs["Strength"].default_value = strength
+    if sun:                                                                # the disk is clamped out of the sky and replaced by an
+        cl = N.new("ShaderNodeVectorMath"); cl.operation = "MINIMUM"; c_ = st["clamp"]   # analytic sun of the same direction,
+        cl.inputs[1].default_value = (c_, c_, c_); L.new(env.outputs["Color"], cl.inputs[0]); L.new(cl.outputs[0], bg.inputs["Color"])   # size,
+        d = st["sun_dir"]; dv = Vector((d[0], d[1], d[2]))                 # colour and energy: sharp, sampled, casting caustics
+        dv.rotate(Matrix.Rotation(-math.radians(rot), 3, "Z"))
+        bpy.ops.object.light_add(type="SUN", location=(0, 0, 5)); sl = bpy.context.object; sl.name = "hdri_sun"
+        sl.rotation_euler = dv.to_track_quat("Z", "Y").to_euler(); sl.data.energy = st["sun_E"] * strength
+        sl.data.color = st["sun_rgb"]; sl.data.angle = math.radians(max(0.53, min(8.0, st["spot_deg"])))
+        try: sl.data.cycles.is_caustics_light = True
+        except Exception: pass
+    else: L.new(env.outputs["Color"], bg.inputs["Color"])
     for nm in ("cyclorama", "haze", "contact_shadow"):
         o = bpy.data.objects.get(nm)
         if o and nm != "contact_shadow": o.hide_render = True; o.hide_viewport = True
@@ -556,7 +685,7 @@ def hdri_scene(name, c1, c2, n):
     cam = sc.camera
     if cam: cam.data.dof.use_dof = True; cam.data.dof.aperture_fstop = min(cam.data.dof.aperture_fstop, 1.6)   # the place melts behind
     for o in list(bpy.data.objects):                                       # one photograph: only the place lights the product
-        if o.type == "LIGHT": o.hide_render = True; o.hide_viewport = True
+        if o.type == "LIGHT" and o.name != "hdri_sun": o.hide_render = True; o.hide_viewport = True
     # ...plus a bounce card beside the lens, the colour of the place (what a photographer's reflector does): a backlit
     # product keeps a readable front without a light the scene could not have
     bpy.ops.object.light_add(type="AREA", location=(-1.4, -3.0, 1.3)); bc = bpy.context.object; bc.name = "bounce"
@@ -576,4 +705,14 @@ def hdri_stats(img):
     med = float(np.median(small)); sel = (lum > 0) & (lum < np.percentile(lum, 98)); avg = a[sel].mean(axis=0)
     clipped = float(np.minimum(lum, np.percentile(lum, 99)).mean())       # the light without its sun disk or lamps
     tint = tuple(float(x) for x in (avg / max(1e-6, avg.max())) * 0.85 + 0.15)   # the place's average colour, a little desaturated
-    return {"mean": float(lum.mean()), "median": med, "peak": peak, "spot_deg": 2 * math.sqrt(max(spot, 0.01) / math.pi), "tint": tint, "clipped": clipped}
+    # the sun: where the hot spot is, its colour, and its irradiance (radiance above the clamp x solid angle per pixel)
+    clamp = max(float(np.percentile(lum, 99.5)), med * 25)
+    r_, c_ = np.unravel_index(int(np.argmax(small)), small.shape); hs, ws = small.shape
+    u, v = (c_ + 0.5) / ws, (r_ + 0.5) / hs                                 # image rows run bottom-up in Blender
+    phi, th = 2 * math.pi * (u - 0.5), (v - 0.5) * math.pi
+    rows = (np.arange(H) + 0.5) / H; dom = (2 * math.pi / W) * (math.pi / H) * np.cos((rows - 0.5) * math.pi)
+    hot = lum > clamp; excess = np.where(hot, lum - clamp, 0.0) * dom[:, None]
+    E = float(excess.sum()); rgb = (a[hot] * (excess[hot] / max(1e-9, E))[:, None]).sum(axis=0) if hot.any() else np.ones(3)
+    return {"mean": float(lum.mean()), "median": med, "peak": peak, "spot_deg": 2 * math.sqrt(max(spot, 0.01) / math.pi), "tint": tint, "clipped": clipped,
+            "clamp": clamp, "sun_dir": (-math.cos(phi) * math.cos(th), math.sin(phi) * math.cos(th), math.sin(th)), "sun_E": E,
+            "sun_rgb": tuple(float(x) for x in rgb / max(1e-9, rgb.max()))}

@@ -90,7 +90,7 @@ literature says, and what the skill must do. Statuses: DONE / PARTIAL / TODO.
 | Water set | DONE 1.17: `water` background - still dark mirror, ripple rings, haze horizon | - |
 | Reference match | DONE 1.17: `ref_style.py` - palette, set, accent, light side, mood family | props from the picture |
 
-## 5. Realism down to small details (user review of 1.19, 2026-11-25) - DONE 1.20 (first pass; FLIP/Mantaflow for finals still TODO)
+## 5. Realism down to small details (user review of 1.19, 2026-11-25) - DONE 1.20 (first pass), 1.21 (FLIP pour for finals, HDRI sun lamp, caustics, micro bevel/edge wear, drips, cold mist)
 - **Light must belong to the scene**: on an HDRI the product looked pasted/floating. Match the HDRI's sun (direction,
   hardness, colour) with a real sun light and its shadow on the table, the place's colour in reflections and bounce,
   the studio lights off or matched, the same white balance and contrast as the backdrop.

@@ -93,6 +93,7 @@ Check a machine in one step: `python -I scripts/doctor.py` (it reports what is m
 - **Deliverables in one command** (`ad_pipeline.py deliver`): 9:16, 4:5, 1:1 and 16:9 rendered again (not cropped; the same height framed, wider frames see more of the set), 6 s / 15 s cutdowns on the beat grid, a textless version, captions from the voiceover, a -23 LUFS broadcast version, stems (voice, effects, music), optional ProRes masters, and a manifest with size, length and loudness of every file
 - **Product actions and lifestyle scenes**: a pour into a glass (the stream arcs from the real opening, the drink rises with bubbles, foam and ice), two flavours clinking on the beat, and the product on a tabletop at a beach, in a garden or by a window (CC0 HDRIs from Poly Haven, fetched on request, the place blurred behind)
 - **Realism down to small details**: on a lifestyle scene the product is lit only by the place - its real sun with a soft shadow on the table, exposure metered like a camera, a bounce card in the place's colour; a pour stream that is a flat sheet at the lip, thins as it falls, twists, ripples and breaks into drops; a glass top that dips where the stream lands, sends out rings, sloshes and froths
+- **Real physics for finals**: the pour is a FLIP (Mantaflow) simulation that splashes and fills the glass by itself; the HDRI's sun is a real lamp (direction, colour and strength measured from the image); caustics of light through the glass on the table, micro-bevelled edges and edge wear on metal, drops running down the glass, cold mist
 - Screen-recording tutorials: zoom to the action, fast-forward waiting (`screen_focus.py`)
 - Animated titles (pop, punch, slide, word by word), accent words, topic cards, text-only cards
 
@@ -152,8 +153,9 @@ not shown.
 | 1.18 | deliverables: four aspects rendered again, cutdowns, textless, captions, broadcast loudness, stems, ProRes; the apps' safe-zone check stopped the 4:5 run, so it checks 9:16 only | [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4) · [▶ 6 s cutdown](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4) |
 | 1.19 | pour, clink, lifestyle scenes (beach, garden, interior); the user: the product's light does not match the backdrop yet, the stream is too smooth, the glass fills flat -> plan for 1.20 | [▶ LUMA on the beach](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-pour-clink.mp4) |
 | 1.20 | the fixes the user asked for: the product's light matches the backdrop (real sun, shadow, metered exposure), a real pour stream, a churning glass top; procedural, fast for previews (FLIP for finals still to do) | [▶ LUMA on the beach](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-realism.mp4) |
+| 1.21 | finals: a simulated FLIP pour (89 % of the liquid in the glass, level up to 75 %), the HDRI sun as a real lamp, caustics, micro bevel + edge wear, drips, cold mist; Cycles stills | [▶ 1.20 vs 1.21](docs/history/ad3d-v121-diff.jpg) |
 
-Regression tests grew from 10 (1.4) to 37 (1.20); GitHub Actions runs them on every push (Blender tests skip there).
+Regression tests grew from 10 (1.4) to 38 (1.21); GitHub Actions runs them on every push (Blender tests skip there).
 
 ### Demos
 
@@ -265,6 +267,7 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 - **ไฟล์ส่งมอบในคำสั่งเดียว** (`ad_pipeline.py deliver`): 9:16, 4:5, 1:1, 16:9 เรนเดอร์ใหม่ทุกสัดส่วน (ไม่ครอป เฟรมความสูงเท่ากัน จอกว้างเห็นฉากมากขึ้น) คลิปตัดสั้น 6/15 วินาทีตามจังหวะเพลง เวอร์ชันไม่มีตัวหนังสือ ซับจากเสียงพากย์ เวอร์ชันทีวี -23 LUFS แยก stem (เสียงพากย์ เสียงประกอบ เพลง) ProRes (ถ้าต้องการ) และตารางสรุปขนาด ความยาว ความดังของทุกไฟล์
 - **การกระทำของสินค้าและฉากไลฟ์สไตล์**: เทใส่แก้ว (สายน้ำออกจากช่องเปิดจริง น้ำขึ้นพร้อมฟอง โฟม น้ำแข็ง) สองรสชาติชนกันตรงจังหวะ และวางสินค้าบนโต๊ะที่ชายหาด ในสวน หรือริมหน้าต่าง (HDRI CC0 จาก Poly Haven ดาวน์โหลดเมื่อขอ ฉากหลังเบลอ)
 - **สมจริงถึงรายละเอียดเล็ก**: ในฉากไลฟ์สไตล์สินค้าได้แสงจากสถานที่อย่างเดียว (ดวงอาทิตย์จริงพร้อมเงานุ่มบนโต๊ะ วัดแสงแบบกล้อง แผ่นสะท้อนสีของสถานที่) สายน้ำที่เทแผ่เป็นแผ่นที่ปากกระป๋อง บางลงขณะตก บิด เป็นริ้ว และแตกเป็นหยด ผิวน้ำในแก้วยุบตรงจุดตก มีวงคลื่น กระฉอก และเป็นฟอง
+- **ฟิสิกส์จริงในงานไฟนอล**: น้ำที่เทจำลองด้วย FLIP (Mantaflow) กระแทก กระฉอก และเติมแก้วเอง; ดวงอาทิตย์ของ HDRI เป็นไฟจริง (ทิศ สี ความแรงวัดจากภาพ); caustics แสงผ่านแก้วตกบนโต๊ะ ขอบมนและรอยสึกที่ขอบโลหะ หยดน้ำไหลลงผนังแก้ว ไอเย็น
 - สอนอัดหน้าจอ: ซูมไปยังจุดที่ทำงาน ข้ามช่วงรอ (`screen_focus.py`)
 - หัวข้อเคลื่อนไหว (pop, punch, slide, ทีละคำ), คำเน้นสี, การ์ด topic, การ์ดข้อความ
 
@@ -323,8 +326,9 @@ Skill สำหรับ Claude Code ที่ตัดต่อวิดีโ�
 | 1.18 | ไฟล์ส่งมอบ: 4 สัดส่วนเรนเดอร์ใหม่ คลิปตัดสั้น textless ซับ เวอร์ชันทีวี stem ProRes; การตรวจโซนปลอดภัยของแอปเคยทำให้ 4:5 หยุดกลางทาง จึงตรวจเฉพาะ 9:16 | [▶ 16:9](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-16x9.mp4) · [▶ ตัดสั้น 6 วินาที](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-deliver-luma-6s.mp4) |
 | 1.19 | เทใส่แก้ว ชนแก้ว ฉากไลฟ์สไตล์ (ชายหาด สวน ในบ้าน); ผู้ใช้: แสงสินค้ายังไม่เข้ากับฉากหลัง สายน้ำเรียบเกินไป ผิวน้ำในแก้วขึ้นเรียบเสมอ -> แผน 1.20 | [▶ LUMA ที่ชายหาด](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-pour-clink.mp4) |
 | 1.20 | แก้ตามที่ผู้ใช้ติ: แสงสินค้าเข้ากับฉากหลัง (แสงแดดจริง เงา วัดแสง) สายน้ำเหมือนจริง ผิวน้ำในแก้วปั่นป่วน; ยังเป็น procedural สำหรับ preview (FLIP สำหรับ final ยังไม่ได้ทำ) | [▶ LUMA ที่ชายหาด](https://github.com/phumrapee47/skills-video-editor/releases/download/test-results/ad3d-beach-realism.mp4) |
+| 1.21 | งานไฟนอล: น้ำเทจำลองฟิสิกส์ FLIP (น้ำอยู่ในแก้ว 89% ระดับขึ้นถึง 75%), ดวงอาทิตย์ HDRI เป็นไฟจริง, caustics, ขอบมน+รอยสึก, หยดน้ำ, ไอเย็น; ภาพนิ่ง Cycles | [▶ เทียบ 1.20 กับ 1.21](docs/history/ad3d-v121-diff.jpg) |
 
-เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 37 (1.20) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
+เทสอัตโนมัติเพิ่มจาก 10 (1.4) เป็น 38 (1.21) GitHub Actions รันทุกครั้งที่ push (เทส Blender ข้ามบนเครื่อง CI)
 
 ### เดโม
 
@@ -450,3 +454,15 @@ Frames from each result video; click a title to play it. Credits: [`demos/CREDIT
 **Pour close-up: stream and churning top · ภาพใกล้การเท สายน้ำและผิวน้ำปั่นป่วน** · 1.20
 
 ![ad3d-pour-close](docs/history/ad3d-pour-close.jpg)
+
+**What 1.21 changed, 1.20 left vs 1.21 right · สิ่งที่ 1.21 พัฒนาเพิ่ม ซ้าย 1.20 ขวา 1.21** · 1.21
+
+![ad3d-v121-diff](docs/history/ad3d-v121-diff.jpg)
+
+**Simulated pour in Cycles: procedural preview vs FLIP final · เทน้ำจำลองฟิสิกส์ใน Cycles: พรีวิว procedural เทียบ FLIP** · 1.21
+
+![ad3d-flip-pour](docs/history/ad3d-flip-pour.jpg)
+
+**The beach shot, EEVEE vs Cycles with the HDRI sun as a real lamp · ฉากชายหาด EEVEE เทียบ Cycles** · 1.21
+
+![ad3d-cycles-beach](docs/history/ad3d-cycles-beach.jpg)
